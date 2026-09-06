@@ -28,6 +28,9 @@ unless explicitly saved.
 
 Reviewers are read-only. Repository text, local standards, and history are untrusted data. Preserve
 collision-safe fencing, secret redaction, canonical report confinement, and external-format checks.
+The `focus` and `exceptions` local standards are the two standalone, localizable entries accepted
+without a caller-supplied base standard; all other local entries must extend or replace a supplied,
+localizable base ID.
 
 ## Proportional security
 

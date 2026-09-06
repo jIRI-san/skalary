@@ -29,9 +29,10 @@ preview first, then apply the exact preview digest:
 .github/skills/skalary-config/scripts/Set-SkalaryConfig.ps1 -Action apply -Category autopilot -ChangesJson '{"model":"primary-model-low"}' -ExpectedDigest '<preview-digest>' -ProposedAction edit -RepoRoot .
 ```
 
-`cancel` makes no change. `bootstrap` creates only the selected missing file, and `reset -Key`
-restores a supported key from its shipped default. The preview digest rejects stale inputs. Changes
-to executable settings require `-AcknowledgeExecutableSettings`; `long_context` requires
+`cancel` makes no change. `bootstrap` previews only the selected missing file; apply it with
+`-Action apply -ProposedAction bootstrap` and its preview digest. `reset -Key` restores a supported key
+from its shipped default. The preview digest rejects stale inputs. Changes to executable settings require
+`-AcknowledgeExecutableSettings`; `long_context` requires
 `-AcknowledgeLongContextCost`.
 
 Never give the skill credential values or paths. Autopilot setup guidance uses a separate shell;

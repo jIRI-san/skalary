@@ -546,8 +546,19 @@ function Resolve-DirectReviewStandards {
         }
         $id = $match.Groups['id'].Value
         $guidance = $match.Groups['guidance'].Value
-        if (-not $seen.Add($id) -or -not $standards.ContainsKey($id)) {
-            throw "Local review standard '$id' is duplicate or has no direct base standard."
+        if (-not $seen.Add($id)) {
+            throw "Local review standard '$id' is duplicate."
+        }
+        if (-not $standards.ContainsKey($id)) {
+            if ($id -notin @('focus', 'exceptions')) {
+                throw "Local review standard '$id' has no direct base standard."
+            }
+            $standards.Add($id, [pscustomobject]@{
+                    Id = $id
+                    Guidance = ''
+                    Localizable = $true
+                    Source = 'local'
+                })
         }
         if (-not $standards[$id].Localizable) {
             throw "Local review standard '$id' targets non-localizable guidance."

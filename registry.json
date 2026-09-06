@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-06T15:26:19.7872964Z",
+  "generatedAt": "2026-09-06T15:49:32.0558419Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -221,7 +221,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
         },
         {
@@ -336,7 +336,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/validate-auth.ps1",
-          "sha256": "6c4f4744600cdfb8bacad1e4fe52b5965a3e3837d540d0451253e74a3042d874",
+          "sha256": "66a42b829ba8d7909f870d93a3b0d4596634e336409e9e722116f433fa236864",
           "src": "scripts/validate-auth.ps1"
         }
       ],
@@ -357,7 +357,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.18"
+      "version": "1.3.19"
     },
     {
       "author": "jIRI-san",
@@ -394,7 +394,7 @@
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/cr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -421,7 +421,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.81"
+      "version": "1.0.82"
     },
     {
       "author": "jIRI-san",
@@ -447,7 +447,7 @@
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -489,7 +489,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.118"
+      "version": "1.0.119"
     },
     {
       "author": "jIRI-san",
@@ -528,7 +528,7 @@
         },
         {
           "dest": "skills/cep/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/cep/scripts/DirectWorkflow.psm1"
         },
         {
@@ -598,7 +598,7 @@
         },
         {
           "dest": "skills/cip/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/cip/scripts/DirectWorkflow.psm1"
         },
         {
@@ -660,7 +660,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.101"
+      "version": "1.0.102"
     },
     {
       "author": "jIRI-san",
@@ -767,7 +767,7 @@
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
-          "sha256": "aa3ed0c2441caa73fa35b3ee4cb32e154eda9d61204e5cfdeeb1d50583630897",
+          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
           "src": "skills/dr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -794,7 +794,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.80"
+      "version": "1.0.81"
     },
     {
       "author": "jIRI-san",
@@ -1012,12 +1012,12 @@
       "files": [
         {
           "dest": "skills/skalary-config/SKILL.md",
-          "sha256": "f7d618c329fa54be3c503539d49544bd898e06e61fb06929b24df633a1420714",
+          "sha256": "2d49dd891d2d0defdd3777bb903594c4bc962abf63a211ffb92c378738f45496",
           "src": "skills/skalary-config/SKILL.md"
         },
         {
           "dest": "skills/skalary-config/assets/catalog.md",
-          "sha256": "b42fa27bfc2ebc80f2de195d3758cd88b2e4c1baf6dc43c65d86f81f70a74703",
+          "sha256": "3af3898e1dbfcd777a4e7c02831b241af3d9f5bea705da12360990164fdc1b93",
           "src": "skills/skalary-config/assets/catalog.md"
         },
         {
@@ -1027,12 +1027,12 @@
         },
         {
           "dest": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1",
-          "sha256": "198fcf39ca5a3905e9c37bfaf8b074e0ae8dd6dd8c10f288954274ba25d493be",
+          "sha256": "ac2c536a3bc09deae94c43eccc184a8fbcecf3d229b0f14c6510065dc8b479af",
           "src": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1"
         },
         {
           "dest": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1",
-          "sha256": "a3db8aeb62f2f28743d1a1b81f2438beb238ef87130f4a9541dd58ee0bf03a3d",
+          "sha256": "3ba43b9db55fba365bcd6ab280d042fc49671fb1abb072d9f243c6064e4bc00c",
           "src": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1"
         }
       ],
@@ -1064,7 +1064,7 @@
         "skalary",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.4"
     },
     {
       "author": "jIRI-san",

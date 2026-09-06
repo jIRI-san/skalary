@@ -185,7 +185,7 @@ Describe 'Skalary configuration catalog and read-only adapter' {
         New-Item -ItemType Directory -Path (Join-Path $fixture 'docs') -Force | Out-Null
         $proposal = & $script:writer -Action bootstrap -Category local-review-standards -RepoRoot $fixture | ConvertFrom-Json
         $proposal.Diff | Should -Match '# Review standards'
-        $proposal.Diff | Should -Match '\+- extend `focus`:'
+        $proposal.Diff | Should -Not -Match 'extend `focus`'
         Set-Content -LiteralPath (Join-Path $fixture 'docs/review-standards.md') -Encoding utf8NoBOM -Value @'
 # Review standards
 - extend `focus`: Existing focus.
@@ -195,6 +195,12 @@ Describe 'Skalary configuration catalog and read-only adapter' {
             -ChangesJson '{"focus":"Changed focus."}' | ConvertFrom-Json
         $preview.Diff | Should -Match 'Changed focus'
         $preview.Diff | Should -Match 'Preserve this'
+
+        Import-Module (Join-Path $script:repoRoot 'scripts/skalary/DirectWorkflow.psm1') -Force
+        $resolved = Resolve-DirectReviewStandards -RepoRoot $fixture -BaseStandard @(
+            [pscustomobject]@{ Id = 'other'; Guidance = 'Preserve this.'; Localizable = $true }
+        )
+        @($resolved | Where-Object Id -eq 'focus').Guidance | Should -Match 'Existing focus'
     }
 
     It 'test:SkalaryConfig.Autopilot and test:SkalaryConfig.AutopilotAuth provide separate-shell, secret-safe setup and validation' {
@@ -204,11 +210,13 @@ Describe 'Skalary configuration catalog and read-only adapter' {
         $auth = Get-Content -LiteralPath $script:authValidator -Raw
         $auth | Should -Match 'copilot-autopilot'
         $auth | Should -Match 'copilot-cli'
-        $auth | Should -Match 'ado'
+        $auth | Should -Match 'GitProvider = \$config.gitProvider'
         $auth | Should -Match 'REDACTED'
-        $auth | Should -Match 'Microsoft.PowerShell.Utility\\Invoke-RestMethod'
-        $auth | Should -Match 'Microsoft.PowerShell.Utility\\Invoke-WebRequest'
+        $auth | Should -Not -Match 'function Invoke-RestMethod'
+        $auth | Should -Not -Match 'function Invoke-WebRequest'
         $auth | Should -Not -Match 'CredentialValue'
+        (Get-Content -LiteralPath (Join-Path $script:repoRoot 'plugins/autopilot/scripts/validate-auth.ps1') -Raw) |
+            Should -Match 'Bearer \$Token'
     }
 
     It 'test:SkalaryConfig.Distribution publishes the stable source manifest through every catalog and dogfood payload' {

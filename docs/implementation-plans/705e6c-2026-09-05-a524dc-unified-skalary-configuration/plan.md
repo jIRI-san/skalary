@@ -193,7 +193,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
   </details>
 
-- [ ] 4.2 Run the closed focused contract matrix, prove excluded-surface residue is absent, and complete one final review of the delivered façade (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7, RISK-8, RISK-9, RISK-10) [after: 4.1] `M`
+- [x] 4.2 Run the closed focused contract matrix, prove excluded-surface residue is absent, and complete one final review of the delivered façade (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7, RISK-8, RISK-9, RISK-10) [after: 4.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** focused plugin/configuration tests, model/Waza checks, registry and dogfood drift checks,

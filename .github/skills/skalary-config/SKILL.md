@@ -27,9 +27,10 @@ no arbitrary path and writes only after an in-memory preview digest is supplied 
 .github/skills/skalary-config/scripts/Set-SkalaryConfig.ps1 -Action apply -Category autopilot -ChangesJson '{"model":"primary-model-low"}' -ExpectedDigest '<preview-digest>' -ProposedAction edit -RepoRoot .
 ```
 
-`bootstrap` creates only the selected missing file. `reset -Key <known-key>` restores an autopilot or
-model value from its shipped source, or removes a managed local-review-standards entry. `cancel` is
-byte-clean. Changes to build, test, runtime, or container extensions require
+`bootstrap` previews only the selected missing file; apply it with `-Action apply -ProposedAction bootstrap`
+and its preview digest. `reset -Key <known-key>` restores an autopilot or model value from its shipped
+source, or removes a managed local-review-standards entry. `cancel` is byte-clean. Changes to build,
+test, runtime, or container extensions require
 `-AcknowledgeExecutableSettings`; `long_context` requires `-AcknowledgeLongContextCost`.
 
 For autopilot secrets, print setup guidance based on the effective `copilotAuth`, `gitProvider`, and

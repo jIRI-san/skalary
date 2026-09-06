@@ -76,6 +76,8 @@ function Get-TextDiff {
         [System.IO.File]::WriteAllText($beforePath, $Before, [System.Text.UTF8Encoding]::new($false))
         [System.IO.File]::WriteAllText($afterPath, $After, [System.Text.UTF8Encoding]::new($false))
         $diff = (& git diff --no-index --no-ext-diff -- $beforePath $afterPath 2>$null) -join "`n"
+        # A changed diff exits 1 by design, not because the preview failed.
+        $global:LASTEXITCODE = 0
         return $diff.Replace($beforePath, "a/$Path").Replace($afterPath, "b/$Path")
     }
     finally {
@@ -89,7 +91,7 @@ function Get-RecoveryCommand {
             return 'pwsh -NoProfile -File scripts/skalary/Sync-ModelBindings.ps1 -RepoRoot .; pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist.ps1 -RepoRoot .'
         }
         'autopilot' {
-            return 'pwsh -NoProfile -Command "Get-Content .autopilot.json -Raw | Test-Json -SchemaFile plugins/autopilot/schemas/autopilot.schema.json"'
+            return 'pwsh -NoProfile -Command "Get-Content .autopilot.json -Raw | Test-Json -SchemaFile .github/skills/autopilot/schemas/autopilot.schema.json"'
         }
         'local-review-standards' {
             return 'git diff -- docs/review-standards.md'
@@ -149,7 +151,7 @@ function Update-ReviewStandards {
     $before = if (Test-Path -LiteralPath $path) { [System.IO.File]::ReadAllText($path) } else { '' }
     if ($Operation -eq 'bootstrap') {
         if (Test-Path -LiteralPath $path) { throw 'docs/review-standards.md already exists; use edit or reset.' }
-        return @{ Path = 'docs/review-standards.md'; Before = ''; After = "# Review standards`n- extend ``focus``: Describe project-specific review priorities here.`n" }
+        return @{ Path = 'docs/review-standards.md'; Before = ''; After = "# Review standards`n" }
     }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'docs/review-standards.md is missing; use bootstrap first.' }
     $requested = if ($Operation -eq 'reset') { if (-not $Key) { throw 'reset requires -Key.' }; @{$Key = $null} } else { $Changes }
@@ -274,6 +276,10 @@ if ($Action -in @('preview', 'bootstrap', 'edit', 'reset')) {
     return
 }
 try {
+    $proposalDirectory = Split-Path -Parent (Join-Path $root $proposal.Path)
+    if (-not (Test-Path -LiteralPath $proposalDirectory -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $proposalDirectory -Force)
+    }
     [System.IO.File]::WriteAllText((Join-Path $root $proposal.Path), $proposal.After, [System.Text.UTF8Encoding]::new($false))
 }
 catch {
