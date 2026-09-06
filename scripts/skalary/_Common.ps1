@@ -980,6 +980,10 @@ function Invoke-PluginRemovalPrimitive {
             $sourcePath = Resolve-PluginConstrainedPath -PluginRoot (Join-Path $sourceRoot "plugins/$PluginName") -RelativePath ([string]$file.src)
             $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$file.dest)
             Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            if (Test-Path -LiteralPath $targetPath -PathType Container) {
+                $modified += [string]$file.dest
+                continue
+            }
             if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) { $missing++; continue }
             if ((Get-FileSha256 -Path $targetPath) -cne (Get-FileSha256 -Path $sourcePath)) {
                 $modified += [string]$file.dest
@@ -992,6 +996,9 @@ function Invoke-PluginRemovalPrimitive {
         foreach ($file in $files) {
             $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath ([string]$file.dest)
             Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $targetPath
+            if (Test-Path -LiteralPath $targetPath -PathType Container) {
+                throw "Managed destination '$([string]$file.dest)' is a directory."
+            }
             if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
                 Remove-Item -LiteralPath $targetPath -Force
                 if (Test-Path -LiteralPath $targetPath -PathType Leaf) { throw "Delete verification failed for '$([string]$file.dest)'." }
