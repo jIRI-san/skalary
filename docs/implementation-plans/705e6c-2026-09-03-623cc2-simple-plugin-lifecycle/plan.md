@@ -128,7 +128,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** active-document and installed-skill residue checks find no removed lifecycle behavior and all direct command examples match the shipped parameters.
 
   </details>
-- [ ] 3.2 Run the existing script sync, registry, marketplace, and dogfood writers so canonical lifecycle sources and installed copies converge (REQ-8, REQ-9, RISK-6, RISK-7) [after: 3.1] `M`
+- [x] 3.2 Run the existing script sync, registry, marketplace, and dogfood writers so canonical lifecycle sources and installed copies converge (REQ-8, REQ-9, RISK-6, RISK-7) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** plugin-manager bundles, plugin versions, registry, marketplace, README/catalog output, and dogfood copies are generated from the changed canonical sources with no stale retired payload.

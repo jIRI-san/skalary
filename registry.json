@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-06T12:47:02.9629022Z",
+  "generatedAt": "2026-09-06T12:49:56.8932052Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -806,7 +806,7 @@
       "files": [
         {
           "dest": "skills/install-plugin/SKILL.md",
-          "sha256": "e9ca301b72d5decdb8c0adeeacac783f2855f2b2db0cf93f711ff98e69c8f112",
+          "sha256": "9d62cc3110363b3bd24e87f7906df2af5b24f2197d699a856d3c45351bbd908e",
           "src": "skills/install-plugin/SKILL.md"
         },
         {
@@ -826,7 +826,7 @@
         },
         {
           "dest": "skills/list-plugins/SKILL.md",
-          "sha256": "bf5a1e82a88b0cf1a90c8e49db16178bd903ec290082b72bef12dffcf5169ca9",
+          "sha256": "fdb0d413a571edaae5aec02a6d9ead500f56a693e0f3eca164e007877592aa83",
           "src": "skills/list-plugins/SKILL.md"
         },
         {
@@ -846,7 +846,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/SKILL.md",
-          "sha256": "f02c6e96a6c4a4428acef83131abd085dab1a69226cb129595be9008e110976d",
+          "sha256": "69e342bdc97189833ba2fe36e42632cbf4eeb01a48f4006d4beff6b996f4330f",
           "src": "skills/uninstall-plugin/SKILL.md"
         },
         {
@@ -866,7 +866,7 @@
         },
         {
           "dest": "skills/update-plugin/SKILL.md",
-          "sha256": "567dc49d860e6437635dd03c92f319fde9e15df7802e15a510ea6dc9bdd6d22e",
+          "sha256": "f2d5501b19eab828e666cebe971381043bea229ceaff0b8d4bf4b13135417f75",
           "src": "skills/update-plugin/SKILL.md"
         },
         {

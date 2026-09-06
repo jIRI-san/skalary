@@ -34,7 +34,14 @@ per-run approval:
 ```
 
 - For a local checkout, pass `-Source <path>` instead of `-Repository`/`-Ref`.
-- Install resolves dependencies in topological order and applies transactionally; on any failure it rolls back and writes no receipt. Surface the script's output verbatim.
+- Install resolves dependencies in topological order, preflights all confined destinations, verifies
+  copied payload bytes, and writes each minimal receipt last. A failure can leave visible partial
+  payload changes but never advances that receipt; surface the error so the operator can rerun after
+  resolving it.
+- An existing unowned destination is refused. Offer **Force — replace the collision** (`effort: 4`,
+  `complexity: 5`) or **Cancel — preserve the existing file** (`effort: 1`, `complexity: 1`).
+- A retired plugin name is refused with the explicit removal command; do not offer an install
+  override.
 
 ## Step 3: Offer read-only auto-approval
 
