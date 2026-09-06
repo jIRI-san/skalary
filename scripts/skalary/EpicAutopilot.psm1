@@ -2141,6 +2141,7 @@ function Invoke-EpicAutopilotHostLoopCore {
             '-Runtime', 'container',
             '-Branch', $targetBranch,
             '-ExpectedStartCommit', [string]$admission.State.target,
+            '-ExpectedPullRequestBase', $targetBranch,
             '-Run', [string]$admission.State.run
         )
         $launchFailureKind = 'start-failed'

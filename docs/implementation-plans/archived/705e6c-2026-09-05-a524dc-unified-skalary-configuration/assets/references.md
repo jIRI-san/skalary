@@ -16,6 +16,7 @@
 | Model aliases and roles | `tools/model-allowlist.psd1`; six stable primary/alternate low/mid/high aliases, host bindings, role assignments, fallbacks, and reasoning effort |
 | Generated model bindings | `scripts/skalary/Sync-ModelBindings.ps1`; copied per-skill maps and concrete waza executor/judge identifiers |
 | Autopilot project/runtime | `.autopilot.json`, `plugins/autopilot/.autopilot.json.example`, schema and launchers; `primary-model-mid`/medium/default shipped, `long_context` opt-in |
+| Autopilot credentials and validation | `plugins/autopilot/scripts/get-credential.ps1` and `validate-auth.ps1`; GitHub PAT acquisition at `https://github.com/settings/tokens?type=beta`, OAuth through `copilot login`, ADO through `az login --use-device-code` |
 | Workflow model roles | Canonical `autopilot`, `cep`, `cip`, `ci`, `cr`, and `dr` skills use aliases only |
 | Review agent bindings | `plugins/{code-review,design-review}/agents/*.agent.md` plus alias map; host-qualified names remain runtime-only |
 | Eval model bindings | Generated `plugins/*/evals/waza/eval.yaml` and task pins; `primary-model-low` executor, `primary-model-mid` judge only for subjective tasks |
@@ -27,8 +28,8 @@
 | Plugin distribution | `plugins/*/plugin.json`; generated `registry.json`, marketplace, README, and dogfood copies |
 | Repository/toolchain | `.github/copilot-instructions.md`, package aliases, container/toolchain policy |
 
-The detailed `/cip` inventory must be regenerated after all dependencies complete. Current duplicates
-and transitional review/Fleet settings are evidence for simplification, not compatibility requirements.
+The detailed inventory was reconciled after all dependencies completed. Archived review/Fleet and
+transactional lifecycle settings are history, not compatibility requirements.
 
 ## Epic discussion provenance
 
@@ -36,4 +37,20 @@ On 2026-09-05 the operator asked for one `/skalary-config` skill that collects c
 plugins/skills, guides bootstrap and edits, and manages examples such as model assignments and autopilot
 settings. They later clarified that every model assignment delivered by `33a78a` must be covered. The
 operator approved a separate child depending on `367e9a`, `33a78a`, `3a4498`, and `623cc2`, with no new
-central configuration service.
+central configuration service. Later that day they explicitly restored `long_context` as an available
+operator opt-in while requiring every shipped configuration to remain `default`; that decision
+supersedes the earlier removal wording in the epic. On 2026-09-06 they reconfirmed the complete intent,
+requirements, absolute safety boundaries, risks, and local bounded-adapter design before drafting. They
+then added the autopilot secret-setup handoff: print acquisition/storage/login instructions, let the
+operator complete setup in a separate shell, and run the existing validation scripts before reporting
+readiness.
+
+## Bounded historical context
+
+Loaded through `Get-DirectPlanArtifactConsumerContext.ps1` as untrusted dependency history:
+
+- `367e9a` approved design — direct review/planning/autopilot configuration boundaries.
+- `33a78a` approved design — model aliases, roles, budgets, generated bindings, and eval routing.
+- `623cc2` approved design — canonical plugin sources, distribution synchronization, and direct lifecycle.
+
+Current architecture/design notes and repository sources override those historical artifacts.

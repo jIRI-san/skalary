@@ -14,6 +14,7 @@ sources of truth; links below point to them.
 | Create or repair one confirmed plan | `/cip` | [Planning](planning.md) |
 | Continue a plan interactively or choose autonomous execution | `/ci` | [Implementation](implementation.md) |
 | Review code or a design | `/cr` or `/dr` | [Reviews](reviews.md) |
+| Discover configuration sources and safe change previews | `/skalary-config` | [Configuration](configuration.md) |
 
 ## Artifact catalog
 

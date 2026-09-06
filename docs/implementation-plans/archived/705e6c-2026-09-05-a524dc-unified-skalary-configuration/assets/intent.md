@@ -1,7 +1,7 @@
 # Intent
 
-Preliminary context captured during epic refinement; `/cip` must confirm and refine it after its three
-dependency children have established the final configuration surfaces.
+Confirmed on 2026-09-06 after all four dependency children established the final configuration
+surfaces.
 
 ## Goal
 
@@ -25,16 +25,21 @@ synchronization and focused validators. Direct subsystem configuration remains u
 - Model configuration shows the 180K operating budget and 20K reserve, current canonical sources,
   effective values, and every generated/dogfood consumer before proposing a change.
 - Missing optional configuration is created only when the operator selects that surface.
+- Autopilot bootstrap prints exact token acquisition, permission, storage, and login instructions for
+  the selected auth/provider path; after the operator completes them in a separate shell, the guided
+  flow runs the existing validation probes and reports only availability and capabilities.
 - Every displayed value names its canonical source, default, precedence, generated copies, consumer,
   synchronizer, and focused validator.
 - Apply writes no generated/dogfood copy directly and leaves no synchronization drift.
 - Unknown fields and unrelated settings survive edit and per-key reset.
 - Secrets are never displayed or persisted; only credential-source availability is shown.
-- Runtime state, plans, receipts, schemas, retirement history, generated catalogs, and workflows are
-  excluded or explicitly read-only.
-- Focused tests cover discovery, precedence, bootstrap, diff-before-write, cancellation, apply,
-  reset, source synchronization, secret refusal, executable-setting confirmation, invalid models,
-  invalid role/fallback combinations, default context, and explicit long-context opt-in.
+- Runtime state, plans, receipts, retirement history, generated catalogs, and workflows are excluded or
+  explicitly read-only; externally required subsystem schemas remain owned by their subsystems.
+- Focused tests cover discovery, precedence, bootstrap, diff-before-write, cancellation, stale-preview
+  refusal, apply, reset, source synchronization, secret refusal, executable-setting confirmation,
+  invalid models, invalid role/fallback combinations, default context, explicit long-context opt-in,
+  autopilot secret-setup instructions and post-setup validation, failed synchronization/validation, and
+  installed-consumer behavior.
 
 ## Non-goals
 
@@ -53,4 +58,7 @@ synchronization and focused validators. Direct subsystem configuration remains u
   all mutations are canonical, confirmed, synchronized, focused-validated, and reversible from the
   shown diff; excluded surfaces remain untouched; and uninstalling the skill leaves every subsystem
   directly configurable. Every alias, host binding, role assignment, and context default is visible and
-  changeable through the model category via the canonical model map and existing synchronizers.
+  changeable through the model category via the canonical model map and existing synchronizers. Shipped
+  context remains `default`; `long_context` survives only as an explicit cost-warned advanced opt-in.
+  Autopilot setup is complete only after the existing credential and authentication probes pass after
+  the operator's separate-shell setup.

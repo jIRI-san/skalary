@@ -407,6 +407,7 @@ Describe 'Epic autopilot child launcher state machine' {
                 '-Runtime', 'container',
                 '-Branch', 'main',
                 '-ExpectedStartCommit', $script:targetA,
+                '-ExpectedPullRequestBase', 'main',
                 '-Run', $script:runA
             )
             $result.ExitCode | Should -Be $exitCode
@@ -721,6 +722,7 @@ Describe 'Epic autopilot child launcher state machine' {
             '-Runtime', 'container',
             '-Branch', 'main',
             '-ExpectedStartCommit', $script:targetB,
+            '-ExpectedPullRequestBase', 'main',
             '-Run', $script:runB
         )
         $advanced.State.outcome | Should -BeExactly 'awaiting-merge'
@@ -2776,6 +2778,7 @@ catch {
             '-Runtime', 'container',
             '-Branch', 'main',
             '-ExpectedStartCommit', $targetCommit,
+            '-ExpectedPullRequestBase', 'main',
             '-Run', $script:runA
         )
 

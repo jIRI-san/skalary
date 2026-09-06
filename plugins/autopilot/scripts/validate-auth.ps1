@@ -31,6 +31,7 @@ Write-Host "Validating GitHub token..."
 # Probe 1: GET /user - confirms token is valid
 $headers = @{ Authorization = "Bearer $Token"; Accept = 'application/vnd.github+json' }
 try {
+    $headers.Authorization = "Bearer $Token"
     $userResponse = Invoke-RestMethod -Uri 'https://api.github.com/user' -Headers $headers -Method Get
     Write-Host "  Token valid for user: $($userResponse.login)"
 }

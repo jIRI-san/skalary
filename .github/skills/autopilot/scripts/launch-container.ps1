@@ -39,6 +39,8 @@ param(
 
     [string]$ExpectedStartCommit,
 
+    [string]$ExpectedPullRequestBase,
+
     [string]$Run,
 
     [switch]$TrustedInternalRetry,
@@ -125,6 +127,9 @@ try {
     $envParams = @{ Config = $Config; Token = $Token; AdoToken = $AdoToken; Branch = $StartBranch }
     if ($ExpectedStartCommit) {
         $envParams.ExpectedStartCommit = $ExpectedStartCommit
+    }
+    if ($ExpectedPullRequestBase) {
+        $envParams.ExpectedPullRequestBase = $ExpectedPullRequestBase
     }
     if ($TrustedInternalRetry) {
         $envParams.TrustedInternalRetry = $true

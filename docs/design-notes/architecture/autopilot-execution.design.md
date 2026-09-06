@@ -44,7 +44,9 @@ published work head through either its open or merged pull request. A clean arch
 provider proof is `closed`; it must not trigger another same-session completion handoff. Final review
 and other completion artifacts may be added in the archive commit or later committed finalization work;
 close proof requires a committed move and clean current archive, not byte identity with the pre-archive
-tree.
+tree. Expected-start commit validation is independent from PR-base validation: direct plan launches
+leave the PR base unconstrained, while the epic wrapper explicitly binds each child PR to its target
+branch.
 
 After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1` replaces—not
 appends—the strict 16-KiB handoff with zero to ten secret-screened lessons and repo-relative
