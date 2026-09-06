@@ -291,18 +291,14 @@ function Get-InstallOperationPlan {
     return @($operations | Sort-Object Dest, PluginName)
 }
 
-function Invoke-InstallTransaction {
+function Write-InstallOperations {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [object[]]$Operations,
-
-        [Parameter(Mandatory)]
-        [string]$BackupRoot
+        [object[]]$Operations
     )
 
     $applied = [System.Collections.Generic.List[object]]::new()
-    $backupIndex = 0
     foreach ($operation in $Operations) {
         $targetDir = Split-Path -Parent $operation.TargetPath
         if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
@@ -311,43 +307,16 @@ function Invoke-InstallTransaction {
 
         $appliedEntry = [pscustomobject]@{
             Operation = $operation
-            BackupPath = $null
-            Replaced = $false
+            TargetPath = $operation.TargetPath
         }
         $applied.Add($appliedEntry)
         Copy-Item -LiteralPath $operation.StagePath -Destination $operation.TargetPath -Force
         if ((Get-FileSha256 -Path $operation.TargetPath) -cne [string]$operation.Sha256) {
             throw "Write verification failed for '$([string]$operation.Dest)'."
         }
-        $appliedEntry.Replaced = $true
-        $backupIndex++
     }
 
     return @($applied)
-}
-
-function Restore-InstallTransaction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [object[]]$AppliedEntries
-    )
-
-    foreach ($entry in @($AppliedEntries) | Sort-Object { $_.Operation.Dest } -Descending) {
-        $targetPath = [string]$entry.Operation.TargetPath
-        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
-            Remove-Item -LiteralPath $targetPath -Force
-        }
-
-        $backupPath = [string]$entry.BackupPath
-        if (-not [string]::IsNullOrWhiteSpace($backupPath) -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
-            $targetDir = Split-Path -Parent $targetPath
-            if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $targetDir -Force)
-            }
-            Move-Item -LiteralPath $backupPath -Destination $targetPath -Force
-        }
-    }
 }
 
 function Get-PluginReceiptContent {
@@ -360,10 +329,7 @@ function Get-PluginReceiptContent {
         $SourceIdentity,
 
         [Parameter(Mandatory)]
-        [string]$RefSha,
-
-        [Parameter(Mandatory)]
-        [string]$Outcome
+        [string]$RefSha
     )
 
     return [pscustomobject]@{
@@ -396,7 +362,7 @@ function Write-ReceiptSet {
     $entries = [System.Collections.Generic.List[object]]::new()
     foreach ($plugin in $PendingPlugins) {
         $pluginName = [string]$plugin.name
-        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceIdentity $SourceIdentity -RefSha $RefSha -Outcome 'installed'
+        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceIdentity $SourceIdentity -RefSha $RefSha
         $receiptPath = Write-PluginReceipt -RepoRoot $RepoRoot -Receipt $receipt
         $entries.Add([pscustomobject]@{ ReceiptPath = $receiptPath; Committed = $true })
     }
@@ -404,36 +370,11 @@ function Write-ReceiptSet {
     return @($entries)
 }
 
-function Restore-ReceiptSet {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [object[]]$Entries
-    )
-
-    foreach ($entry in @($Entries) | Sort-Object ReceiptPath -Descending) {
-        $receiptPath = [string]$entry.ReceiptPath
-        if ($entry.Committed -and (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
-            Remove-Item -LiteralPath $receiptPath -Force
-        }
-
-        $backupPath = [string]$entry.BackupPath
-        if (-not [string]::IsNullOrWhiteSpace($backupPath) -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
-            $receiptDir = Split-Path -Parent $receiptPath
-            if (-not (Test-Path -LiteralPath $receiptDir -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $receiptDir -Force)
-            }
-            Move-Item -LiteralPath $backupPath -Destination $receiptPath -Force
-        }
-    }
-}
-
 $targetRepoRoot = Resolve-RepoRoot -StartPath $RepoRoot
 $sourceContext = $null
 $operationRoot = $null
 $appliedEntries = @()
 $receiptEntries = @()
-$mutationLock = $null
 
 try {
     $sourceContext = Get-ResolvedSourceContext -TargetRepoRoot $targetRepoRoot -SourcePath $Source -SourceRef $Ref -RemoteRepository $Repository
@@ -487,7 +428,7 @@ try {
         throw "No installable payload files found for '$Name'."
     }
 
-    $appliedEntries = Invoke-InstallTransaction -Operations $operations -BackupRoot $operationRoot
+    [void](Write-InstallOperations -Operations $operations)
 
     $receiptEntries = Write-ReceiptSet -RepoRoot $targetRepoRoot -PendingPlugins $pendingPlugins -SourceIdentity $sourceContext.SourceIdentity -RefSha $resolvedSha -OperationRoot $operationRoot
 
@@ -500,9 +441,6 @@ catch {
     throw
 }
 finally {
-    if ($null -ne $mutationLock) {
-        $mutationLock.Dispose()
-    }
     if ($null -ne $sourceContext -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }

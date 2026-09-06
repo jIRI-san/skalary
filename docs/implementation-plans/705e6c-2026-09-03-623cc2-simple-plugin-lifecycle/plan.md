@@ -85,7 +85,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Machinery retirement and focused evidence
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Delete lifecycle locks, journals, backups, file-hash/degraded receipt logic, retirement runtime state, schemas, fixtures, and callers as one closed cut (REQ-2, REQ-6, REQ-7, RISK-3, RISK-6) [after: 1.3] `L`
+- [x] 2.1 Delete lifecycle locks, journals, backups, file-hash/degraded receipt logic, retirement runtime state, schemas, fixtures, and callers as one closed cut (REQ-2, REQ-6, REQ-7, RISK-3, RISK-6) [after: 1.3] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** active source and installed plugin-manager payload contain no mutation lock, transaction journal, backup/recovery, CAS, degraded/file-outcome receipt, retirement preview/cursor/result, automatic apply, or lifecycle schema path.
@@ -99,7 +99,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** a removed symbol is still required by a retained non-lifecycle consumer; separate the local shared helper from retired behavior rather than deleting or preserving the whole subsystem.
 
   </details>
-- [ ] 2.2 Rewrite lifecycle tests around current user behavior, external formats, and high-impact confinement regressions (REQ-1, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, RISK-1, RISK-3, RISK-4, RISK-5, RISK-7) [after: 2.1] `M`
+- [x] 2.2 Rewrite lifecycle tests around current user behavior, external formats, and high-impact confinement regressions (REQ-1, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, RISK-1, RISK-3, RISK-4, RISK-5, RISK-7) [after: 2.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** focused tests cover the complete direct lifecycle and retirement refusal while obsolete transaction/recovery/state matrices and low-value fixture history are deleted.
@@ -111,7 +111,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** selected lifecycle and consumer tests pass through `Run-UnitTests.ps1 -TestPath` within the focused 30/60-second contract.
 
   </details>
-- [ ] 2.3 Keep plugin manifests, registry, marketplace, retirement catalog source, and direct command contracts coherent (REQ-6, REQ-8, REQ-9, RISK-5, RISK-6, RISK-7) [after: 2.2] `S`
+- [x] 2.3 Keep plugin manifests, registry, marketplace, retirement catalog source, and direct command contracts coherent (REQ-6, REQ-8, REQ-9, RISK-5, RISK-6, RISK-7) [after: 2.2] `S`
 
 ## Phase 3: Distribution, contracts, and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->

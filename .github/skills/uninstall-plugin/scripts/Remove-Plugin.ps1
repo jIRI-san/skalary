@@ -8,6 +8,8 @@ param(
 
     [string]$RegistryPath,
 
+    [string]$Source,
+
     [switch]$Force
 )
 
@@ -27,10 +29,11 @@ function Get-InstalledPluginName {
     if (-not (Test-Path -LiteralPath $receiptsRoot -PathType Container)) {
         return @()
     }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRootPath -Path $receiptsRoot
 
     $installed = @()
     foreach ($receiptPath in (Get-ChildItem -LiteralPath $receiptsRoot -File -Filter '*.json' | Sort-Object Name)) {
-        $receipt = Read-JsonFile -Path $receiptPath.FullName
+        $receipt = Read-PluginReceipt -RepoRoot $RepoRootPath -PluginName $receiptPath.BaseName
         if (-not [string]::IsNullOrWhiteSpace([string]$receipt.name)) {
             $installed += , ([string]$receipt.name)
         }
@@ -80,18 +83,8 @@ function Assert-NoInstalledDependent {
 }
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
-$mutationLock = Enter-PluginMutationLock -RepoRoot $repoRootPath
-try {
-    if (-not $Force) {
-        Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name -RegistryPath $RegistryPath
-    }
-
-    $result = Invoke-PluginRemovalPrimitive -RepoRoot $repoRootPath -PluginName $Name -Mode explicit -Force:$Force -LockHeld
+if (-not $Force) {
+    Assert-NoInstalledDependent -RepoRootPath $repoRootPath -PluginName $Name -RegistryPath $RegistryPath
 }
-finally {
-    $mutationLock.Dispose()
-}
-if ($result.ModifiedCount -gt 0) {
-    Write-Warning "Plugin '$Name' retains $($result.ModifiedCount) modified file(s) under a degraded receipt. Use -Force to remove them."
-}
-Write-Output "Removed plugin '$Name'. Deleted file count: $($result.RemovedCount). Skipped modified files: $($result.ModifiedCount)."
+$result = Invoke-PluginRemovalPrimitive -RepoRoot $repoRootPath -PluginName $Name -Source $Source -Force:$Force
+Write-Output "Removed plugin '$Name'. Deleted file count: $($result.RemovedCount). Missing file count: $($result.MissingCount)."
