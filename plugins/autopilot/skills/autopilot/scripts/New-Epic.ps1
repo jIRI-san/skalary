@@ -14,8 +14,6 @@
     New-Epic.ps1 -Title 'Payments rework' -Slug payments-rework
 .EXAMPLE
     New-Epic.ps1 -Epic 9f2a1c -ChildPlan checkout-api -DependsOn payments-core
-.EXAMPLE
-    New-Epic.ps1 -Epic 9f2a1c -SetCoherencyVerdict -VerdictJson $json
 #>
 [CmdletBinding(DefaultParameterSetName = 'Scaffold')]
 param(
@@ -26,15 +24,7 @@ param(
     [string]$Slug,
 
     [Parameter(Mandatory, ParameterSetName = 'Attach')]
-    [Parameter(Mandatory, ParameterSetName = 'Verdict')]
     [string]$Epic,
-
-    [Parameter(Mandatory, ParameterSetName = 'Verdict')]
-    [switch]$SetCoherencyVerdict,
-
-    [Parameter(Mandatory, ParameterSetName = 'Verdict')]
-    [ValidateLength(2, 65536)]
-    [string]$VerdictJson,
 
     [Parameter(ParameterSetName = 'Attach')]
     [string[]]$ChildPlan = @(),
@@ -54,12 +44,11 @@ param(
     [Parameter(ParameterSetName = 'Attach')]
     [switch]$Force
 )
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
+$ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot 'AtomicStore.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 
 function Write-PlanText {
     <#
@@ -338,266 +327,8 @@ function Update-EpicChildTable {
     Write-PlanText -Path $EpicFile -Lines $rebuilt.ToArray()
 }
 
-function Assert-CoherencyPropertySet {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Node,
-        [Parameter(Mandatory)][string[]]$Required,
-        [string[]]$Optional = @(),
-        [Parameter(Mandatory)][string]$Label
-    )
-
-    $actual = @($Node.Keys | ForEach-Object { [string]$_ } | Sort-Object)
-    $allowed = @($Required + $Optional | Sort-Object)
-    if (@($actual | Where-Object { $_ -cnotin $allowed }).Count -gt 0 -or
-        @($Required | Where-Object { $_ -cnotin $actual }).Count -gt 0) {
-        throw "$Label has an unexpected or incomplete property set."
-    }
-}
-
-function ConvertTo-CoherencyMarkdownText {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Value,
-        [Parameter(Mandatory)][string]$Label,
-        [Parameter(Mandatory)][ValidateRange(1, 2048)][int]$MaximumLength,
-        [switch]$AllowEmpty
-    )
-
-    if ($Value.Length -gt $MaximumLength -or
-        (-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($Value)) -or
-        $Value -match '[\x00-\x1f\x7f]' -or
-        $Value -match '<!--|-->|epic-coherency-verdict') {
-        throw "$Label contains unsupported or out-of-bounds content."
-    }
-
-    $escaped = $Value.Replace('&', '&amp;')
-    $escaped = $escaped.Replace('|', '&#124;')
-    $escaped = $escaped.Replace('<', '&lt;')
-    $escaped = $escaped.Replace('>', '&gt;')
-    return $escaped.Replace('`', '&#96;')
-}
-
-function Test-CoherencyPathContainsReparsePoint {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Boundary
-    )
-
-    $current = [System.IO.Path]::GetFullPath($Path)
-    $stop = [System.IO.Path]::GetFullPath($Boundary).TrimEnd(
-        [System.IO.Path]::DirectorySeparatorChar
-    )
-    $comparison = if ($IsWindows) {
-        [System.StringComparison]::OrdinalIgnoreCase
-    }
-    else {
-        [System.StringComparison]::Ordinal
-    }
-    while (-not [string]::IsNullOrEmpty($current)) {
-        $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
-        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
-            ($item.PSObject.Properties.Name -contains 'LinkType' -and
-                -not [string]::IsNullOrWhiteSpace([string]$item.LinkType))) {
-            return $true
-        }
-        if ([string]::Equals($current, $stop, $comparison)) {
-            return $false
-        }
-        $parent = Split-Path -Parent $current
-        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) {
-            throw "Coherency verdict path '$Path' does not descend from '$Boundary'."
-        }
-        $current = $parent
-    }
-    throw "Coherency verdict path '$Path' does not descend from '$Boundary'."
-}
-
-function ConvertTo-CoherencyVerdictBlock {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Verdict
-    )
-
-    Assert-CoherencyPropertySet -Node $Verdict -Label 'Coherency verdict' -Required @(
-        'action', 'blocking', 'decision', 'findings', 'sourceCommit', 'schema', 'sourceDigest'
-    )
-    if ($Verdict['schema'] -cne 'skalary/epic-coherency-verdict@2' -or
-        $Verdict['sourceDigest'] -isnot [string] -or
-        [string]$Verdict['sourceDigest'] -cnotmatch '^sha256:[0-9a-f]{64}$' -or
-        $Verdict['blocking'] -isnot [bool] -or
-        $Verdict['decision'] -isnot [string] -or
-        [string]$Verdict['decision'] -cnotin @('keep', 'simplify', 'split', 'defer') -or
-        $Verdict['action'] -isnot [string] -or
-        $Verdict['findings'] -isnot [System.Collections.IList]) {
-        throw 'Coherency verdict has invalid identity, source, or decision metadata.'
-    }
-
-    $sourceCommit = $Verdict['sourceCommit']
-    if ($sourceCommit -isnot [string] -or
-        [string]$sourceCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
-        throw 'Coherency verdict sourceCommit must be a full lowercase Git commit id.'
-    }
-
-    $findings = @($Verdict['findings'])
-    if ($findings.Count -gt 64) {
-        throw 'Coherency verdict exceeds the 64-finding limit.'
-    }
-    $seenFindings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    $rows = [System.Collections.Generic.List[string]]::new()
-    foreach ($finding in $findings) {
-        if ($finding -isnot [System.Collections.IDictionary]) {
-            throw 'Each coherency finding resolution must be an object.'
-        }
-        Assert-CoherencyPropertySet -Node $finding -Label 'Coherency finding resolution' -Required @(
-            'action', 'blocking', 'operatorDecision', 'proportionalityClass', 'taskId', 'title'
-        )
-
-        $taskId = [string]$finding['taskId']
-        $title = [string]$finding['title']
-        $class = [string]$finding['proportionalityClass']
-        $operatorDecision = [string]$finding['operatorDecision']
-        $findingAction = [string]$finding['action']
-        if ($finding['blocking'] -isnot [bool] -or
-            $finding['taskId'] -isnot [string] -or
-            $finding['title'] -isnot [string] -or
-            $finding['proportionalityClass'] -isnot [string] -or
-            $finding['operatorDecision'] -isnot [string] -or
-            $finding['action'] -isnot [string] -or
-            $taskId -cnotmatch '^[a-z0-9][a-z0-9-]{0,62}-m(?:[1-9]|1[0-6])$' -or
-            $class -cnotin @('speculative platform', 'required shared contract', 'local fix') -or
-            $operatorDecision -cnotin @('keep', 'simplify', 'split', 'defer') -or
-            -not $seenFindings.Add("$taskId`0$title")) {
-            throw "Coherency finding resolution '$taskId' is invalid, duplicated, or conflicting."
-        }
-
-        $safeTaskId = ConvertTo-CoherencyMarkdownText -Value $taskId -Label 'Finding task id' -MaximumLength 80
-        $safeTitle = ConvertTo-CoherencyMarkdownText -Value $title -Label "Finding '$taskId' title" -MaximumLength 240
-        $safeAction = ConvertTo-CoherencyMarkdownText -Value $findingAction -Label "Finding '$taskId' action" -MaximumLength 1024
-        $rows.Add("| ``$safeTaskId`` | $safeTitle | $class | $(if ($finding['blocking']) { 'yes' } else { 'no' }) | $operatorDecision | $safeAction |")
-    }
-    $hasBlockingFinding = @($findings | Where-Object { [bool]$_['blocking'] }).Count -gt 0
-    if ([bool]$Verdict['blocking'] -ne $hasBlockingFinding) {
-        throw 'Coherency verdict blocking state conflicts with its finding resolutions.'
-    }
-
-    $safeAction = ConvertTo-CoherencyMarkdownText -Value ([string]$Verdict['action']) `
-        -Label 'Coherency verdict action' -MaximumLength 1024
-    $lines = [System.Collections.Generic.List[string]]::new()
-    $lines.Add($script:CoherencyBlockStart)
-    $lines.Add('Schema: `skalary/epic-coherency-verdict@2`')
-    $lines.Add("Prior source digest: ``$([string]$Verdict['sourceDigest'])``")
-    $lines.Add("Reviewed source: ``$sourceCommit``")
-    $lines.Add("Operator decision: **$([string]$Verdict['decision'])**")
-    $lines.Add("Blocking: **$(if ($Verdict['blocking']) { 'yes' } else { 'no' })**")
-    $lines.Add("Action: $safeAction")
-    $lines.Add('')
-    $lines.Add('| Task ID | Finding title | Proportionality class | Blocking | Operator decision | Concrete action |')
-    $lines.Add('|---|---|---|---|---|---|')
-    if ($rows.Count -eq 0) {
-        $lines.Add('| _(none)_ | | | | | |')
-    }
-    else {
-        $lines.AddRange([string[]]$rows.ToArray())
-    }
-    $lines.Add($script:CoherencyBlockEnd)
-    return $lines.ToArray()
-}
-
-function Set-EpicCoherencyVerdict {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$EpicFile,
-        [Parameter(Mandatory)][string]$Boundary,
-        [Parameter(Mandatory)][System.Collections.IDictionary]$Verdict
-    )
-
-    $fullPath = [System.IO.Path]::GetFullPath($EpicFile)
-    if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf) -or
-        (Test-CoherencyPathContainsReparsePoint -Path $fullPath -Boundary $Boundary)) {
-        throw "Epic coherency verdict target must be one regular, confined epic.md: $fullPath"
-    }
-
-    $expectedDigest = [string]$Verdict['sourceDigest']
-    $blockLines = ConvertTo-CoherencyVerdictBlock -Verdict $Verdict
-    $result = Invoke-AtomicStoreUpdate -Path $fullPath -MaxAttempts 1 -Transform {
-        param($current, $generation)
-
-        if ($null -eq $current) {
-            throw "Epic coherency verdict target disappeared: $fullPath"
-        }
-        $actualDigest = "sha256:$generation"
-        if ($actualDigest -cne $expectedDigest) {
-            throw "Epic source is stale: expected '$expectedDigest', found '$actualDigest'."
-        }
-
-        $normalized = $current -replace "`r`n", "`n"
-        $lines = [System.Collections.Generic.List[string]]::new()
-        $lines.AddRange([string[]]$normalized.Split("`n"))
-        $markerLines = @(
-            for ($index = 0; $index -lt $lines.Count; $index++) {
-                if ($lines[$index] -match '<!--.*epic-coherency-verdict') {
-                    [pscustomobject]@{ Index = $index; Text = $lines[$index].Trim() }
-                }
-            }
-        )
-        $starts = @($markerLines | Where-Object { $_.Text -ceq $script:CoherencyBlockStart })
-        $ends = @($markerLines | Where-Object { $_.Text -ceq $script:CoherencyBlockEnd })
-        $headings = @(
-            for ($index = 0; $index -lt $lines.Count; $index++) {
-                if ($lines[$index].Trim() -ceq '## Epic coherency verdict') { $index }
-            }
-        )
-        if ($markerLines.Count -ne ($starts.Count + $ends.Count) -or
-            $starts.Count -ne $ends.Count -or
-            $starts.Count -gt 1 -or
-            ($starts.Count -eq 0 -and $headings.Count -ne 0) -or
-            ($starts.Count -eq 1 -and (
-                $ends[0].Index -le $starts[0].Index -or
-                $headings.Count -ne 1 -or
-                $headings[0] -ge $starts[0].Index
-            ))) {
-            throw "Epic file '$fullPath' has malformed or duplicate coherency verdict markers."
-        }
-
-        $rebuilt = [System.Collections.Generic.List[string]]::new()
-        if ($starts.Count -eq 0) {
-            while ($lines.Count -gt 0 -and [string]::IsNullOrEmpty($lines[$lines.Count - 1])) {
-                $lines.RemoveAt($lines.Count - 1)
-            }
-            $rebuilt.AddRange([string[]]$lines.ToArray())
-            $rebuilt.Add('')
-            $rebuilt.Add('## Epic coherency verdict')
-            $rebuilt.Add('')
-            $rebuilt.AddRange([string[]]$blockLines)
-        }
-        else {
-            if ($starts[0].Index -gt 0) {
-                $rebuilt.AddRange([string[]]$lines.GetRange(0, $starts[0].Index).ToArray())
-            }
-            $rebuilt.AddRange([string[]]$blockLines)
-            if ($ends[0].Index + 1 -lt $lines.Count) {
-                $rebuilt.AddRange([string[]]$lines.GetRange(
-                        $ends[0].Index + 1,
-                        $lines.Count - $ends[0].Index - 1
-                    ).ToArray())
-            }
-        }
-
-        return (($rebuilt -join "`n").TrimEnd("`n") + "`n")
-    }
-
-    if ($result.Status -ne 'complete') {
-        throw "Epic coherency verdict write failed with atomic-store status '$($result.Status)'."
-    }
-    return $result
-}
-
 $script:ChildBlockStart = '<!-- child-plans:start -->'
 $script:ChildBlockEnd = '<!-- child-plans:end -->'
-$script:CoherencyBlockStart = '<!-- epic-coherency-verdict:start -->'
-$script:CoherencyBlockEnd = '<!-- epic-coherency-verdict:end -->'
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 $plansRoot = Join-Path $repoRootPath 'docs/implementation-plans'
@@ -609,53 +340,6 @@ if ($DependsOn.Count -gt 0 -and $ChildPlan.Count -ne 1) {
 
 $planInventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
 $epicInventory = @(Get-EpicInventory -RepoRoot $repoRootPath)
-
-if ($PSCmdlet.ParameterSetName -eq 'Verdict') {
-    try {
-        $verdict = $VerdictJson | ConvertFrom-Json -AsHashtable -Depth 10
-    }
-    catch {
-        throw "Coherency verdict is invalid JSON: $($_.Exception.Message)"
-    }
-    if ($verdict -isnot [System.Collections.IDictionary]) {
-        throw 'Coherency verdict must be one JSON object.'
-    }
-
-    $resolvedEpic = Resolve-Epic -Reference $Epic -RepoRoot $repoRootPath -Inventory $epicInventory
-    if ($resolvedEpic.IsArchived) {
-        throw "Epic '$($resolvedEpic.Id)' is archived and cannot accept a coherency verdict."
-    }
-    $epicFile = [System.IO.Path]::GetFullPath([string]$resolvedEpic.EpicFile)
-    $expectedEpicRoot = [System.IO.Path]::GetFullPath([string]$resolvedEpic.Path)
-    $pathComparison = if ($IsWindows) {
-        [System.StringComparison]::OrdinalIgnoreCase
-    }
-    else {
-        [System.StringComparison]::Ordinal
-    }
-    if (-not $expectedEpicRoot.StartsWith(
-            [System.IO.Path]::GetFullPath($epicsRoot).TrimEnd(
-                [System.IO.Path]::DirectorySeparatorChar
-            ) + [System.IO.Path]::DirectorySeparatorChar,
-            $pathComparison
-        ) -or -not $epicFile.StartsWith(
-            $expectedEpicRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
-                [System.IO.Path]::DirectorySeparatorChar,
-            $pathComparison
-        ) -or [System.IO.Path]::GetFileName($epicFile) -cne 'epic.md') {
-        throw "Resolved coherency verdict target is outside epic '$($resolvedEpic.Id)'."
-    }
-
-    $write = Set-EpicCoherencyVerdict -EpicFile $epicFile -Boundary $epicsRoot -Verdict $verdict
-    return [pscustomobject]@{
-        EpicId      = $resolvedEpic.Id
-        EpicFile    = $epicFile
-        SourceDigest = [string]$verdict['sourceDigest']
-        NewDigest   = "sha256:$($write.Generation)"
-        Decision    = [string]$verdict['decision']
-        Findings    = @($verdict['findings']).Count
-    }
-}
 
 if ($PSCmdlet.ParameterSetName -eq 'Scaffold') {
     if ($Date -notmatch '^\d{4}-\d{2}-\d{2}$') {

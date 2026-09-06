@@ -1,5 +1,11 @@
 # Requirements
 
+> **Superseded 2026-09-06.** These requirements describe the review-run architecture delivered by
+> this plan and later retired by plan `367e9a` in commit
+> `a652134251e217e8227e184dae1bf49a32b294df`. Current review behavior is governed by
+> `ARCH-Direct-Workflow` and the repository-wide Simplicity First rule. The table remains as historical
+> intent and is not an active implementation backlog.
+
 | ID | Requirement | Acceptance Criteria | Phases/Steps |
 |----|-------------|---------------------|--------------|
 | REQ-1 | `/cep` invokes existing design-review agents through review-run v1 with a fixed epic-coherency scope after the operator accepts a proposed cut, after the epic-only canonical source is complete, and before child scaffolding or finalization. | Focused tests prove the exact-byte frozen scope covers goal/done coverage, verticality, independence, overlap, ownership, dependencies, MVP/final route, and prior-art reuse; degraded, incomplete, unpublished, unreadable, or stale review authority blocks. `test:EpicCoherency.FixedScope` `review:dr` | 1.1, 2.1, 3.2 |

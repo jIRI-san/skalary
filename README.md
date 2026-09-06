@@ -81,10 +81,10 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | Plugin | Version | Status | Dependencies | Files | Description |
 |--------|---------|--------|--------------|-------|-------------|
 | `architecture-notes` | 1.0.10 | partial | — | 16 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
-| `autopilot` | 1.3.22 | partial | code-review, create-implementation-plan | 40 | Self-contained direct-workflow autonomous plan executor. |
+| `autopilot` | 1.3.23 | partial | code-review, create-implementation-plan | 40 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.83 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
 | `continue-implementation` | 1.0.120 | stable | autopilot, code-review, create-implementation-plan | 9 | Direct plan implementation workflow with Git criteria protection. |
-| `create-implementation-plan` | 1.0.103 | stable | design-review | 27 | Direct implementation and epic plan creation. |
+| `create-implementation-plan` | 1.0.104 | stable | design-review | 27 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.82 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
 | `plugin-manager` | 1.0.28 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
