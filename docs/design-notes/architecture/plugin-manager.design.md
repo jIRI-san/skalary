@@ -16,7 +16,7 @@ The four skills are thin orchestration over existing install/remove/update/find/
 | `install-plugin` | Install (default `jIRI-san/skalary@main`), then offer opt-in read-only approval. |
 | `uninstall-plugin` | Remove approvals before payload; retain self/dependent guard. |
 | `list-plugins` | Read-only available, installed, and search views. |
-| `update-plugin` | Version update with modified-file preservation. |
+| `update-plugin` | Explicit version update that replaces receipt-owned paths. |
 
 Skills invoke installed scripts directly as
 `.github/skills/<skill>/scripts/<Script>.ps1 -RepoRoot .`, never through `pwsh -File`. VS Code

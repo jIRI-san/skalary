@@ -116,7 +116,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Distribution, contracts, and closure
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Update the installer architecture contract, plugin lifecycle design notes, plugin-manager guidance, and operator-facing skills for the confirmed direct behavior and accepted safety tradeoffs (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, RISK-2, RISK-4, RISK-6) [after: 2.3] `M`
+- [x] 3.1 Update the installer architecture contract, plugin lifecycle design notes, plugin-manager guidance, and operator-facing skills for the confirmed direct behavior and accepted safety tradeoffs (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, RISK-2, RISK-4, RISK-6) [after: 2.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** active architecture/design notes and plugin-manager skills describe minimal version receipts, explicit overwrite/remove authority, receipt-last visible failure, retired-name refusal, and the absence of transactional recovery.
