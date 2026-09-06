@@ -88,7 +88,21 @@ if ($isCompleted) {
     if (-not $hasExitCode -or $exitCode -ne 0) {
         throw 'Completed epic autopilot result must carry exit code 0.'
     }
-    Write-Output "Epic '$Epic' is complete after target refresh; no child was launched."
+    $archiveScript = Join-Path $PSScriptRoot 'Archive-Epic.ps1'
+    if (-not (Test-Path -LiteralPath $archiveScript -PathType Leaf)) {
+        throw "Epic '$Epic' completed, but Archive-Epic.ps1 was not found at '$archiveScript'."
+    }
+    $archiveParameters = @{ Epic = $Epic }
+    if ($RepoRoot) {
+        $archiveParameters.RepoRoot = $RepoRoot
+    }
+    $archive = & $archiveScript @archiveParameters
+    if ($null -eq $archive -or
+        $archive.PSObject.Properties.Name -notcontains 'Status' -or
+        [string]$archive.Status -cnotin @('archived', 'already-archived')) {
+        throw "Epic '$Epic' completed, but archival returned an invalid result."
+    }
+    Write-Output "Epic '$Epic' is complete and archived at '$($archive.Path)'."
     exit 0
 }
 if ($isBlocked) {

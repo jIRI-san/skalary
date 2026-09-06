@@ -3111,6 +3111,17 @@ function Invoke-EpicAutopilotHostLoop {
 Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
 '@
         )
+        [System.IO.File]::WriteAllText(
+            (Join-Path $layout 'Archive-Epic.ps1'),
+            @'
+param([string]$Epic, [string]$RepoRoot = $PSScriptRoot)
+[pscustomobject]@{
+    Status = 'archived'
+    EpicId = $Epic
+    Path = Join-Path $RepoRoot 'docs/implementation-plans/archived/epics/fixture'
+}
+'@
+        )
         $wrapper = Join-Path $layout 'Invoke-EpicAutopilot.ps1'
         $originalScenario = $env:EPIC_WRAPPER_SCENARIO
         $originalCapture = $env:EPIC_WRAPPER_CAPTURE
@@ -3123,7 +3134,7 @@ Export-ModuleMember -Function Invoke-EpicAutopilotHostLoop
                     @{ Scenario = 'failed'; Exit = 1; Match = 'invocation-failed' },
                     @{ Scenario = 'blocked'; Exit = 42; Match = 'incomplete with no eligible NextChild' },
                     @{ Scenario = 'blocked-retained'; Exit = 42; Match = 'retained-checkpoint blocked stop' },
-                    @{ Scenario = 'complete'; Exit = 0; Match = 'complete after target refresh' },
+                    @{ Scenario = 'complete'; Exit = 0; Match = 'complete and archived at' },
                     @{ Scenario = 'none'; Exit = 1; Match = 'neither state, completion, nor a blocked stop' },
                     @{ Scenario = 'missing-exit'; Exit = 1; Match = '(?s)inconsistent outcome.*Failed flag' },
                     @{ Scenario = 'invalid-exit'; Exit = 1; Match = 'invalid exit code' },

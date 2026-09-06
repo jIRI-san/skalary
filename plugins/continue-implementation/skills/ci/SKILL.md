@@ -26,7 +26,9 @@ $epicScripts = Join-Path <canonical-repo-root> '.github/skills/autopilot/scripts
 Bind the canonical `EpicId`, literal local `HEAD`, and the same canonical root used for state
 resolution. Do not select `NextChild` or fall through to ordinary plan handling. If
 `AUTOPILOT_CONTAINER=true`, refuse because the epic wrapper is host-only. Block on the wrapper and
-preserve its exact exit status and outcome.
+preserve its exact exit status and outcome. A successful terminal epic result refreshes the child
+mirror and moves the completed index to `docs/implementation-plans/archived/epics/` through installed
+`Archive-Epic.ps1`; archived epics remain resolvable history and are never relaunched.
 
 Work directly with zero delegated calls. Resolve aliases through
 [`model-aliases.psd1`](./assets/model-aliases.psd1). Routine work uses `primary-model-low`/medium with

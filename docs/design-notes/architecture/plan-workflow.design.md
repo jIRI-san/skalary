@@ -18,6 +18,11 @@ decisions before writing `planning-confirmed`. Complex choices use host-equivale
 benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
 matters; free-form input remains one focused question.
 
+Completed epic indexes move under `docs/implementation-plans/archived/epics/` after their generated
+child table is refreshed. `Archive-Epic.ps1` refuses incomplete epics, unarchived children, linked
+sources, and destination collisions; repeating it for an archived epic is a no-op. Archived indexes
+remain resolvable human-readable history and are never execution targets.
+
 Each epic child owns one outcome, explicit non-goals and interface boundaries, plus dependency rationale.
 `/cip` disposes every discovered edge case into a requirement, risk, or non-goal. Nontrivial AI steps
 state outcome, likely touchpoints, constraints, and verification in their existing details block;

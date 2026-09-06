@@ -1580,14 +1580,15 @@ function Resolve-Plan {
 function Get-EpicInventory {
     <#
     .SYNOPSIS
-    Enumerates the epic folders under `docs/implementation-plans/epics/`.
+    Enumerates active and archived epic folders.
 
     .DESCRIPTION
     An epic is an index, not a plan: it holds `epic.md` and no `plan.md`, and its children stay ordinary
     sibling plan folders so every existing consumer keeps resolving them unchanged. Epic folders never
     carry the navigational plan prefix: their name remains `<yyyy-mm-dd>-<6hex>-<slug>`. The
-    `<!-- epic-id: ... -->` anchor in
-    `epic.md` is canonical when present, exactly as `plan-id` is for plans.
+    `<!-- epic-id: ... -->` anchor in `epic.md` is canonical when present, exactly as `plan-id` is for
+    plans. Active indexes live directly under `epics/`; completed indexes live under
+    `archived/epics/` and remain resolvable historical records.
     #>
     [CmdletBinding()]
     param(
@@ -1596,13 +1597,22 @@ function Get-EpicInventory {
     )
 
     $root = [System.IO.Path]::GetFullPath($RepoRoot)
-    $epicsRoot = Join-Path $root 'docs/implementation-plans/epics'
+    $plansRoot = Join-Path $root 'docs/implementation-plans'
+    $epicsRoot = Join-Path $plansRoot 'epics'
+    $archivedEpicsRoot = Join-Path $plansRoot 'archived/epics'
     $inventory = [System.Collections.Generic.List[object]]::new()
-    if (-not (Test-Path -LiteralPath $epicsRoot -PathType Container)) {
-        return $inventory.ToArray()
+    $folders = @()
+    if (Test-Path -LiteralPath $epicsRoot -PathType Container) {
+        $folders += Get-ChildItem -LiteralPath $epicsRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $false } }
+    }
+    if (Test-Path -LiteralPath $archivedEpicsRoot -PathType Container) {
+        $folders += Get-ChildItem -LiteralPath $archivedEpicsRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { [pscustomobject]@{ Dir = $_; IsArchived = $true } }
     }
 
-    foreach ($dir in (Get-ChildItem -LiteralPath $epicsRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    foreach ($entry in ($folders | Sort-Object @{ Expression = { $_.Dir.Name } }, IsArchived)) {
+        $dir = $entry.Dir
         if ($dir.Name -notmatch '^(?<date>\d{4}-\d{2}-\d{2})-(?<hash>[0-9a-f]{6})-(?<slug>.+)$') {
             continue
         }
@@ -1634,6 +1644,7 @@ function Get-EpicInventory {
                 FolderName = $dir.Name
                 Path = $dir.FullName
                 EpicFile = $epicFile
+                IsArchived = [bool]$entry.IsArchived
             })
     }
 

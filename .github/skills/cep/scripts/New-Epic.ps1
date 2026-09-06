@@ -622,6 +622,9 @@ if ($PSCmdlet.ParameterSetName -eq 'Verdict') {
     }
 
     $resolvedEpic = Resolve-Epic -Reference $Epic -RepoRoot $repoRootPath -Inventory $epicInventory
+    if ($resolvedEpic.IsArchived) {
+        throw "Epic '$($resolvedEpic.Id)' is archived and cannot accept a coherency verdict."
+    }
     $epicFile = [System.IO.Path]::GetFullPath([string]$resolvedEpic.EpicFile)
     $expectedEpicRoot = [System.IO.Path]::GetFullPath([string]$resolvedEpic.Path)
     $pathComparison = if ($IsWindows) {
@@ -698,6 +701,9 @@ if ($PSCmdlet.ParameterSetName -eq 'Scaffold') {
 }
 else {
     $resolvedEpic = Resolve-Epic -Reference $Epic -RepoRoot $repoRootPath -Inventory $epicInventory
+    if ($resolvedEpic.IsArchived) {
+        throw "Epic '$($resolvedEpic.Id)' is archived and cannot be modified."
+    }
     $EpicId = $resolvedEpic.Id
     $epicDir = $resolvedEpic.Path
     $epicFile = $resolvedEpic.EpicFile
@@ -746,6 +752,9 @@ foreach ($reference in $ChildPlan) {
             })
         if ($previousEpic.Count -ne 1 -or -not (Test-Path -LiteralPath $previousEpic[0].EpicFile -PathType Leaf)) {
             throw "Cannot re-parent child plan '$($child.Id)': previous epic '$previousEpicId' has no unique epic.md."
+        }
+        if ($previousEpic[0].IsArchived) {
+            throw "Cannot re-parent child plan '$($child.Id)' from archived epic '$previousEpicId'."
         }
         $previousEpicFile = [System.IO.Path]::GetFullPath([string]$previousEpic[0].EpicFile)
         if ($validatedEpicFiles.Add($previousEpicFile)) {

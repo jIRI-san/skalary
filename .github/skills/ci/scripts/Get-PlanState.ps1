@@ -55,6 +55,7 @@ if ($resolvedEpic) {
         Title      = $resolvedEpic.Title
         FolderName = $resolvedEpic.FolderName
         EpicFile   = $resolvedEpic.EpicFile
+        IsArchived = $resolvedEpic.IsArchived
         Rollup     = [pscustomobject]@{
             ChildCount     = $rollup.ChildCount
             CompleteCount  = $rollup.CompleteCount
@@ -99,7 +100,8 @@ if ($resolvedEpic) {
     }
 
     $epicLines = [System.Collections.Generic.List[string]]::new()
-    $epicLines.Add("Epic:       $($epicState.EpicId)  ($($epicState.FolderName))")
+    $archiveLabel = if ($epicState.IsArchived) { ' (archived)' } else { '' }
+    $epicLines.Add("Epic:       $($epicState.EpicId)  ($($epicState.FolderName))$archiveLabel")
     $epicLines.Add("Children:   $($rollup.CompleteCount)/$($rollup.ChildCount) complete  blocked=$($rollup.BlockedCount)")
     $epicLines.Add("Steps:      $($rollup.CompletedSteps)/$($rollup.TotalSteps) done ($($rollup.Percent)%)")
     foreach ($child in $rollup.Children) {

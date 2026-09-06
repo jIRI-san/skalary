@@ -23,7 +23,7 @@ what wins when prose and executable state disagree.
 
 | Artifact | Owner | Location | Lifecycle and mutability | Source of truth | Consumer |
 |---|---|---|---|---|---|
-| Epic index | `/cep` | [`docs/implementation-plans/epics/`](../implementation-plans/epics/) | Created after epic-cut confirmation; its table is a generated mirror | Child plan `epic:`/`depends-on:` markers for membership/order; committed `epic.md` for epic identity | Operator, later `/cip` |
+| Epic index | `/cep`, then epic `/ci` | [`docs/implementation-plans/epics/`](../implementation-plans/epics/) | Created after epic-cut confirmation; its table is a generated mirror; successful terminal completion moves it to `archived/epics/` | Child plan `epic:`/`depends-on:` markers for membership/order; committed `epic.md` for epic identity and archive path for terminal state | Operator, later `/cip` |
 | Plan index and progress | `/cip`, then `/ci`/autopilot | [`docs/implementation-plans/<plan>/plan.md`](../implementation-plans/) | Identity and confirmation marker are planning-owned; checklist, stage, and worktree markers stay mutable during execution | Current Git tree plus plan parser | `/ci`, autopilot, validators |
 | Intent | `/cip` | `assets/intent.md` in the plan | Confirmed before drafting; immutable during execution unless planning is reopened | Confirmation-baseline Git tree | Admission and implementation |
 | Domain model | `/cip` | `assets/domain.md` | Planning context; revise through `/cip` | Current committed file | Designer, implementer, DR |
