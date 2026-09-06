@@ -19,6 +19,13 @@ Describe 'Autopilot.ContainerOffline' {
             $launcher | Should -Match 'Branch = \$StartBranch'
         }
 
+        It 'passes an explicit PR base independently from start validation' {
+            $launcher | Should -Match '\[string\]\$ExpectedPullRequestBase'
+            $launcher | Should -Match (
+                '\$envParams\.ExpectedPullRequestBase = \$ExpectedPullRequestBase'
+            )
+        }
+
         It 'exposes a -FeedPath parameter' {
             $launcher | Should -Match '\[string\]\$FeedPath'
         }
@@ -37,6 +44,11 @@ Describe 'Autopilot.ContainerOffline' {
         It 'injects AUTOPILOT_OFFLINE and AUTOPILOT_FEED when offline' {
             $envFile | Should -Match 'AUTOPILOT_OFFLINE=true'
             $envFile | Should -Match 'AUTOPILOT_FEED=/feed'
+        }
+        It 'injects the PR base only through its explicit parameter' {
+            $envFile | Should -Match (
+                'AUTOPILOT_EXPECTED_PR_BASE=\$ExpectedPullRequestBase'
+            )
         }
         It 'routes the complete writer payload through the validated serializer' {
             $envFile | Should -Match (

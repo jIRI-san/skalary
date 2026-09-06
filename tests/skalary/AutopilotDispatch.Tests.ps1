@@ -54,6 +54,7 @@ autopilot_execution_targets "$2" "$3"
                 [Parameter(Mandatory)][ValidateSet('OPEN', 'MERGED', 'CLOSED')]
                 [string]$State,
                 [string]$Base = 'main',
+                [string]$ExpectedBase = 'main',
                 [bool]$Published = $true
             )
 
@@ -63,6 +64,7 @@ oid="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 fixture_base="$2"
 fixture_state="$3"
 fixture_published="$4"
+fixture_expected_base="$5"
 git() {
     case "$*" in
         "-C . check-ref-format --branch feature/test") return 0 ;;
@@ -83,13 +85,13 @@ gh() {
     printf 'feature/test\t%s\t%s\t%s\n' "${oid}" "${fixture_base}" "${fixture_state}"
 }
 AUTOPILOT_GH_BIN=gh
-autopilot_branch_has_published_pr . feature/test main
+autopilot_branch_has_published_pr . feature/test "${fixture_expected_base}"
 status=$?
 if [ "${status}" -eq 0 ]; then
     autopilot_completion_handoff_action 0 closed 0 3
 fi
 exit "${status}"
-'@ bash $script:dispatch $Base $State $Published.ToString().ToLowerInvariant()
+'@ bash $script:dispatch $Base $State $Published.ToString().ToLowerInvariant() $ExpectedBase
             return [pscustomobject]@{
                 ExitCode = $LASTEXITCODE
                 Output = @($output)
@@ -143,10 +145,33 @@ fi
 
         (Invoke-PublishedPrCloseProof -State CLOSED).ExitCode | Should -Be 1
         (Invoke-PublishedPrCloseProof -State MERGED -Base wrong).ExitCode | Should -Be 1
+        (Invoke-PublishedPrCloseProof -State OPEN -ExpectedBase '').ExitCode | Should -Be 0
         (Invoke-PublishedPrCloseProof -State MERGED -Published $false).ExitCode |
             Should -Be 0
         (Invoke-PublishedPrCloseProof -State OPEN -Published $false).ExitCode |
             Should -Be 1
+    }
+
+    It 'does not infer an epic PR base from direct expected-start validation' {
+        $entrypoint = (
+            Join-Path $script:repoRoot 'plugins/autopilot/scripts/container-entrypoint.sh'
+        ).Replace('\', '/')
+        $resolved = & bash -c @'
+. "$1"
+EXPECTED_START_COMMIT="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+REPO_BRANCH="plan/baseline"
+autopilot_expected_close_target_branch "${AUTOPILOT_EXPECTED_PR_BASE:-}"
+'@ bash $entrypoint
+        $LASTEXITCODE | Should -Be 0
+        $resolved | Should -BeNullOrEmpty
+
+        $resolved = & bash -c @'
+. "$1"
+AUTOPILOT_EXPECTED_PR_BASE="main"
+autopilot_expected_close_target_branch "${AUTOPILOT_EXPECTED_PR_BASE:-}"
+'@ bash $entrypoint
+        $LASTEXITCODE | Should -Be 0
+        $resolved | Should -BeExactly 'main'
     }
 
     It 'treats a clean committed archived plan phase as closed' {
