@@ -1,11 +1,9 @@
 # Recent learning
 
-Source plan: `33a78a ai-credit-budget-optimization`
-Source commit: `41d370d225044e8539e2a2e11a5eaa22bd40e70b`
+Source plan: `3a4498 simple-self-improvement`
+Source commit: `281e1316458b821413d674065377d2df78a1e3f1`
 
 ## Lessons
 
-- Validate operator-selected models at the launcher boundary before setup or authentication side effects. — `plugins/autopilot/scripts/launch.ps1`
-- Prefer deterministic graders for observable eval behavior and reserve prompt judges for subjective criteria. — `docs/design-notes/architecture/plugin-evals.design.md`
-- Treat default context as a fixed cost boundary and remove override plumbing rather than documenting an expensive option. — `plugins/autopilot/schemas/autopilot.schema.json`
-- Regenerate registry and dogfood surfaces whenever canonical plugin payloads change. — `scripts/skalary/Sync-Dogfood.ps1`
+- Post-write confinement must enumerate the worktree itself; a caller-supplied path list can omit an unintended mutation. — `scripts/skalary/Test-SiWriteScope.ps1`
+- A canonical non-script plugin payload change needs its owner version bumped before catalogs are regenerated so consumers can discover the update. — `scripts/skalary/Sync-PluginScripts.ps1`

@@ -62,7 +62,7 @@ premium-eval costs, and skill context are small enough to operate within the sta
 |---|---|---|
 | `2aa7ec` | local-first-operating-baseline _(archived)_ | — |
 | `367e9a` | simple-review-to-plan-workflow _(archived)_ | `2aa7ec` |
-| `3a4498` | simple-self-improvement | `367e9a`, `33a78a` |
+| `3a4498` | simple-self-improvement _(archived)_ | `367e9a`, `33a78a` |
 | `623cc2` | simple-plugin-lifecycle | `2aa7ec`, `33a78a` |
 | `33a78a` | ai-credit-budget-optimization _(archived)_ | `367e9a` |
 | `a524dc` | unified-skalary-configuration | `367e9a`, `33a78a`, `3a4498`, `623cc2` |
