@@ -448,7 +448,7 @@ Describe 'Dormant direct workflow core' {
         New-Item -ItemType Directory -Path $outside -Force | Out-Null
         $reviews = Join-Path $fixture.AssetsDir 'reviews'
         try {
-            New-Item -ItemType Junction -Path $reviews -Target $outside -ErrorAction Stop |
+            New-Item -ItemType SymbolicLink -Path $reviews -Target $outside -ErrorAction Stop |
                 Out-Null
         }
         catch {
@@ -676,7 +676,7 @@ $script:secret
         Set-Content -LiteralPath (Join-Path $outside 'outside.txt') `
             -Value 'outside' -Encoding utf8NoBOM
         try {
-            New-Item -ItemType Junction -Path (Join-Path $fixture.Root 'linked') `
+            New-Item -ItemType SymbolicLink -Path (Join-Path $fixture.Root 'linked') `
                 -Target $outside -ErrorAction Stop | Out-Null
         }
         catch {
