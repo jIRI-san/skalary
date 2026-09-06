@@ -78,7 +78,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `create-implementation-plan` | 1.0.100 | stable | design-review | 27 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.79 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
-| `plugin-manager` | 1.0.24 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
+| `plugin-manager` | 1.0.28 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.82 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
 | `work-hierarchy-sync` | 1.0.25 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |

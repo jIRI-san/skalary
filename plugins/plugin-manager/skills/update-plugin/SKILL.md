@@ -30,10 +30,12 @@ Run the bundled updater **directly** (not via `pwsh -File`) with `-RepoRoot .`:
 .github/skills/update-plugin/scripts/Update-Plugin.ps1 -Name <name> -RepoRoot . -Repository jIRI-san/skalary -Ref main
 ```
 
-- Update installs the resolved source snapshot transactionally and rolls back on any failure.
-- For locally modified installed files, show the differing paths and offer **Force — overwrite local
-  changes** (`effort: 4`, `complexity: 5`) or **Preserve — skip modified files** (`effort: 2`,
-  `complexity: 2`).
+- A matching receipt authorizes this explicit update to replace all old/new manifest paths, including
+  locally edited files; it verifies the target payload and writes the updated receipt last. On a
+  failure, payload changes are visible and the prior receipt remains for a convergent retry.
+- An update has no modified-file preservation mode. Before running it, state that local edits under
+  receipt-owned paths will be overwritten. A retired plugin name is refused and must be removed
+  explicitly.
 
 ## Step 3: Confirm
 

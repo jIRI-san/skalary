@@ -280,46 +280,6 @@ Describe 'architecture-test retirement baseline' {
         }
     }
 
-    It 'test:PluginRetirement.ReaderRemovalAndResultContract caps process coverage at four launches with one shared timeout' {
-        $retirementTestPaths = @(
-            'tests/skalary/ArchitectureTestRetirement.Tests.ps1',
-            'tests/skalary/PluginRetirement.Tests.ps1'
-        )
-        $commands = foreach ($relativePath in $retirementTestPaths) {
-            $tokens = $null
-            $errors = $null
-            $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-                (Join-Path $script:repoRoot $relativePath),
-                [ref]$tokens,
-                [ref]$errors
-            )
-            @($errors).Count | Should -Be 0
-            $ast.FindAll({
-                    param($node)
-                    $node -is [System.Management.Automation.Language.CommandAst]
-                }, $true)
-        }
-        $normalLaunches = @($commands | Where-Object {
-                $_.GetCommandName() -ceq 'Invoke-SuiteFixtureProcess'
-            }).Count
-        $hardKills = @($commands | Where-Object {
-                $_.GetCommandName() -ceq 'Start-Process' -and
-                $_.Extent.Text -match '^Start-Process\s+pwsh\b'
-            }).Count
-        $unboundedPwsh = @($commands | Where-Object { $_.GetCommandName() -ceq 'pwsh' }).Count
-
-        $normalLaunches | Should -Be 3
-        $hardKills | Should -Be 1
-        ($normalLaunches + $hardKills) | Should -BeLessOrEqual 4
-        $unboundedPwsh | Should -Be 0
-        (Get-Content -LiteralPath (Join-Path $script:repoRoot $retirementTestPaths[1]) -Raw) |
-            Should -Match 'AddSeconds\(\(Get-SuiteFixtureProcessTimeoutSeconds\)\)'
-
-        $fixtureModule = Get-Content -LiteralPath (Join-Path $script:repoRoot 'tests/SuiteFixture.psm1') -Raw
-        $fixtureModule | Should -Match '\$script:FixtureProcessTimeoutSeconds\s*=\s*30'
-        $fixtureModule | Should -Match '\$process\.WaitForExit\(\$TimeoutSeconds \* 1000\)'
-        $fixtureModule | Should -Match '\$process\.Kill\(\$true\)'
-    }
 
     It 'test:ArchitectureTestRetirement.ActiveAndHistoricalBoundary rejects mutation of a listed file' {
         $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("historical-mutation-" + [guid]::NewGuid().ToString('N'))

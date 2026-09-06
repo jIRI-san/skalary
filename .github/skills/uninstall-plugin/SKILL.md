@@ -45,9 +45,12 @@ This drops the plugin's read-only keys from `.vscode/settings.json` (a no-op if 
 - The remover **refuses** if another installed plugin depends on `<name>`; it lists the dependent
   plugin(s). Surface that message and offer **Force — remove despite named dependents** (`effort: 5`,
   `complexity: 6`) or **Cancel — preserve the dependency graph** (`effort: 1`, `complexity: 1`).
-- For locally modified installed files, offer **Force — overwrite local changes** (`effort: 4`,
-  `complexity: 5`) or **Preserve — skip modified files** (`effort: 2`, `complexity: 2`).
+- For locally modified installed files, unforced removal reports every differing path and deletes
+  nothing. Offer **Force — delete the modified plugin files** (`effort: 4`, `complexity: 5`) or
+  **Cancel — preserve all plugin files** (`effort: 1`, `complexity: 1`).
 
 ## Step 4: Confirm
 
-Confirm the receipt `.github/.skalary/receipts/<name>.json` is gone and report exactly what was removed (and any files skipped as modified).
+Confirm the receipt `.github/.skalary/receipts/<name>.json` is gone and report exactly what was
+removed. The receipt is removed last; an interruption can leave payload changes visible for a
+convergent retry.

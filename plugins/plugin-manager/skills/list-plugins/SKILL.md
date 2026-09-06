@@ -32,4 +32,6 @@ Both resolve the catalog from the root `registry.json`, falling back to `scripts
 
 ## Step 2: Present
 
-Summarize the results: `name`, `version`, the `installed` / `modified` / `outdated` flags (from `Get-Plugin`), and `description`. For a search, show the matching plugins and remind the user they can install one with `/install-plugin <name>`.
+Summarize the results: `name`, `version`, the `installed` / `outdated` flags (from `Get-Plugin`), and
+`description`. For a search, show the matching plugins and remind the user they can install one with
+`/install-plugin <name>`. A retired result is refusal metadata, not an installed-state cleanup action.

@@ -1,5 +1,5 @@
 ---
-description: Source-first plugin packaging, generated catalogs, transactional lifecycle, confinement, receipts, and dogfood.
+description: Source-first plugin packaging, direct lifecycle, confinement, minimal receipts, and dogfood.
 globs:
   - plugins/**
   - registry.json
@@ -19,56 +19,51 @@ globs:
 |---|---|
 | `plugins/<name>/plugin.json` | Identity, semver, dependencies, `{src,dest}` files, optional status/scaffolds/eval reservations. |
 | `registry.json` | Hash-pinned install catalog, scaffolds, bootstrap metadata, and permanent retirements. |
-| `.github/.skalary/receipts/*.json` | Per-plugin source/ref/version and file hash/outcome ownership; avoids a shared lock-file conflict. |
-| `.github/.skalary/retirements/*.json` | Versioned preview/apply/result state; never deletion authority by itself. |
+| `.github/.skalary/receipts/*.json` | Per-plugin installed identity: exactly `name`, `version`, `sourceIdentity`, and immutable `ref`. |
 | `.github/**` | Dogfood installed output, converged from declared plugin files. |
 | skill `scripts/**` | Generated canonical-script closures owned only by `Sync-PluginScripts.ps1`. |
 
 Standard Copilot metadata stays in `SKILL.md`; packaging metadata stays in `plugin.json`. Evals never
 install. Direct review Markdown is advisory and never registry/receipt state.
 
-## Install, update, remove, and retirement
+## Direct lifecycle
 
-Dependency resolution is deterministic topological order with name dedupe, lexical ties, and
-pre-copy cycle detection. One immutable SHA supplies each remote or local operation. Apply stages
-under `.github/.skalary/tmp/`, verifies hashes, backs up, atomically moves, then writes the receipt;
-failure restores backups and writes no receipt.
+Dependency resolution is deterministic topological order with name dedupe, lexical ties, and pre-copy
+cycle detection. One immutable SHA supplies each remote or local operation. Lifecycle destinations,
+receipt paths, temporary paths, and existing parent components must remain physically confined to
+`.github/`; traversal, rooted, linked/reparse, and `.github/workflows/**` paths fail before access.
 
-Receipt `sourceIdentity` is version 1: GitHub stores canonical `github.com/<owner>/<repository>`, local
-sources store a canonical-path SHA-256, and immutable `ref` is separate. Ambiguous legacy source labels
-fail closed for retirement.
+Each receipt has exactly `name`, `version`, `sourceIdentity`, and immutable `ref`. GitHub identities
+are canonical `github.com/<owner>/<repository>`; local identities are canonical-path SHA-256. Invalid,
+mismatched, linked, or legacy-shaped receipts fail closed. Receipts provide installed/outdated status
+and the authority to materialize the old manifest; they never track per-file ownership.
 
-Update reconciles the old receipt against the new manifest under the mutation lock. A new absent,
-unowned destination installs without `-Force`; an existing unowned or foreign-owned path remains
-protected. Retired destinations are removed only when still equal to their receipt hash (or explicitly
-forced); modified residue remains recorded as `skipped-modified` in a degraded receipt. Payload and
-receipt moves share a rollback transaction and converge idempotently.
+Install preflights the complete manifest set, refuses an unowned destination unless `-Force`, writes
+the confined payload directly, verifies resulting bytes, and writes the receipt last. An unchanged rerun
+does not mutate files. Update requires a matching source identity, derives both old and target manifests,
+and replaces their path union under the same receipt authority, including local edits. It verifies target
+bytes and old-path absence before advancing the receipt.
 
-Explicit remove and automatic retirement share `Invoke-PluginRemovalPrimitive`: serialize through
-`mutation.lock`; confine payload/state/journal/backup paths and parent chains; write a validated journal
-before mutation; and require plugin/source/transaction identity, receipt hashes, backup paths, and
-backup hashes to match for recovery. Modified files remain with original expected ownership as
-`degraded`/`skipped-modified`; only explicit `Remove-Plugin -Force` deletes them.
+Remove materializes the exact receipt-pinned manifest and preflights every present target. An unforced
+modified target reports all differences and prevents every deletion; missing paths already converge.
+`-Force` deletes the complete confined set. Dependency refusal remains unless forced, and removal
+deletes the receipt only after its result is verified.
 
-`registry-retirements.json` is immutable append-only tombstone authority. Build copies it to
-`retiredPlugins`; marketplace remains active-only; active/retired names are disjoint. History checks
-take explicit current/historical files without Git; missing required history errors. State paths use
-the plugin-name grammar plus `.github` confinement and closed embedded schema; affected paths are never
-truncated, only display summaries are.
+`registry-retirements.json` is immutable append-only published refusal metadata. Registry generation
+copies it to `retiredPlugins`; marketplace remains active-only; active and retired names are disjoint.
+Install and update of a retired name fail with an explicit removal command. Retirement never mutates
+an installed plugin.
 
-Install/update reconcile after source verification and before active lookup or already-current return.
-First observation writes a complete preview; the next exact automatic operation applies it. Stale
-automatic input refreshes without deletion; explicit apply rejects missing/stale preview. Under lock,
-apply rederives the tombstone/source/ref/version intersection with current receipt ownership.
-`failed` returns to preview only after exact journal and observed-content recovery.
+## Dubious decisions
 
-One invocation emits at most one `RETIREMENT:` JSON record: exit `20` for a direct retired target,
-`21` for blocking failure. Terminal remedy replay is read-only, never hashes content, handles at most
-eight plugins/64 paths, and advances global and per-state cursors. Recovery covers partial journals and
-post-commit/pre-terminal crashes. Terminal state retains the old ref for manual restore, but tombstones
-still block fresh install and restored receipts remain explicit-removal authority. Repository-relative
-manual residue stays under the consumer root; `~/...` CLI paths stay under the profile; rooted and
-traversing tails are rejected.
+The lifecycle optimizes for one trusted operator rather than interruption safety. There is no mutation
+lock, journal, backup, rollback, or recovery: direct payload writes can remain after an interruption.
+Receipt-last ordering preserves the last known installed identity and exposes that partial state for a
+convergent retry.
+
+An explicit update overwrites local edits on paths authorized by its matching receipt. Per-file ownership
+and modified-state tracking would avoid this, but are intentionally absent to keep receipts minimal.
+Conversely, install protects an unowned collision and unforced remove protects every modified target.
 
 ## Integrity and deterministic catalogs
 

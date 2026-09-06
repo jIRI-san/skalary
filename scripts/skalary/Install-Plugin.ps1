@@ -12,7 +12,7 @@ param(
 
     [string]$Repository,
 
-    [switch]$ApplyRetirements
+    [switch]$Force
 )
 
 Set-StrictMode -Version Latest
@@ -202,31 +202,15 @@ function Get-ReceiptOwnerMap {
         [string]$RepoRoot
     )
 
-    $ownerByDest = @{}
     $receiptsRoot = Join-Path $RepoRoot '.github/.skalary/receipts'
     if (-not (Test-Path -LiteralPath $receiptsRoot -PathType Container)) {
-        return $ownerByDest
+        return @{}
     }
-
-    $receiptFiles = Get-ChildItem -LiteralPath $receiptsRoot -File -Filter '*.json'
-    foreach ($receiptFile in $receiptFiles) {
-        $receipt = Read-JsonFile -Path $receiptFile.FullName
-        $owner = [string]$receipt.name
-        foreach ($entry in @($receipt.files)) {
-            $dest = [string]$entry.dest
-            if ([string]::IsNullOrWhiteSpace($dest)) {
-                continue
-            }
-            $resolvedTarget = Resolve-GithubConstrainedPath -RepoRoot $RepoRoot -RelativePath $dest
-            $destKey = [System.IO.Path]::GetFullPath($resolvedTarget).ToLowerInvariant()
-            if ($ownerByDest.ContainsKey($destKey) -and $ownerByDest[$destKey] -ne $owner) {
-                throw "Existing receipt ownership collision for '$dest' between '$owner' and '$($ownerByDest[$destKey])'."
-            }
-            $ownerByDest[$destKey] = $owner
-        }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptsRoot
+    foreach ($receiptFile in Get-ChildItem -LiteralPath $receiptsRoot -File -Filter '*.json') {
+        [void](Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $receiptFile.BaseName)
     }
-
-    return $ownerByDest
+    return @{}
 }
 
 function Get-InstallOperationPlan {
@@ -245,7 +229,9 @@ function Get-InstallOperationPlan {
         [string]$StageRoot,
 
         [Parameter(Mandatory)]
-        [hashtable]$OwnerByDest
+        [hashtable]$OwnerByDest,
+
+        [switch]$Force
     )
 
     $pendingNames = @{}
@@ -254,6 +240,7 @@ function Get-InstallOperationPlan {
     }
 
     $operations = [System.Collections.Generic.List[object]]::new()
+    $destinations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $index = 0
     foreach ($plugin in $PendingPlugins) {
         $pluginName = [string]$plugin.name
@@ -266,12 +253,16 @@ function Get-InstallOperationPlan {
 
             $dest = [string]$file.dest
             $targetPath = Resolve-GithubConstrainedPath -RepoRoot $TargetRepoRoot -RelativePath $dest
+            Assert-GithubStatePathSafe -RepoRoot $TargetRepoRoot -Path $targetPath
             $destKey = [System.IO.Path]::GetFullPath($targetPath).ToLowerInvariant()
-            if ($OwnerByDest.ContainsKey($destKey)) {
-                $owner = [string]$OwnerByDest[$destKey]
-                if ($owner -ne $pluginName -and -not $pendingNames.ContainsKey($owner)) {
-                    throw "Refusing overwrite of '$dest': owned by installed plugin '$owner'."
-                }
+            if (-not $destinations.Add($destKey)) {
+                throw "Plugin manifests map multiple pending payloads to destination '$dest'."
+            }
+            if (Test-Path -LiteralPath $targetPath -PathType Container) {
+                throw "Refusing overwrite of directory destination '$dest'."
+            }
+            if ((Test-Path -LiteralPath $targetPath -PathType Leaf) -and -not $Force) {
+                throw "Refusing overwrite of existing unowned path '$dest'. Use -Force to overwrite."
             }
 
             $sourcePath = Resolve-PluginConstrainedPath -PluginRoot $pluginRoot -RelativePath $src
@@ -307,67 +298,32 @@ function Get-InstallOperationPlan {
     return @($operations | Sort-Object Dest, PluginName)
 }
 
-function Invoke-InstallTransaction {
+function Write-InstallOperations {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [object[]]$Operations,
-
-        [Parameter(Mandatory)]
-        [string]$BackupRoot
+        [object[]]$Operations
     )
 
     $applied = [System.Collections.Generic.List[object]]::new()
-    $backupIndex = 0
     foreach ($operation in $Operations) {
         $targetDir = Split-Path -Parent $operation.TargetPath
         if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
             [void](New-Item -ItemType Directory -Path $targetDir -Force)
         }
 
-        $backupPath = $null
-        if (Test-Path -LiteralPath $operation.TargetPath -PathType Leaf) {
-            $backupName = '{0:d5}-{1}' -f $backupIndex, ([System.IO.Path]::GetFileName($operation.TargetPath))
-            $backupPath = Join-Path $BackupRoot $backupName
-            Move-Item -LiteralPath $operation.TargetPath -Destination $backupPath -Force
-        }
-
         $appliedEntry = [pscustomobject]@{
             Operation = $operation
-            BackupPath = $backupPath
-            Replaced = $false
+            TargetPath = $operation.TargetPath
         }
         $applied.Add($appliedEntry)
-        Move-Item -LiteralPath $operation.StagePath -Destination $operation.TargetPath -Force
-        $appliedEntry.Replaced = $true
-        $backupIndex++
+        Copy-Item -LiteralPath $operation.StagePath -Destination $operation.TargetPath -Force
+        if ((Get-FileSha256 -Path $operation.TargetPath) -cne [string]$operation.Sha256) {
+            throw "Write verification failed for '$([string]$operation.Dest)'."
+        }
     }
 
     return @($applied)
-}
-
-function Restore-InstallTransaction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [object[]]$AppliedEntries
-    )
-
-    foreach ($entry in @($AppliedEntries) | Sort-Object { $_.Operation.Dest } -Descending) {
-        $targetPath = [string]$entry.Operation.TargetPath
-        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
-            Remove-Item -LiteralPath $targetPath -Force
-        }
-
-        $backupPath = [string]$entry.BackupPath
-        if (-not [string]::IsNullOrWhiteSpace($backupPath) -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
-            $targetDir = Split-Path -Parent $targetPath
-            if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $targetDir -Force)
-            }
-            Move-Item -LiteralPath $backupPath -Destination $targetPath -Force
-        }
-    }
 }
 
 function Get-PluginReceiptContent {
@@ -380,30 +336,10 @@ function Get-PluginReceiptContent {
         $SourceIdentity,
 
         [Parameter(Mandatory)]
-        [string]$RefSha,
-
-        [Parameter(Mandatory)]
-        [string]$Outcome
+        [string]$RefSha
     )
 
-    $receiptFiles = @()
-    foreach ($file in @($Plugin.files)) {
-        $src = [string]$file.src
-        if ($src -match '^evals(?:/|$)') {
-            continue
-        }
-
-        $receiptFiles += [pscustomobject]@{
-            dest = [string]$file.dest
-            sha256 = [string]$file.sha256
-            outcome = $Outcome
-        }
-    }
-
     return [pscustomobject]@{
-        evalStatus = 'none'
-        files = $receiptFiles
-        installedAt = (Get-Date).ToUniversalTime().ToString('o')
         name = [string]$Plugin.name
         ref = $RefSha
         sourceIdentity = $SourceIdentity
@@ -430,74 +366,15 @@ function Write-ReceiptSet {
         [string]$OperationRoot
     )
 
-    $stagedReceiptsRoot = Join-Path $OperationRoot 'receipts-staged'
-    $receiptBackupsRoot = Join-Path $OperationRoot 'receipts-backup'
-    [void](New-Item -ItemType Directory -Path $stagedReceiptsRoot -Force)
-    [void](New-Item -ItemType Directory -Path $receiptBackupsRoot -Force)
-
     $entries = [System.Collections.Generic.List[object]]::new()
-    $backupIndex = 0
     foreach ($plugin in $PendingPlugins) {
         $pluginName = [string]$plugin.name
-        $existingReceipt = Read-PluginReceipt -RepoRoot $RepoRoot -PluginName $pluginName
-        $outcome = if ($null -ne $existingReceipt) { 'updated' } else { 'installed' }
-        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceIdentity $SourceIdentity -RefSha $RefSha -Outcome $outcome
-
-        $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $pluginName
-        $stagedPath = Join-Path $stagedReceiptsRoot "$pluginName.json"
-        Write-JsonFileStable -Path $stagedPath -InputObject $receipt
-        $entry = [pscustomobject]@{
-            ReceiptPath = $receiptPath
-            StagedPath = $stagedPath
-            BackupPath = $null
-            Committed = $false
-            BackupIndex = $backupIndex
-        }
-        $entries.Add($entry)
-        $backupIndex++
-    }
-
-    foreach ($entry in $entries) {
-        $receiptDir = Split-Path -Parent $entry.ReceiptPath
-        if (-not (Test-Path -LiteralPath $receiptDir -PathType Container)) {
-            [void](New-Item -ItemType Directory -Path $receiptDir -Force)
-        }
-
-        if (Test-Path -LiteralPath $entry.ReceiptPath -PathType Leaf) {
-            $backupName = '{0:d5}-{1}' -f $entry.BackupIndex, ([System.IO.Path]::GetFileName($entry.ReceiptPath))
-            $entry.BackupPath = Join-Path $receiptBackupsRoot $backupName
-            Move-Item -LiteralPath $entry.ReceiptPath -Destination $entry.BackupPath -Force
-        }
-
-        Move-Item -LiteralPath $entry.StagedPath -Destination $entry.ReceiptPath -Force
-        $entry.Committed = $true
+        $receipt = Get-PluginReceiptContent -Plugin $plugin -SourceIdentity $SourceIdentity -RefSha $RefSha
+        $receiptPath = Write-PluginReceipt -RepoRoot $RepoRoot -Receipt $receipt
+        $entries.Add([pscustomobject]@{ ReceiptPath = $receiptPath; Committed = $true })
     }
 
     return @($entries)
-}
-
-function Restore-ReceiptSet {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [object[]]$Entries
-    )
-
-    foreach ($entry in @($Entries) | Sort-Object ReceiptPath -Descending) {
-        $receiptPath = [string]$entry.ReceiptPath
-        if ($entry.Committed -and (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
-            Remove-Item -LiteralPath $receiptPath -Force
-        }
-
-        $backupPath = [string]$entry.BackupPath
-        if (-not [string]::IsNullOrWhiteSpace($backupPath) -and (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
-            $receiptDir = Split-Path -Parent $receiptPath
-            if (-not (Test-Path -LiteralPath $receiptDir -PathType Container)) {
-                [void](New-Item -ItemType Directory -Path $receiptDir -Force)
-            }
-            Move-Item -LiteralPath $backupPath -Destination $receiptPath -Force
-        }
-    }
 }
 
 $targetRepoRoot = Resolve-RepoRoot -StartPath $RepoRoot
@@ -505,10 +382,8 @@ $sourceContext = $null
 $operationRoot = $null
 $appliedEntries = @()
 $receiptEntries = @()
-$mutationLock = $null
 
 try {
-    $mutationLock = Enter-PluginMutationLock -RepoRoot $targetRepoRoot
     $sourceContext = Get-ResolvedSourceContext -TargetRepoRoot $targetRepoRoot -SourcePath $Source -SourceRef $Ref -RemoteRepository $Repository
     $sourceRepoRoot = [string]$sourceContext.SourceRepoRoot
     $resolvedSha = [string]$sourceContext.Sha
@@ -521,11 +396,8 @@ try {
     if ($sourceContext.IsRemote) {
         Assert-RegistryParityAtCommit -LocalRepoRoot $targetRepoRoot -Sha $resolvedSha -SourceRegistry $registry
     }
-
-    $retirementResult = Invoke-PluginRetirementReconciliation -RepoRoot $targetRepoRoot -Registry $registry -SourceIdentity $sourceContext.SourceIdentity -DirectTarget $Name -ApplyRetirements:$ApplyRetirements -LockHeld
-    Write-PluginRetirementRecord -Result $retirementResult
-    if ($retirementResult.ExitCode -ne 0) {
-        exit ([int]$retirementResult.ExitCode)
+    if (@($registry.retiredPlugins | Where-Object { [string]$_.name -ceq $Name }).Count -gt 0) {
+        throw "Plugin '$Name' is retired. Run Remove-Plugin.ps1 -Name $Name."
     }
 
     $pluginsByName = @{}
@@ -546,46 +418,36 @@ try {
         exit 0
     }
 
-    $skalaryRoot = Join-Path $targetRepoRoot '.github/.skalary'
+    $skalaryRoot = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot -RelativePath '.skalary'
     if (-not (Test-Path -LiteralPath $skalaryRoot -PathType Container)) {
         [void](New-Item -ItemType Directory -Path $skalaryRoot -Force)
     }
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $skalaryRoot
 
-    $operationRoot = Join-Path $skalaryRoot ("tmp/install-" + [System.Guid]::NewGuid().ToString('N'))
-    $stagedRoot = Join-Path $operationRoot 'staged'
-    $backupRoot = Join-Path $operationRoot 'backups'
+    $operationRoot = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot -RelativePath (".skalary/tmp/install-" + [System.Guid]::NewGuid().ToString('N'))
+    $stagedRoot = Resolve-GithubConstrainedPath -RepoRoot $targetRepoRoot -RelativePath (([System.IO.Path]::GetRelativePath((Join-Path $targetRepoRoot '.github'), $operationRoot).Replace('\', '/')) + '/staged')
     [void](New-Item -ItemType Directory -Path $stagedRoot -Force)
-    [void](New-Item -ItemType Directory -Path $backupRoot -Force)
+    Assert-GithubStatePathSafe -RepoRoot $targetRepoRoot -Path $stagedRoot
 
     $ownerByDest = Get-ReceiptOwnerMap -RepoRoot $targetRepoRoot
-    $operations = Get-InstallOperationPlan -TargetRepoRoot $targetRepoRoot -SourceRepoRoot $sourceRepoRoot -PendingPlugins $pendingPlugins -StageRoot $stagedRoot -OwnerByDest $ownerByDest
+    $operations = Get-InstallOperationPlan -TargetRepoRoot $targetRepoRoot -SourceRepoRoot $sourceRepoRoot -PendingPlugins $pendingPlugins -StageRoot $stagedRoot -OwnerByDest $ownerByDest -Force:$Force
     if ($operations.Count -eq 0) {
         throw "No installable payload files found for '$Name'."
     }
 
-    $appliedEntries = Invoke-InstallTransaction -Operations $operations -BackupRoot $backupRoot
-    Set-Content -LiteralPath (Join-Path $operationRoot 'success.marker') -Value ((Get-Date).ToUniversalTime().ToString('o')) -NoNewline -Encoding utf8
+    [void](Write-InstallOperations -Operations $operations)
 
     $receiptEntries = Write-ReceiptSet -RepoRoot $targetRepoRoot -PendingPlugins $pendingPlugins -SourceIdentity $sourceContext.SourceIdentity -RefSha $resolvedSha -OperationRoot $operationRoot
 
     Write-Host "Installed plugin '$Name' with $($pendingPlugins.Count) plugin(s) from '$([string]$sourceContext.SourceIdentity.identity)' at '$resolvedSha'."
 }
 catch {
-    if ($receiptEntries.Count -gt 0) {
-        Restore-ReceiptSet -Entries $receiptEntries
-    }
-    if ($appliedEntries.Count -gt 0) {
-        Restore-InstallTransaction -AppliedEntries $appliedEntries
-    }
     if (-not [string]::IsNullOrWhiteSpace($operationRoot) -and (Test-Path -LiteralPath $operationRoot -PathType Container)) {
         Remove-Item -LiteralPath $operationRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
     throw
 }
 finally {
-    if ($null -ne $mutationLock) {
-        $mutationLock.Dispose()
-    }
     if ($null -ne $sourceContext -and -not [string]::IsNullOrWhiteSpace([string]$sourceContext.TempPath)) {
         Remove-Item -LiteralPath ([string]$sourceContext.TempPath) -Recurse -Force -ErrorAction SilentlyContinue
     }

@@ -503,38 +503,12 @@ function Test-ConsumerInstallInventory {
             continue
         }
         $receipt = $receiptByName[$name]
+        $receiptProperties = @($receipt.PSObject.Properties.Name | Sort-Object)
+        if (($receiptProperties -join "`n") -cne (@('name', 'ref', 'sourceIdentity', 'version') -join "`n")) {
+            $receiptMismatches.Add("$name receipt does not have the minimal receipt shape")
+        }
         if ([string]$receipt.version -cne [string]$plugin.Version) {
             $receiptMismatches.Add("$name receipt version is stale")
-        }
-        $receiptFiles = [System.Collections.Generic.Dictionary[string, object]]::new(
-            [System.StringComparer]::Ordinal
-        )
-        foreach ($file in @($receipt.files)) {
-            $dest = [string]$file.dest
-            if ($receiptFiles.ContainsKey($dest)) {
-                $receiptMismatches.Add("$name receipt contains duplicate mapping '$dest'")
-                continue
-            }
-            $receiptFiles[$dest] = $file
-        }
-        $installedFiles = @($plugin.Files | Where-Object { [bool]$_.Install })
-        $installedDests = [System.Collections.Generic.HashSet[string]]::new(
-            [System.StringComparer]::Ordinal
-        )
-        foreach ($file in $installedFiles) {
-            $dest = [string]$file.Dest
-            [void]$installedDests.Add($dest)
-            if (-not $receiptFiles.ContainsKey($dest)) {
-                $receiptMismatches.Add("$name receipt mapping missing '$dest'")
-            }
-            elseif ([string]$receiptFiles[$dest].sha256 -cne [string]$file.Sha256) {
-                $receiptMismatches.Add("$name receipt hash stale for '$dest'")
-            }
-        }
-        foreach ($dest in $receiptFiles.Keys) {
-            if (-not $installedDests.Contains($dest)) {
-                $receiptMismatches.Add("$name receipt has extra mapping '$dest'")
-            }
         }
         foreach ($dependency in @($plugin.Dependencies)) {
             if (-not $catalogByName.ContainsKey([string]$dependency)) {

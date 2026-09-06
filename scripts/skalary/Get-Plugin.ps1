@@ -25,9 +25,10 @@ function Get-ReceiptMap {
     if (-not (Test-Path -LiteralPath $receiptsRoot -PathType Container)) {
         return $map
     }
+    Assert-GithubStatePathSafe -RepoRoot $RepoRootPath -Path $receiptsRoot
 
     foreach ($receiptPath in (Get-ChildItem -LiteralPath $receiptsRoot -File -Filter '*.json' | Sort-Object Name)) {
-        $receipt = Read-JsonFile -Path $receiptPath.FullName
+        $receipt = Read-PluginReceipt -RepoRoot $RepoRootPath -PluginName $receiptPath.BaseName
         $name = [string]$receipt.name
         if (-not [string]::IsNullOrWhiteSpace($name)) {
             $map[$name] = $receipt
@@ -35,36 +36,6 @@ function Get-ReceiptMap {
     }
 
     return $map
-}
-
-function Test-ReceiptModified {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RepoRootPath,
-
-        [Parameter(Mandatory)]
-        $Receipt
-    )
-
-    foreach ($entry in @($Receipt.files)) {
-        $dest = [string]$entry.dest
-        if ([string]::IsNullOrWhiteSpace($dest)) {
-            continue
-        }
-
-        $targetPath = Resolve-GithubConstrainedPath -RepoRoot $RepoRootPath -RelativePath $dest
-        if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
-            return $true
-        }
-
-        $actualSha = Get-FileSha256 -Path $targetPath
-        if ($actualSha -ne [string]$entry.sha256) {
-            return $true
-        }
-    }
-
-    return $false
 }
 
 $repoRootPath = Resolve-RepoRoot -StartPath $RepoRoot
@@ -83,7 +54,6 @@ foreach ($plugin in @($registry.plugins | Sort-Object name)) {
         continue
     }
 
-    $isModified = if ($isInstalled) { Test-ReceiptModified -RepoRootPath $repoRootPath -Receipt $receipt } else { $false }
     $isOutdated = if ($isInstalled) { [string]$receipt.version -ne [string]$plugin.version } else { $false }
     $status = if ($plugin.PSObject.Properties.Name -contains 'status' -and -not [string]::IsNullOrWhiteSpace([string]$plugin.status)) { [string]$plugin.status } else { 'stable' }
 
@@ -91,7 +61,6 @@ foreach ($plugin in @($registry.plugins | Sort-Object name)) {
         name = $name
         version = [string]$plugin.version
         installed = $isInstalled
-        modified = $isModified
         outdated = $isOutdated
         status = $status
         description = [string]$plugin.description
