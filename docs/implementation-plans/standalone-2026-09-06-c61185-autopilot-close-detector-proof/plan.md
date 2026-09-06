@@ -37,4 +37,4 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add `tests/autopilot-close-detector-proof.txt` containing exactly `autopilot close proof`. (REQ-1, RISK-1) `S`
+- [x] 1.1 Add `tests/autopilot-close-detector-proof.txt` containing exactly `autopilot close proof`. (REQ-1, RISK-1) `S`
