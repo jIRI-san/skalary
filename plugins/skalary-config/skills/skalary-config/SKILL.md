@@ -47,6 +47,15 @@ Accepted categories are `autopilot`, `models-reviews`, `local-review-standards`,
 `terminal-approvals`, `evals`, `design-architecture`, `plugin-distribution`, and
 `repository-toolchain`. Unsupported surfaces are not guessed.
 
+The remaining categories are read-only routes to their existing owners. `show terminal-approvals`
+lists only exact read-only approval entries; use `scripts/skalary/Set-ScriptApproval.ps1 -Name
+<installed-plugin> -RepoRoot .` to change them. `show evals` lists credential target *names* and
+per-plugin Waza model/judge bindings, never credential values; run
+`scripts/skalary/Resolve-EvalToken.ps1 -RepoRoot .` or
+`scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <plugin>` directly. `show design-architecture`
+reports scaffold status and supplies its two owner scaffold commands. Plugin manifests, Waza
+specs, eval pins, and repository/toolchain policy remain advanced, source-only owner controls.
+
 Do not provide credential values, arbitrary paths, or generated paths. Credential state is
 availability-only; generated registry, marketplace, README, dogfood, receipts, plans, and workflows
 are not configuration write targets.

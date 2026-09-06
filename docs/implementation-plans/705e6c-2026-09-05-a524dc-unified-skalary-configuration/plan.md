@@ -130,7 +130,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Remaining categories and failure closure
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Route terminal approvals, eval credentials/specs, note scaffolds, and advanced plugin/toolchain policy through their existing owners (REQ-4, REQ-6, REQ-7, RISK-2, RISK-3, RISK-5, RISK-7) [after: 1.2] `L`
+- [x] 3.1 Route terminal approvals, eval credentials/specs, note scaffolds, and advanced plugin/toolchain policy through their existing owners (REQ-4, REQ-6, REQ-7, RISK-2, RISK-3, RISK-5, RISK-7) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the façade covers every remaining accepted category: exact read-only terminal approvals;
@@ -152,7 +152,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
   </details>
 
-- [ ] 3.2 Make Apply sequencing and failure reporting category-bounded, fail-loud, and recoverable from the visible Git diff without claiming rollback (REQ-3, REQ-7, REQ-8, RISK-2, RISK-3, RISK-4, RISK-6) [after: 2.1, 2.2, 3.1] `L`
+- [x] 3.2 Make Apply sequencing and failure reporting category-bounded, fail-loud, and recoverable from the visible Git diff without claiming rollback (REQ-3, REQ-7, REQ-8, RISK-2, RISK-3, RISK-4, RISK-6) [after: 2.1, 2.2, 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** each Apply rechecks the preview digest, changes canonical sources, runs only required

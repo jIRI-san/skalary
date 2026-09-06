@@ -26,6 +26,18 @@ build/test/runtime/container settings need an explicit warning acknowledgement, 
 an explicit cost acknowledgement. `Test-AutopilotAuth.ps1` retrieves a credential internally through the
 installed autopilot reader, composes its validator, and returns only target availability and capabilities.
 
+The remaining category routes are read-only owner handoffs. Terminal approval discovery parses JSONC
+and lists only exact approved `Get`/`Find`/`Test`/`Validate` skill scripts before naming
+`Set-ScriptApproval.ps1`. Eval discovery reports credential target names and Waza model/judge bindings
+without reading credential values. Design and architecture discovery reports tier scaffold status and
+the owner scaffold commands. Plugin distribution and repository/toolchain policy remain advanced,
+source-only status routes; manifests, eval specs/pins, and tool pins have no generic façade writer.
+
+Apply is category-bounded: it rechecks the preview digest before writing, then runs the model binding
+synchronizer followed by its allowlist validator. A write, synchronization, or validation failure
+throws a non-success error that explicitly states no rollback was attempted, retains the Git diff, and
+provides the category's direct recovery command.
+
 ## Constraints
 
 - Generated registry, marketplace, README, dogfood, receipts, plan/runtime state, workflows, and

@@ -62,6 +62,33 @@ Describe 'Skalary configuration catalog and read-only adapter' {
         $result.Validation | Should -Match 'requires maintainer source'
     }
 
+    It 'test:SkalaryConfig.Categories routes remaining categories through safe owner state' {
+        $approvals = & $script:reader -Action show -Category terminal-approvals -RepoRoot $script:repoRoot | ConvertFrom-Json
+        $approvals.OwnerCommand | Should -Match 'Set-ScriptApproval'
+        $approvals.EffectiveValues.ReadOnlyApprovals | Should -Not -Match 'Credential'
+
+        $evals = & $script:reader -Action show -Category evals -RepoRoot $script:repoRoot | ConvertFrom-Json
+        $evals.OwnerCommand | Should -Match 'Invoke-WazaEvals'
+        @($evals.EffectiveValues.WazaSpecs).Count | Should -BeGreaterThan 0
+        @($evals.EffectiveValues.WazaSpecs | Where-Object { $_.Model -notmatch '^[a-z0-9][a-z0-9.-]*$' }) | Should -BeNullOrEmpty
+        $evals | ConvertTo-Json -Depth 8 | Should -Not -Match 'github_pat_'
+
+        $notes = & $script:reader -Action show -Category design-architecture -RepoRoot $script:repoRoot | ConvertFrom-Json
+        $notes.EffectiveValues.DesignNotesPresent | Should -BeTrue
+        $notes.EffectiveValues.ArchitectureNotesPresent | Should -BeTrue
+        ($notes.OwnerCommands -join "`n") | Should -Match 'Initialize-DesignNotes'
+
+        $advanced = & $script:reader -Action preview -Category plugin-distribution -RepoRoot $script:repoRoot | ConvertFrom-Json
+        $advanced.Proposal | Should -Match 'no generic façade writer'
+    }
+
+    It 'test:SkalaryConfig.Safety refuses generic writers for remaining categories' {
+        $writerText = Get-Content -LiteralPath $script:writer -Raw
+        $writerText | Should -Not -Match "ValidateSet\([^)]*terminal-approvals"
+        $catalog | Should -Match 'never values or a generic spec editor'
+        $skill | Should -Match 'advanced, source-only owner controls'
+    }
+
     It 'test:SkalaryConfig.Mutation previews, applies, and preserves unrelated autopilot JSON' {
         $fixture = Join-Path $TestDrive 'mutation-repo'
         New-Item -ItemType Directory -Path @(
@@ -114,6 +141,20 @@ Describe 'Skalary configuration catalog and read-only adapter' {
             & $script:writer -Action preview -Category autopilot -RepoRoot $script:repoRoot `
                 -ChangesJson '{"context":"long_context"}' | Out-Null
         } | Should -Throw '*AcknowledgeLongContextCost*'
+    }
+
+    It 'test:SkalaryConfig.Failures requires a digest and reports direct recovery without rollback' {
+        {
+            & $script:writer -Action apply -Category autopilot -RepoRoot $script:repoRoot `
+                -ChangesJson '{"model":"primary-model-low"}' | Out-Null
+        } | Should -Throw '*Apply requires the SourceDigest*'
+
+        $writerText = Get-Content -LiteralPath $script:writer -Raw
+        $writerText | Should -Match 'Write failed for'
+        $writerText | Should -Match 'Model synchronization failed'
+        $writerText | Should -Match 'Model validation failed'
+        $writerText | Should -Match 'No rollback was attempted; inspect the visible diff'
+        $writerText | Should -Match 'Get-RecoveryCommand'
     }
 
     It 'test:SkalaryConfig.Models scopes model proposals to the selected alias or role and refuses invalid aliases' {

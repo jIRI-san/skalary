@@ -184,6 +184,87 @@ $result = [ordered]@{
     SourceDigest = $digest
 }
 
+function Get-TerminalApprovalState {
+    $settingsPath = Join-Path $root '.vscode/settings.json'
+    if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+        return [ordered]@{ SettingsPresent = $false; ReadOnlyApprovals = @() }
+    }
+    $options = [System.Text.Json.JsonDocumentOptions]::new()
+    $options.CommentHandling = [System.Text.Json.JsonCommentHandling]::Skip
+    $options.AllowTrailingCommas = $true
+    try {
+        $document = [System.Text.Json.JsonDocument]::Parse(
+            [System.IO.File]::ReadAllText($settingsPath), $options
+        )
+        try {
+            $approvals = [System.Collections.Generic.List[string]]::new()
+            $property = @($document.RootElement.EnumerateObject() | Where-Object {
+                    $_.Name -ceq 'chat.tools.terminal.autoApprove'
+                }) | Select-Object -First 1
+            if ($property -and $property.Value.ValueKind -eq [System.Text.Json.JsonValueKind]::Object) {
+                foreach ($approval in $property.Value.EnumerateObject()) {
+                    if ($approval.Value.ValueKind -eq [System.Text.Json.JsonValueKind]::True -and
+                        $approval.Name -match '^\.github/skills/[a-z0-9-]+/scripts/(?:Get|Find|Test|Validate)-[^/]+\.ps1$') {
+                        $approvals.Add($approval.Name)
+                    }
+                }
+            }
+            return [ordered]@{
+                SettingsPresent = $true
+                ReadOnlyApprovals = @($approvals | Sort-Object -Unique)
+            }
+        }
+        finally {
+            $document.Dispose()
+        }
+    }
+    catch {
+        throw ".vscode/settings.json is malformed: $($_.Exception.Message)"
+    }
+}
+function Get-EvalState {
+    $configPath = Join-Path $root '.eval.config.json'
+    $targets = @()
+    if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+        try {
+            $config = [System.IO.File]::ReadAllText($configPath) | ConvertFrom-Json -AsHashtable
+        }
+        catch {
+            throw ".eval.config.json is malformed: $($_.Exception.Message)"
+        }
+        if ($config.ContainsKey('credentialTargets')) {
+            $targets = @($config.credentialTargets | Where-Object { $_ -is [string] -and $_.Trim() })
+        }
+        elseif ($config.ContainsKey('credentialTarget') -and $config.credentialTarget -is [string] -and $config.credentialTarget.Trim()) {
+            $targets = @($config.credentialTarget)
+        }
+    }
+    $specs = @()
+    if ($sourceLayout) {
+        foreach ($path in @(Get-ChildItem -LiteralPath (Join-Path $root 'plugins') -Filter 'eval.yaml' -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName.Replace('\', '/') -match '/evals/waza/eval\.yaml$' } | Sort-Object FullName)) {
+            $content = [System.IO.File]::ReadAllText($path)
+            $model = if ($content -match '(?m)^\s*model:\s*(?<value>\S+)') { $Matches.value } else { $null }
+            $judgeModel = if ($content -match '(?m)^\s*judge_model:\s*(?<value>\S+)') { $Matches.value } else { $null }
+            foreach ($binding in @($model, $judgeModel | Where-Object { $null -ne $_ })) {
+                if ($binding -notmatch '^[a-z0-9][a-z0-9.-]*$') {
+                    throw "Waza model binding in $([System.IO.Path]::GetRelativePath($root, $path.FullName)) has an invalid format."
+                }
+            }
+            $specs += [ordered]@{
+                Path = [System.IO.Path]::GetRelativePath($root, $path.FullName).Replace('\', '/')
+                Model = $model
+                JudgeModel = $judgeModel
+            }
+        }
+    }
+    return [ordered]@{
+        ConfigPresent = (Test-Path -LiteralPath $configPath -PathType Leaf)
+        CredentialTargets = @($targets | Sort-Object -Unique)
+        WazaSpecs = @($specs)
+    }
+}
+
 if ($Action -eq 'show' -and $Category -eq 'autopilot' -and $inputs) {
     try {
         $config = [System.IO.File]::ReadAllText($inputs[0]) | ConvertFrom-Json -AsHashtable
@@ -213,16 +294,53 @@ if ($Action -eq 'show' -and $Category -eq 'models-reviews' -and $sourceLayout -a
         Fallback = $policy.Fallback
     }
 }
+if ($Action -eq 'show' -and $Category -eq 'terminal-approvals') {
+    $result.EffectiveValues = Get-TerminalApprovalState
+    $result.OwnerCommand = 'scripts/skalary/Set-ScriptApproval.ps1 -Name <installed-plugin> -RepoRoot .'
+}
+if ($Action -eq 'show' -and $Category -eq 'evals') {
+    $result.EffectiveValues = Get-EvalState
+    $result.OwnerCommand = 'scripts/skalary/Resolve-EvalToken.ps1 -RepoRoot .; scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <plugin>'
+}
+if ($Action -eq 'show' -and $Category -eq 'design-architecture') {
+    $result.EffectiveValues = [ordered]@{
+        DesignNotesPresent = (Test-Path -LiteralPath (Join-Path $root 'docs/design-notes/.design-notes.md') -PathType Leaf)
+        ArchitectureNotesPresent = (Test-Path -LiteralPath (Join-Path $root 'docs/architecture-notes/.architecture-notes.md') -PathType Leaf)
+    }
+    $result.OwnerCommands = @(
+        '.github/skills/design-notes/scripts/Initialize-DesignNotes.ps1 -RepoRoot .',
+        '.github/skills/architecture-notes/scripts/Copy-ArchScaffold.ps1 -TargetRoot .'
+    )
+}
+if ($Action -eq 'show' -and $Category -in @('plugin-distribution', 'repository-toolchain')) {
+    $result.EffectiveValues = [ordered]@{
+        MaintainerSourceAvailable = $sourceLayout
+        CanonicalPathsPresent = @($entry.Canonical | Where-Object {
+                Test-Path -LiteralPath (Join-Path $root $_)
+            })
+    }
+    $result.OwnerCommand = if ($Category -eq 'plugin-distribution') {
+        'scripts/skalary/Sync-PluginScripts.ps1, Build-Registry.ps1, Build-Marketplace.ps1, and Sync-Dogfood.ps1'
+    }
+    else {
+        'Use the owning package or toolchain policy validator; this façade is show-only.'
+    }
+}
 if ($Action -eq 'diff') {
-    $result.CurrentDiff = if ($sourceLayout -and $inputs) {
-        (& git -C $root diff --no-ext-diff -- @($inputs | ForEach-Object { [System.IO.Path]::GetRelativePath($root, $_) })) -join "`n"
+    $result.CurrentDiff = if ($sourceLayout) {
+        (& git -C $root diff --no-ext-diff -- @($entry.Canonical)) -join "`n"
     }
     else {
         'No source Git diff is available for this category.'
     }
 }
 if ($Action -eq 'preview') {
-    $result.Proposal = 'No requested changes. Mutation preview is read-only; phase 2 supplies closed edits.'
+    $result.Proposal = if ($Category -in @('autopilot', 'local-review-standards', 'models-reviews')) {
+        'No requested changes. Use Set-SkalaryConfig.ps1 for this category-scoped mutation preview.'
+    }
+    else {
+        'This category has no generic façade writer. Use its owner command; credential values, generated files, and advanced policy remain excluded.'
+    }
     $result.Redaction = 'Credential values are never read, rendered, or included in the digest.'
 }
 if ($Action -eq 'validate') {

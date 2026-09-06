@@ -82,6 +82,23 @@ function Get-TextDiff {
         Remove-Item -LiteralPath $beforePath, $afterPath -Force -ErrorAction SilentlyContinue
     }
 }
+function Get-RecoveryCommand {
+    param([string]$StateCategory)
+    switch ($StateCategory) {
+        'models-reviews' {
+            return 'pwsh -NoProfile -File scripts/skalary/Sync-ModelBindings.ps1 -RepoRoot .; pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist.ps1 -RepoRoot .'
+        }
+        'autopilot' {
+            return 'pwsh -NoProfile -Command "Get-Content .autopilot.json -Raw | Test-Json -SchemaFile plugins/autopilot/schemas/autopilot.schema.json"'
+        }
+        'local-review-standards' {
+            return 'git diff -- docs/review-standards.md'
+        }
+        default {
+            throw "No recovery command is defined for category '$StateCategory'."
+        }
+    }
+}
 function Get-ShippedModelPolicy {
     $content = & git -C $root show 'HEAD:tools/model-allowlist.psd1' 2>$null
     if ($LASTEXITCODE -ne 0) { throw 'Cannot derive shipped model defaults from HEAD.' }
@@ -256,11 +273,37 @@ if ($Action -in @('preview', 'bootstrap', 'edit', 'reset')) {
     [ordered]@{ Action = $Action; Category = $Category; SourceDigest = $state.SourceDigest; Diff = $diff; Synchronizer = if ($Category -eq 'models-reviews') { 'scripts/skalary/Sync-ModelBindings.ps1' } else { $null }; Validator = if ($Category -eq 'models-reviews') { 'scripts/skalary/Test-ModelAllowlist.ps1' } else { 'Autopilot schema or CR/DR local standards resolver' }; Risks = 'Apply is category-bounded and refuses a stale digest. Cancel is byte-clean.' } | ConvertTo-Json -Depth 5
     return
 }
-[System.IO.File]::WriteAllText((Join-Path $root $proposal.Path), $proposal.After, [System.Text.UTF8Encoding]::new($false))
+try {
+    [System.IO.File]::WriteAllText((Join-Path $root $proposal.Path), $proposal.After, [System.Text.UTF8Encoding]::new($false))
+}
+catch {
+    throw "Write failed for $($proposal.Path). No rollback was attempted; inspect the visible diff. Recover with: $(Get-RecoveryCommand -StateCategory $Category). $($_.Exception.Message)"
+}
 if ($Category -eq 'models-reviews') {
-    & (Join-Path $root 'scripts/skalary/Sync-ModelBindings.ps1') -RepoRoot $root
-    & (Join-Path $root 'scripts/skalary/Test-ModelAllowlist.ps1') -RepoRoot $root
-    if ($LASTEXITCODE -ne 0) { throw "Model validation failed. Recover with: pwsh -NoProfile -File scripts/skalary/Test-ModelAllowlist.ps1" }
+    try {
+        & (Join-Path $root 'scripts/skalary/Sync-ModelBindings.ps1') -RepoRoot $root
+        if ($LASTEXITCODE -ne 0) {
+            throw "Model binding synchronization exited with code $LASTEXITCODE."
+        }
+    }
+    catch {
+        throw "Model synchronization failed. No rollback was attempted; inspect the visible diff. Recover with: $(Get-RecoveryCommand -StateCategory $Category). $($_.Exception.Message)"
+    }
+    try {
+        & (Join-Path $root 'scripts/skalary/Test-ModelAllowlist.ps1') -RepoRoot $root
+        if ($LASTEXITCODE -ne 0) {
+            throw "Model allowlist validation exited with code $LASTEXITCODE."
+        }
+    }
+    catch {
+        throw "Model validation failed. No rollback was attempted; inspect the visible diff. Recover with: $(Get-RecoveryCommand -StateCategory $Category). $($_.Exception.Message)"
+    }
 }
 $finalDiff = if (Test-Path -LiteralPath (Join-Path $root '.git')) { (& git -C $root diff --no-ext-diff -- $proposal.Path) -join "`n" } else { $diff }
-[ordered]@{ Action = 'apply'; Category = $Category; FinalDiff = $finalDiff; Result = 'Applied canonical changes. No rollback was attempted.' } | ConvertTo-Json -Depth 5
+[ordered]@{
+    Action = 'apply'
+    Category = $Category
+    FinalDiff = $finalDiff
+    RecoveryCommand = Get-RecoveryCommand -StateCategory $Category
+    Result = 'Applied canonical changes. No rollback was attempted.'
+} | ConvertTo-Json -Depth 5
