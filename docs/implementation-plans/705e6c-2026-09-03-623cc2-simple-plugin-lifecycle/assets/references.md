@@ -17,16 +17,23 @@ Preliminary context captured by /cep; /cip must confirm and refine it.
 
 | Source | Disposition | Use here |
 |---|---|---|
-| `a5ad22` | Reuse evidence | Treat long orchestration and lifecycle test costs as deletion targets. |
-| `34088e` | Reassess | Keep only externally required correctness and direct confinement behavior. |
-| `c21cdc` | Reject mechanism | Do not use receipts, content addressing, or schema authority internally. |
-| `768d7b` | Partial reuse | Keep focused fail-loud validation; reject suite tiers and hosted enforcement. |
+| `2aa7ec` decisions | Dependency; loaded through the bounded artifact adapter | Reuse deletion-first design, direct scripts, focused 30/60-second validation, external/internal JSON classification, and no compatibility machinery. |
+| `33a78a` decisions | Dependency; loaded through the bounded artifact adapter | Use direct work, deterministic evidence, container autopilot's cheap-first routing, and one risk-selected final review. |
+| `34088e` decisions | Reuse; loaded through the bounded artifact adapter | Reuse the production installer, manifest-derived foreign fixture, physical confinement, and existing distribution writers. |
+| `a5ad22` index record | Reuse evidence | Treat long orchestration and lifecycle test costs as deletion targets. |
+| `c21cdc` index record | Reject mechanism | Do not restore content-addressed authority, schema-led internal state, or receipt handshakes. |
+| `768d7b` index record | Partial reuse | Keep fail-loud focused validation and named confinement tests; reject suite tiers and hosted enforcement. |
 
 ## Relevant repository guidance
 
 - `docs/design-notes/architecture/plugin-registry.design.md`
 - `docs/design-notes/architecture/plugin-manager.design.md`
+- `docs/design-notes/project/simplicity-first.design.md`
+- `docs/design-notes/project/ci-gates.design.md`
 - `docs/architecture-notes/arch-install-confinement.md`
+- `scripts/skalary/{Install-Plugin,Update-Plugin,Remove-Plugin,Get-Plugin,Find-Plugin,_Common}.ps1`
+- `scripts/skalary/{Build-Registry,Test-Registry,Sync-PluginScripts,Build-Marketplace,Sync-Dogfood}.ps1`
+- `tests/skalary/{PluginRetirement,ConsumerInstall,Marketplace,PluginScriptBundle}.Tests.ps1`
 - `schemas/plugin/plugin.schema.json`
 - `schemas/registry/registry.schema.json`
 - `schemas/marketplace/marketplace.schema.json`
@@ -38,3 +45,8 @@ personal skill repository and asked for ruthless removal of machinery that does 
 productivity. They accepted retaining prompt-injection and concrete path-safety guards while treating
 security as secondary to usability in this trusted environment. They later approved this child and
 rejected final-review demands to restore journals, receipts, rollback systems, and platform authority.
+
+On 2026-09-06 the operator refined the receipt decision: retain only per-plugin installed identity,
+version, source identity, and immutable ref so updates can be detected without a shared lockfile. They
+selected pre-mutation removal refusal with explicit `-Force`, receipt-owned overwrite for explicit
+updates, and registry refusal plus explicit removal for retirement.
