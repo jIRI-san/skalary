@@ -900,6 +900,7 @@ function Write-PluginReceipt {
     [void](Test-PluginReceiptShape -Receipt $Receipt -ExpectedPluginName $pluginName)
     $receiptPath = Get-PluginReceiptPath -RepoRoot $RepoRoot -PluginName $pluginName
     $receiptDirectory = Split-Path -Parent $receiptPath
+    Assert-GithubStatePathSafe -RepoRoot $RepoRoot -Path $receiptPath
     if (-not (Test-Path -LiteralPath $receiptDirectory -PathType Container)) {
         [void](New-Item -ItemType Directory -Path $receiptDirectory -Force)
     }
