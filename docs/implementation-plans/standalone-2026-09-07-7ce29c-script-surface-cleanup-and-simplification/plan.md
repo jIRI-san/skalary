@@ -37,7 +37,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Delete unused wrappers and the completed plan-folder migration as one closed cut (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Delete unused wrappers and the completed plan-folder migration as one closed cut (REQ-1, REQ-2, RISK-1) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the three unused wrappers and the migration script/test are absent, with no dangling
