@@ -1,6 +1,6 @@
 # 7ce29c: Script surface cleanup and simplification
 <!-- plan-id: 7ce29c -->
-<!-- cip-stage: drafted -->
+<!-- cip-stage: done -->
 <!-- planning-confirmed: sha256:e65e3921c20bb7f7816ad0d5b1bb8ac5e65007f94d2931c5de0f43abbfb92f39 -->
 <!-- Folder naming: <epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -208,7 +208,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** detect-only sync/catalog/dogfood checks and explicit retained-cleaner checks pass.
 
   </details>
-- [ ] 4.2 Run focused cleanup, architecture, module, distribution, and consumer evidence followed by one whole-plan CR (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7) [after: 4.1] `M`
+- [x] 4.2 Run focused cleanup, architecture, module, distribution, and consumer evidence followed by one whole-plan CR (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6, RISK-7) [after: 4.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** deterministic evidence proves the deleted surface stays absent, retained behavior and
