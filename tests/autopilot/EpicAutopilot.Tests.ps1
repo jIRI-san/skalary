@@ -2125,9 +2125,9 @@ exit 0
     }
 
     It 'test:EpicAutopilot.A5ad22WrappedBaseline preserves the terminal Wrap tree and retained evidence' {
-        $wrappedPlan = 'docs/implementation-plans/' +
+        $wrappedPlan = 'docs/implementation-plans/archived/' +
         '2026-08-14-a5ad22-epic-autopilot-orchestration'
-        $expectedTree = 'd2477b4d495a1edc747e41a1a1cbecee0df2c3d2'
+        $expectedTree = '74efa1682f70839e32836f3bdb63577876aaf2a1'
         $actualTree = (
             & git -C $script:repoRoot rev-parse "HEAD`:$wrappedPlan"
         ).Trim()
