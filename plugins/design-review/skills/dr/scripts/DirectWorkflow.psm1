@@ -50,19 +50,6 @@ function Get-GitBlobId {
     return $blob.Output[0]
 }
 
-function Test-ByteArrayEqual {
-    param(
-        [Parameter(Mandatory)][byte[]]$Left,
-        [Parameter(Mandatory)][byte[]]$Right
-    )
-
-    if ($Left.Length -ne $Right.Length) { return $false }
-    for ($index = 0; $index -lt $Left.Length; $index++) {
-        if ($Left[$index] -ne $Right[$index]) { return $false }
-    }
-    return $true
-}
-
 function Get-ConfinedPlanText {
     param(
         [Parameter(Mandatory)][object]$Context,

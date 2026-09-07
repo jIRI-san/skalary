@@ -167,7 +167,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   successful-prefix recovery, or deterministic serialization.
 
   </details>
-- [ ] 3.3 Reduce direct-workflow private machinery while preserving shared review and evidence semantics (REQ-8, REQ-9, RISK-4, RISK-5, RISK-7) [after: 3.2] `M`
+- [x] 3.3 Reduce direct-workflow private machinery while preserving shared review and evidence semantics (REQ-8, REQ-9, RISK-4, RISK-5, RISK-7) [after: 3.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `DirectWorkflow.psm1` has fewer than eight private functions and fewer than 708 non-comment
