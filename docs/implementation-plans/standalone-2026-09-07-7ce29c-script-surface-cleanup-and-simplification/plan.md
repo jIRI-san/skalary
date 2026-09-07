@@ -146,7 +146,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   stop with the candidate inventory rather than gaming the threshold.
 
   </details>
-- [ ] 3.2 Reduce work-hierarchy private machinery while preserving projection and apply semantics (REQ-7, REQ-9, RISK-4, RISK-5, RISK-7) [after: 3.1] `M`
+- [x] 3.2 Reduce work-hierarchy private machinery while preserving projection and apply semantics (REQ-7, REQ-9, RISK-4, RISK-5, RISK-7) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `WorkHierarchy.psm1` has fewer than 19 private functions and fewer than 1,636 non-comment

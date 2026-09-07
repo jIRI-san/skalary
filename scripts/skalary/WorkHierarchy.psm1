@@ -88,24 +88,6 @@ function Get-WorkHierarchySections {
     return $result
 }
 
-function New-WorkHierarchySectionLines {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Heading,
-
-        [AllowEmptyString()]
-        [string]$Content
-    )
-
-    return [string[]]@(
-        "## $Heading"
-        ''
-        $(if ([string]::IsNullOrWhiteSpace($Content)) { '_Not specified._' } else { $Content.Trim() })
-        ''
-    )
-}
-
 function New-WorkHierarchyManagedBody {
     [CmdletBinding()]
     param(
@@ -211,7 +193,10 @@ function New-WorkHierarchyPlanBody {
     foreach ($heading in $script:IntentSectionOrder) {
         $remoteHeading = if ($heading -eq 'Goal') { 'Purpose' } else { $heading }
         $content = if ($IntentSections.Contains($heading)) { [string]$IntentSections[$heading] } else { '' }
-        $lines.AddRange([string[]](New-WorkHierarchySectionLines -Heading $remoteHeading -Content $content))
+        $lines.Add("## $remoteHeading")
+        $lines.Add('')
+        $lines.Add($(if ([string]::IsNullOrWhiteSpace($content)) { '_Not specified._' } else { $content.Trim() }))
+        $lines.Add('')
     }
 
     $lines.Add('## Dependencies')
@@ -278,7 +263,10 @@ function New-WorkHierarchyEpicBody {
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    $lines.AddRange([string[]](New-WorkHierarchySectionLines -Heading 'Purpose' -Content $Purpose))
+    $lines.Add('## Purpose')
+    $lines.Add('')
+    $lines.Add($(if ([string]::IsNullOrWhiteSpace($Purpose)) { '_Not specified._' } else { $Purpose.Trim() }))
+    $lines.Add('')
     $lines.Add('## Child plans')
     $lines.Add('')
     foreach ($child in $Children) {
