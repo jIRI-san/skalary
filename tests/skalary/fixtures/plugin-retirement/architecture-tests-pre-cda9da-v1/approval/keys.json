@@ -1,7 +1,0 @@
-{
-  "setting": "chat.tools.terminal.autoApprove",
-  "candidateKeys": [
-    ".github/skills/architecture-tests/scripts/Get-ArchReviewReport.ps1"
-  ],
-  "configuredKeys": []
-}

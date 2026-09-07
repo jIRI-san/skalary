@@ -58,7 +58,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   invoke one of the candidates; retain that candidate and report the concrete consumer.
 
   </details>
-- [ ] 1.2 Replace the architecture-test historical snapshot with a current active-surface absence test (REQ-3, RISK-2) [after: 1.1] `M`
+- [x] 1.2 Replace the architecture-test historical snapshot with a current active-surface absence test (REQ-3, RISK-2) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the 34-file historical baseline subsystem is gone and one readable test protects against
