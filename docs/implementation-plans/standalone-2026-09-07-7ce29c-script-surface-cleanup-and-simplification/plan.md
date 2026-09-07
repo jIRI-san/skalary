@@ -126,7 +126,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Simplify large active modules in place
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Reduce epic-autopilot private machinery while preserving orchestration outcomes (REQ-6, REQ-9, RISK-4, RISK-5, RISK-7) [after: 2.2] `M`
+- [x] 3.1 Reduce epic-autopilot private machinery while preserving orchestration outcomes (REQ-6, REQ-9, RISK-4, RISK-5, RISK-7) [after: 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `EpicAutopilot.psm1` has fewer than 44 private functions and fewer than 2,083 non-comment

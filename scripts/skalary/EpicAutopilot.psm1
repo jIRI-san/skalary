@@ -262,14 +262,6 @@ function New-EpicAutopilotState {
     }
 }
 
-function ConvertTo-EpicAutopilotStateJson {
-    param([Parameter(Mandatory)]$State)
-
-    $content = $State | ConvertTo-Json -Compress
-    [void](ConvertFrom-EpicAutopilotStateJson -Json $content)
-    return $content
-}
-
 function Set-EpicAutopilotState {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -278,8 +270,10 @@ function Set-EpicAutopilotState {
         [Parameter(Mandatory)][string]$Operation
     )
 
+    $content = $State | ConvertTo-Json -Compress
+    [void](ConvertFrom-EpicAutopilotStateJson -Json $content)
     $write = Set-AtomicStoreContent -Path $Path `
-        -Content (ConvertTo-EpicAutopilotStateJson -State $State) `
+        -Content $content `
         -ExpectedGeneration $ExpectedGeneration -Validate {
         param($candidatePath)
         [void](ConvertFrom-EpicAutopilotStateJson -Json (
