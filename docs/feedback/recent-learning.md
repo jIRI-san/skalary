@@ -1,10 +1,10 @@
 # Recent learning
 
-Source plan: `a524dc unified-skalary-configuration`
-Source commit: `7024838ef922cee94ba981034f474866a386de2d`
+Source plan: `7ce29c script-surface-cleanup-and-simplification`
+Source commit: `a6dd95654019b606f036e2c2765a738ceeda8aa3`
 
 ## Lessons
 
-- Keep consumer-facing helpers on declared installed paths; source-tree paths break isolated plugin delivery. — `plugins/skalary-config/skills/skalary-config/scripts/Set-SkalaryConfig.ps1`
-- Treat git diff exit code 1 as a successful changed preview before running later native commands. — `plugins/skalary-config/skills/skalary-config/scripts/Set-SkalaryConfig.ps1`
-- Preserve secret redaction at output boundaries while forwarding credentials only inside the existing validator. — `plugins/skalary-config/skills/skalary-config/scripts/Test-AutopilotAuth.ps1`
+- Replace historical implementation snapshots with bounded current-state absence tests when Git already preserves the retired bytes. — `tests/skalary/ArchitectureRetirement.Tests.ps1`
+- Generated dogfood sync is copy-only, so retiring mapped payloads requires explicit deletion before regeneration. — `scripts/skalary/Sync-Dogfood.ps1`
+- Structural simplification evidence should bind exact exports to parser-derived private-function and token-bearing-line reductions. — `tests/skalary/ScriptSurfaceCleanup.Tests.ps1`
