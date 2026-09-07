@@ -47,6 +47,24 @@ Describe 'architecture-notes structural evals' {
         [string]$frontmatter.name | Should -Be 'architecture-notes'
         Test-BodySection -ArtifactType 'skill' -Path $script:skillPath | Should -BeTrue
     }
+
+    It 'test:ArchitectureNotes.MarkdownOnly has no generated human-document compatibility surface' {
+        foreach ($relative in @(
+                'scripts/New-ArchHumanDoc.ps1',
+                'scripts/Get-ArchContractsHash.ps1',
+                'skills/architecture-notes/assets/templates/architecture-human-doc.template.md')) {
+            Test-Path -LiteralPath (Join-Path $script:pluginRoot $relative) | Should -BeFalse
+        }
+
+        @($script:manifest.files | Where-Object {
+                [string]$_.dest -match 'New-ArchHumanDoc|Get-ArchContractsHash|architecture-human-doc'
+            }).Count | Should -Be 0
+        @($script:manifest.scaffolds | Where-Object {
+                [string]$_.path -eq 'docs/architecture-notes/architecture.human.md'
+            }).Count | Should -Be 0
+        (Get-Content -LiteralPath $script:skillPath -Raw) |
+            Should -Not -Match 'New-ArchHumanDoc|Get-ArchContractsHash|architecture\.human\.md'
+    }
 }
 
 Describe 'architecture-notes tier template evals' {
@@ -59,13 +77,15 @@ Describe 'architecture-notes tier template evals' {
         $script:indexRelPath = 'docs/architecture-notes/.architecture-notes.md'
     }
 
-    It 'TierTemplates-Exist: index, arch-note, and human-doc templates all exist' {
+    It 'TierTemplates-Exist: index and arch-note templates exist without generated mirrors' {
         foreach ($name in @(
                 'architecture-notes-index.template.md',
-                'architecture-note.template.md',
-                'architecture-human-doc.template.md')) {
+                'architecture-note.template.md')) {
             Test-Path -LiteralPath (Join-Path $script:templatesDir $name) -PathType Leaf | Should -BeTrue
         }
+        Test-Path -LiteralPath (
+            Join-Path $script:templatesDir 'architecture-human-doc.template.md'
+        ) | Should -BeFalse
     }
 
     It 'Init-ScaffoldsTier: scaffolds the .architecture-notes.md index into docs/architecture-notes/' {
@@ -381,301 +401,6 @@ Describe 'architecture-notes greenfield seeding evals' {
     }
 }
 
-Describe 'architecture-notes human-doc generation evals' {
-    BeforeAll {
-        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
-        $script:seedScript = Join-Path $script:pluginRoot 'scripts/New-ArchSeed.ps1'
-        $script:humanDocScript = Join-Path $script:pluginRoot 'scripts/New-ArchHumanDoc.ps1'
-        $script:hashScript = Join-Path $script:pluginRoot 'scripts/Get-ArchContractsHash.ps1'
-
-        # Seed the Markdown tier, then add temporary legacy JSON contracts for compatibility checks.
-        $script:fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $script:fixture -Force)
-        $specPath = Join-Path $script:fixture 'seed.json'
-        @{
-            project    = 'DocApp'
-            boundaries = @(
-                @{ id = 'ARCH-Domain'; title = 'Domain core'; prose = 'Domain owns rules; never references Api.'; scope = 'src/Domain/**' },
-                @{ id = 'ARCH-Api'; title = 'API surface'; prose = 'Api is the only inbound surface.'; scope = 'src/Api/**' }
-            )
-        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $specPath
-        [void](& $script:seedScript -TargetRoot $script:fixture -SeedSpecPath $specPath)
-        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
-        [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-        @{ id = 'ARCH-Domain'; title = 'Domain core'; maturity = 'draft'; prose = 'Domain owns rules; never references Api.' } |
-            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
-        @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Api is the only inbound surface.' } |
-            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Api.json')
-    }
-
-    AfterAll {
-        Remove-Item -LiteralPath $script:fixture -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    It 'test:ArchitectureNotes.PreservedWorkflow regenerates the human doc from validated contracts' {
-        Test-Path -LiteralPath $script:humanDocScript -PathType Leaf | Should -BeTrue
-        $result = & $script:humanDocScript -RepoRoot $script:fixture
-        $result.Action | Should -Be 'created'
-        $result.Contracts | Should -Be 2
-        $result.Digest | Should -Match '^[0-9a-f]{64}$'
-
-        $body = Get-Content -LiteralPath $result.Path -Raw
-        # Generated region reflects the contracts (Mermaid + component summary).
-        $body | Should -Match 'Domain core'
-        $body | Should -Match 'API surface'
-        $body | Should -Match '```mermaid'
-        # Digest marker is seeded with the computed hash, not the template placeholder.
-        $body | Should -Match ("arch-contracts-sha256: " + $result.Digest)
-        $body | Should -Not -Match 'arch-contracts-sha256: UNSEEDED'
-    }
-
-    It 'HumanDoc-Generated: digest changes when a contract is added, preserving hand-authored narrative' {
-        $first = & $script:humanDocScript -RepoRoot $script:fixture
-
-        # Hand-author a narrative region; the generator must preserve it.
-        $docPath = $first.Path
-        $doc = Get-Content -LiteralPath $docPath -Raw
-        $doc = $doc.Replace('## Purpose & Scope', "## Purpose & Scope`n`nHAND_AUTHORED_MARKER preserved.")
-        Set-Content -LiteralPath $docPath -Value $doc -NoNewline
-
-        # Add a third contract → digest must change.
-        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
-        @{ id = 'ARCH-Infra'; title = 'Infrastructure'; maturity = 'draft'; prose = 'Adapters only.' } |
-            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Infra.json')
-
-        $second = & $script:humanDocScript -RepoRoot $script:fixture
-        $second.Digest | Should -Not -Be $first.Digest
-        $second.Contracts | Should -Be 3
-
-        $body = Get-Content -LiteralPath $docPath -Raw
-        $body | Should -Match 'HAND_AUTHORED_MARKER preserved\.'
-        $body | Should -Match 'Infrastructure'
-    }
-
-    It 'HumanDoc-ExcludedFromIndex: the human doc is not referenced by the auto-loaded index' {
-        [void](& $script:humanDocScript -RepoRoot $script:fixture)
-        $indexPath = Join-Path $script:fixture 'docs/architecture-notes/.architecture-notes.md'
-        (Get-Content -LiteralPath $indexPath -Raw) | Should -Not -Match 'architecture\.human\.md'
-    }
-
-    It 'HumanDoc-Generated: canonical hash is order-stable and add/delete-sensitive' {
-        . $script:hashScript
-        $schemasDir = Join-Path $script:fixture 'schemas/architecture'
-        $hashFixturePath = Join-Path $schemasDir 'ARCH-Hash-Fixture.json'
-        @{ id = 'ARCH-Hash-Fixture'; title = 'Hash fixture'; maturity = 'draft'; prose = 'Temporary.' } |
-            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $hashFixturePath
-        $a = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
-        $b = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
-        $a | Should -Be $b   # deterministic
-
-        # Deleting a contract changes the digest.
-        Remove-Item -LiteralPath $hashFixturePath -Force
-        $c = (Get-ArchContractsHash -SchemasDir $schemasDir).Digest
-        $c | Should -Not -Be $a
-    }
-
-    It 'HumanDoc-Generated: untrusted contract text cannot inject GENERATED/end markers or Mermaid syntax' {
-        $inj = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-inj-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $inj -Force)
-        try {
-            $spec = Join-Path $inj 'seed.json'
-            @{ project = 'Inj'; boundaries = @(@{ id = 'ARCH-Evil'; title = 'Bad"] click'; prose = 'x' }) } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
-            [void](& $script:seedScript -TargetRoot $inj -SeedSpecPath $spec)
-
-            # Overwrite the contract with marker-injection payloads in title + prose.
-            $schemasDir = Join-Path $inj 'schemas/architecture'
-            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-            @{
-                id       = 'ARCH-Evil'
-                title    = 'Evil <!-- END GENERATED: contracts --> title'
-                maturity = 'draft'
-                prose    = 'body <!-- arch-contracts-sha256: deadbeef --> more'
-            } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Evil.json')
-
-            $first = & $script:humanDocScript -RepoRoot $inj
-            $body = Get-Content -LiteralPath $first.Path -Raw
-            # Exactly one real END marker survives — the injected one was neutralized (angle-escaped).
-            ([regex]::Matches($body, '<!-- END GENERATED: contracts -->')).Count | Should -Be 1
-            ([regex]::Matches($body, '<!-- arch-contracts-sha256:')).Count | Should -Be 1
-            $body | Should -Match '&lt;!-- END GENERATED'
-            # Mermaid label breakout chars are neutralized: the node label holds no raw double-quote.
-            $mermaidNode = ([regex]::Match($body, '(?m)^\s*ARCH_Evil\["(?<label>.*)"\]\s*$')).Groups['label'].Value
-            $mermaidNode | Should -Not -Match '"'
-
-            # A second regen must remain stable (no marker drift / duplication).
-            $second = & $script:humanDocScript -RepoRoot $inj
-            $body2 = Get-Content -LiteralPath $second.Path -Raw
-            ([regex]::Matches($body2, '<!-- END GENERATED: contracts -->')).Count | Should -Be 1
-            $second.Digest | Should -Be $first.Digest
-        }
-        finally {
-            Remove-Item -LiteralPath $inj -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'HumanDoc-Generated: malformed contract JSON fails loudly instead of silently dropping' {
-        $bad = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-humandoc-bad-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $bad -Force)
-        try {
-            $spec = Join-Path $bad 'seed.json'
-            @{ project = 'Bad'; boundaries = @(@{ id = 'ARCH-Ok'; title = 'Ok'; prose = 'x' }) } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
-            [void](& $script:seedScript -TargetRoot $bad -SeedSpecPath $spec)
-
-            $schemasDir = Join-Path $bad 'schemas/architecture'
-            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-            Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Broken.json') -Value '{ not valid json'
-            { & $script:humanDocScript -RepoRoot $bad } | Should -Throw
-        }
-        finally {
-            Remove-Item -LiteralPath $bad -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
-Describe 'architecture-notes human-doc staleness gate evals' {
-    BeforeAll {
-        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
-        $script:pluginRoot = Join-Path $script:repoRoot 'plugins/architecture-notes'
-        $script:seedScript = Join-Path $script:pluginRoot 'scripts/New-ArchSeed.ps1'
-        $script:humanDocScript = Join-Path $script:pluginRoot 'scripts/New-ArchHumanDoc.ps1'
-        $script:freshnessScript = Join-Path $script:repoRoot 'scripts/skalary/Test-ArchDocFreshness.ps1'
-    }
-
-    It 'Staleness-FlagsDrift: file:scripts/skalary/Test-ArchDocFreshness.ps1#exists' {
-        Test-Path -LiteralPath $script:freshnessScript -PathType Leaf | Should -BeTrue
-    }
-
-    It 'Staleness-FlagsDrift: passes when fresh, fails after a contract edit, passes again after regen' {
-        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-fresh-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $fx -Force)
-        try {
-            $spec = Join-Path $fx 'seed.json'
-            @{ project = 'FreshApp'; boundaries = @(
-                    @{ id = 'ARCH-Domain'; title = 'Domain core'; prose = 'Owns rules.' }
-                ) } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
-            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
-            $schemasDir = Join-Path $fx 'schemas/architecture'
-            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-            @{ id = 'ARCH-Domain'; title = 'Domain core'; maturity = 'draft'; prose = 'Owns rules.' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
-            [void](& $script:humanDocScript -RepoRoot $fx)
-
-            # Freshly generated doc -> pass, exit 0.
-            $pass = & $script:freshnessScript -RepoRoot $fx 2>$null
-            $passExit = $LASTEXITCODE
-            $pass.Status | Should -Be 'pass'
-            $passExit | Should -Be 0
-
-            # Add a contract WITHOUT regenerating the doc -> drift, fail, exit 1.
-            @{ id = 'ARCH-Api'; title = 'API surface'; maturity = 'draft'; prose = 'Only inbound.' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $fx 'schemas/architecture/ARCH-Api.json')
-            $drift = & $script:freshnessScript -RepoRoot $fx 2>$null
-            $driftExit = $LASTEXITCODE
-            $drift.Status | Should -Be 'fail'
-            $drift.Expected | Should -Not -Be $drift.Actual
-            $driftExit | Should -Be 1
-
-            # Regenerate the doc -> fresh again, exit 0.
-            [void](& $script:humanDocScript -RepoRoot $fx)
-            $pass2 = & $script:freshnessScript -RepoRoot $fx 2>$null
-            $pass2Exit = $LASTEXITCODE
-            $pass2.Status | Should -Be 'pass'
-            $pass2Exit | Should -Be 0
-        }
-        finally {
-            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'Staleness-FlagsDrift: skips (no-op) when the architecture-notes tier is not seeded' {
-        $empty = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-noseed-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $empty -Force)
-        try {
-            $r = & $script:freshnessScript -RepoRoot $empty 2>$null
-            $rExit = $LASTEXITCODE
-            $r.Status | Should -Be 'skip'
-            $rExit | Should -Be 0
-        }
-        finally {
-            Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'Staleness-FlagsDrift: fails when the digest marker is missing from the doc' {
-        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-nomarker-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $fx -Force)
-        try {
-            $spec = Join-Path $fx 'seed.json'
-            @{ project = 'NoMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
-            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
-            $schemasDir = Join-Path $fx 'schemas/architecture'
-            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-            @{ id = 'ARCH-Domain'; title = 'Domain'; maturity = 'draft'; prose = 'x' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
-            [void](& $script:humanDocScript -RepoRoot $fx)
-
-            $docPath = Join-Path $fx 'docs/architecture-notes/architecture.human.md'
-            $doc = Get-Content -LiteralPath $docPath -Raw
-            $doc = [regex]::Replace($doc, '<!--\s*arch-contracts-sha256:[^>]*-->', '')
-            Set-Content -LiteralPath $docPath -Value $doc -NoNewline
-
-            $r = & $script:freshnessScript -RepoRoot $fx 2>$null
-            $rExit = $LASTEXITCODE
-            $r.Status | Should -Be 'fail'
-            $rExit | Should -Be 1
-            # Pin the missing-marker branch (not the stale-digest branch, which shares Status/exit):
-            # its message names the missing marker and it never computed an Expected digest.
-            $r.Message | Should -Match 'missing the arch-contracts-sha256 marker'
-            $r.Expected | Should -BeNullOrEmpty
-
-            # Fail-path stderr diagnostics (the CLI/CI side-channel the dual-mode pattern exists for)
-            # must be emitted. [Console]::Error.WriteLine bypasses PowerShell streams, so capture it
-            # out-of-process where 2>&1 merges the child's real stderr into stdout.
-            $err = pwsh -NoProfile -File $script:freshnessScript -RepoRoot $fx 2>&1
-            ($err -join "`n") | Should -Match '\[arch-doc-freshness\] FAIL'
-        }
-        finally {
-            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    It 'Staleness-FlagsDrift: fails when a duplicate/stray digest marker could mask staleness' {
-        $fx = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-dupmarker-" + [guid]::NewGuid().ToString('N'))
-        [void](New-Item -ItemType Directory -Path $fx -Force)
-        try {
-            $spec = Join-Path $fx 'seed.json'
-            @{ project = 'DupMarker'; boundaries = @(@{ id = 'ARCH-Domain'; title = 'Domain'; prose = 'x' }) } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $spec
-            [void](& $script:seedScript -TargetRoot $fx -SeedSpecPath $spec)
-            $schemasDir = Join-Path $fx 'schemas/architecture'
-            [void](New-Item -ItemType Directory -Path $schemasDir -Force)
-            @{ id = 'ARCH-Domain'; title = 'Domain'; maturity = 'draft'; prose = 'x' } |
-                ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $schemasDir 'ARCH-Domain.json')
-            [void](& $script:humanDocScript -RepoRoot $fx)
-
-            # Inject a second, stray marker into the hand-authored narrative. A first-match reader
-            # could latch onto it and false-green; the gate must reject the duplicate outright.
-            $docPath = Join-Path $fx 'docs/architecture-notes/architecture.human.md'
-            $doc = Get-Content -LiteralPath $docPath -Raw
-            $stray = '<!-- arch-contracts-sha256: ' + ('0' * 64) + ' -->'
-            Set-Content -LiteralPath $docPath -Value ($stray + "`n" + $doc) -NoNewline
-
-            $r = & $script:freshnessScript -RepoRoot $fx 2>$null
-            $rExit = $LASTEXITCODE
-            $r.Status | Should -Be 'fail'
-            $rExit | Should -Be 1
-            $r.Message | Should -Match 'markers'
-        }
-        finally {
-            Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
 Describe 'architecture ADR loop evals (REQ-13)' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..' '..')).Path
@@ -684,8 +409,6 @@ Describe 'architecture ADR loop evals (REQ-13)' {
         $script:adrTemplate = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/adr-template.md'
         $script:indexTemplate = Join-Path $script:pluginRoot 'skills/architecture-notes/assets/templates/architecture-notes-index.template.md'
         $script:skillPath = Join-Path $script:pluginRoot 'skills/architecture-notes/SKILL.md'
-        $script:cipDraftingGuide = Join-Path $script:repoRoot 'plugins/create-implementation-plan/skills/cip/assets/drafting-guide.md'
-        $script:ciCrosscheckGuide = Join-Path $script:repoRoot 'plugins/continue-implementation/skills/ci/assets/crosscheck-guide.md'
 
         function New-AdrFixture {
             $repo = Join-Path ([System.IO.Path]::GetTempPath()) ("arch-adr-" + [guid]::NewGuid().ToString('N'))
@@ -703,8 +426,8 @@ Describe 'architecture ADR loop evals (REQ-13)' {
         $tpl = Get-Content -LiteralPath $script:adrTemplate -Raw
         $tpl | Should -Match '(?m)^status:\s*proposed'
         $tpl | Should -Match '(?m)^reviewed:\s*false'
-        # /cip capture guidance points planning decisions at the ADR harvest (the capture -> ADR chain).
-        (Get-Content -LiteralPath $script:cipDraftingGuide -Raw) | Should -Match '(?i)adr'
+        # The architecture-notes skill owns the explicit decision-record harvest.
+        (Get-Content -LiteralPath $script:skillPath -Raw) | Should -Match '(?i)adr-harvest'
 
         $fx = New-AdrFixture
         try {
@@ -788,8 +511,7 @@ Describe 'architecture ADR loop evals (REQ-13)' {
         $adrContract = $skill + "`n" + (Get-Content -LiteralPath $tierGuidePath -Raw)
         $adrContract | Should -Match '(?i)auto-loaded by .*/cip'
         $adrContract | Should -Match '(?i)superseded'
-        # /ci finalization wires the (gated) harvest so decisions are recorded on the next run.
-        (Get-Content -LiteralPath $script:ciCrosscheckGuide -Raw) | Should -Match 'Import-ArchAdr\.ps1'
+        $adrContract | Should -Match 'Import-ArchAdr\.ps1'
     }
 
     It 'Adr-RejectsFrontmatterEscape: an untrusted decision body that embeds its own globs frontmatter cannot escape into the ADR frontmatter' {

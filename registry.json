@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-06T18:14:03.2630917Z",
+  "generatedAt": "2026-09-07T17:13:53.0950995Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -26,7 +26,7 @@
         },
         {
           "dest": "skills/architecture-notes/SKILL.md",
-          "sha256": "75b310423de1b68867d95100b2860c0622a456baef9fdaa046dc8a8d9567880e",
+          "sha256": "dfe8654f7f19652d7327334e7666f4ec4142392e8925b4d85e7c3b7009c05644",
           "src": "skills/architecture-notes/SKILL.md"
         },
         {
@@ -40,23 +40,18 @@
           "src": "skills/architecture-notes/assets/interview-guide.md"
         },
         {
-          "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-          "sha256": "c260a941c79ff7089cdc6c0b23fd9b36c2181d34dd7503ccc56ce41ecb50417d",
-          "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
-        },
-        {
           "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
           "sha256": "9e335f84de08d0a994c50e5ca3dfdb3856b8754efaa7b28c01d2ab79ac9471e3",
           "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
-          "sha256": "9aae6d0ed072bad0209fa5a13002b1530a3cc3dbd25af2b249ee40a4ecff1f84",
+          "sha256": "296556dcbe91dcd43a871acf28de0c2f46e01736822928cc59d856b45433068a",
           "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
         },
         {
           "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
-          "sha256": "5e785f1a82b426df4158e6b6389ab284c6f53f14e560d90841ec4e1d9ecc0afd",
+          "sha256": "334be8f1d75df6b34951620e8b756174fae179c96407e7165d8796cc6fa682fe",
           "src": "skills/architecture-notes/assets/tier-operations-guide.md"
         },
         {
@@ -70,19 +65,9 @@
           "src": "scripts/Get-ArchContractContentHash.ps1"
         },
         {
-          "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1",
-          "sha256": "ca1fee15881afbb70aa9d8a39b6b343506928990a4e6863585ddbd3c31f2d52a",
-          "src": "scripts/Get-ArchContractsHash.ps1"
-        },
-        {
           "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
           "sha256": "bc750b9dbb1824d40a2c0fe08d3817a2ec18396bbdd0c777f444b451ebed6863",
           "src": "scripts/Import-ArchAdr.ps1"
-        },
-        {
-          "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1",
-          "sha256": "6b8eb445e91421b1972cca92a831dfb53469ab13850e43c31f4bf5111e1ec20b",
-          "src": "scripts/New-ArchHumanDoc.ps1"
         },
         {
           "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
@@ -121,12 +106,6 @@
           "owner": "Import-ArchAdr.ps1",
           "path": "docs/architecture-notes/.staging/adr",
           "trigger": "ADR harvest at plan finalization"
-        },
-        {
-          "mode": "literal",
-          "owner": "New-ArchHumanDoc.ps1",
-          "path": "docs/architecture-notes/architecture.human.md",
-          "trigger": "first human-doc regeneration"
         }
       ],
       "status": "partial",
@@ -136,7 +115,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.10"
+      "version": "1.0.11"
     },
     {
       "author": "jIRI-san",
@@ -1032,7 +1011,7 @@
         },
         {
           "dest": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1",
-          "sha256": "469799f7adac96bf50cf336b556406941e3a1950620ee0dba6fa8c732ee5d12b",
+          "sha256": "e1598f96d1b39d6275a2a09f272332247f62513513049a1648a759b3e41e3ddc",
           "src": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1"
         },
         {
@@ -1074,7 +1053,7 @@
         "skalary",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "author": "jIRI-san",

@@ -38,13 +38,9 @@ context: fork
     locked-content digest; it does **not** authorize a lock (see Step 4).
   - `Get-ArchContractContentHash.ps1` — sole canonical JSON projection and UTF-8 digest owner for
     `lockedContentSha256`. Call it when proposing a lock.
-  - `New-ArchHumanDoc.ps1` — regenerates the temporary compatibility view for transferred legacy
-    JSON contracts (see Step 8).
-  - `Get-ArchContractsHash.ps1` — computes the canonical contract-sources digest (shared by the
-    generator and the freshness gate). Not called directly.
   - `Import-ArchAdr.ps1` — harvests a finalized plan's decision records (`assets/decisions/*.md`, or
     legacy `decisions/*.md`) into proposed, quarantined
-    ADRs (`reviewed: false`) for human review (the ADR-harvest operation; see Step 9).
+    ADRs (`reviewed: false`) for human review (the ADR-harvest operation; see Step 8).
 
 ## Step 1: Select operation
 
@@ -98,17 +94,15 @@ context: fork
    whose review record cannot be established as pending re-review.
 6. Report only; do not mutate. Recommend the next incremental lock.
 
-## Steps 6, 8, and 9: Seed, legacy human-doc regen, ADR harvest
+## Steps 6 and 8: Seed and ADR harvest
 
-These three operations run rarely and their detail lives in `./assets/tier-operations-guide.md`.
-Read that file when — and only when — the requested operation is one of them; do not run any of
-them from memory.
+These operations run rarely and their detail lives in `./assets/tier-operations-guide.md`.
+Read that file when—and only when—the requested operation is one of them; do not run either from
+memory.
 
 - **Step 6 — seed** (greenfield init): short interview, then `New-ArchSeed.ps1` writes 1-2 `draft`
   Markdown contract notes. Never a `locked` contract.
-- **Step 8 — regenerate the legacy human doc**: `New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>` rebuilds
-  the temporary compatibility view only when a transferred legacy JSON contract changes.
-- **Step 9 — adr-harvest** (finalization): `Import-ArchAdr.ps1 -PlanDir <plan-folder>` turns a
+- **Step 8 — adr-harvest** (finalization): `Import-ArchAdr.ps1 -PlanDir <plan-folder>` turns a
   finalized plan's decision records (`assets/decisions/*.md`, or legacy `decisions/*.md`) into
   **proposed**, quarantined ADRs for human promotion.
 

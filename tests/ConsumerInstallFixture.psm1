@@ -967,12 +967,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 }
                 $arguments
             }
-            'New-ArchHumanDoc.ps1' {
-                $scriptPath = Get-InstalledPath -Root $Root -Destination (
-                    'skills/architecture-notes/scripts/New-ArchHumanDoc.ps1'
-                )
-                @('-NoProfile', '-File', $scriptPath, '-RepoRoot', $(if ($Hostile) { $missingRoot } else { $Root }))
-            }
             'Add-WorkflowNote.ps1' {
                 $scriptPath = Get-InstalledPath -Root $Root -Destination (
                     'skills/ci/scripts/Add-WorkflowNote.ps1'
@@ -1062,14 +1056,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 Set-Content -LiteralPath (Join-Path $decisions 'consumer-choice.md') `
                     -Value "# Decision: Consumer Choice`n`nKeep scaffold writes confined.`n" `
                     -NoNewline -Encoding utf8NoBOM
-            }
-            elseif ($owner -eq 'New-ArchHumanDoc.ps1') {
-                $copyScript = Get-InstalledPath -Root $root -Destination (
-                    'skills/architecture-notes/scripts/Copy-ArchScaffold.ps1'
-                )
-                $setup = Invoke-SuiteFixtureProcess -WorkingDirectory $root -TimeoutSeconds 30 `
-                    -ArgumentList @('-NoProfile', '-File', $copyScript, '-TargetRoot', $root)
-                if ($setup.ExitCode -ne 0) { throw "Human-doc prerequisite failed: $($setup.Output)" }
             }
             elseif ($owner -eq 'Add-WorkflowNote.ps1') {
                 $newPlanPath = Get-InstalledPath -Root $root -Destination (
@@ -1213,7 +1199,6 @@ function Invoke-ConsumerFirstUseScaffoldLifecycle {
                 'Copy-ArchScaffold.ps1' { 'docs/architecture-notes/.architecture-notes.md' }
                 'Import-ArchHarvest.ps1' { 'docs/architecture-notes/.staging/HARVEST.md' }
                 'Import-ArchAdr.ps1' { 'docs/architecture-notes/.staging/adr/ADR-consumer-choice.md' }
-                'New-ArchHumanDoc.ps1' { 'docs/architecture-notes/architecture.human.md' }
                 'Add-WorkflowNote.ps1' {
                     'docs/implementation-plans/standalone-2026-01-02-a1b2c3-consumer-scaffold/assets/logs/learnings.md'
                 }

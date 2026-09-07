@@ -82,7 +82,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Remove the architecture human-document compatibility chain
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Delete generated human-doc production, freshness, distribution, and consumer-fixture machinery (REQ-4, RISK-3, RISK-6) [after: 1.2] `M`
+- [x] 2.1 Delete generated human-doc production, freshness, distribution, and consumer-fixture machinery (REQ-4, RISK-3, RISK-6) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** architecture notes have one human-readable representation—authoritative Markdown—and no
@@ -105,7 +105,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   digest helper; extract only the minimum local validation behavior instead of retaining generation.
 
   </details>
-- [ ] 2.2 Rewrite architecture-note contracts and guidance for the Markdown-only result (REQ-4, REQ-9, RISK-3) [after: 2.1] `M`
+- [x] 2.2 Rewrite architecture-note contracts and guidance for the Markdown-only result (REQ-4, REQ-9, RISK-3) [after: 2.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** both architecture indexes, the architecture-notes design note, plugin skill, and operations

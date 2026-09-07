@@ -1,6 +1,6 @@
 {
   "name": "architecture-notes",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -26,10 +26,6 @@
       "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md"
     },
     {
-      "src": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md",
-      "dest": "skills/architecture-notes/assets/templates/architecture-human-doc.template.md"
-    },
-    {
       "src": "scripts/Copy-ArchScaffold.ps1",
       "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1"
     },
@@ -48,14 +44,6 @@
     {
       "src": "scripts/Import-ArchAdr.ps1",
       "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1"
-    },
-    {
-      "src": "scripts/Get-ArchContractsHash.ps1",
-      "dest": "skills/architecture-notes/scripts/Get-ArchContractsHash.ps1"
-    },
-    {
-      "src": "scripts/New-ArchHumanDoc.ps1",
-      "dest": "skills/architecture-notes/scripts/New-ArchHumanDoc.ps1"
     },
     {
       "src": "skills/architecture-notes/assets/interview-guide.md",
@@ -102,12 +90,6 @@
       "mode": "literal",
       "owner": "Import-ArchAdr.ps1",
       "trigger": "ADR harvest at plan finalization"
-    },
-    {
-      "path": "docs/architecture-notes/architecture.human.md",
-      "mode": "literal",
-      "owner": "New-ArchHumanDoc.ps1",
-      "trigger": "first human-doc regeneration"
     }
   ],
   "evals": {

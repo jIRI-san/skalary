@@ -5,8 +5,8 @@ tier is the **AI-optimized source of truth**: terse, contract-focused, and auto-
 `/cip` and `/ci`. It captures the **unbreakable, high-level contracts** a human owns — the
 *what* and the boundaries — while implementation detail lives in `docs/design-notes/`.
 
-> Markdown notes are the human-readable architecture. A generated compatibility view may exist
-> temporarily for legacy JSON contracts, but it is not authoritative or auto-loaded.
+> Markdown notes are the human-readable architecture. Legacy JSON contracts are validated directly
+> and do not produce a generated Markdown mirror.
 
 ## How These Work
 

@@ -1,8 +1,8 @@
 # Architecture tier operations
 
 Reference detail for the architecture-notes operations that run rarely and do not need to sit in
-the always-loaded `SKILL.md`: **seed**, **legacy human-doc regen**, and **adr-harvest**.
-Read this file only when the requested operation is one of those three.
+the always-loaded `SKILL.md`: **seed** and **adr-harvest**.
+Read this file only when the requested operation is one of those two.
 
 `<scripts>` resolves exactly as in `SKILL.md`: `skills/architecture-notes/scripts/` in an
 installed plugin or the dogfood mirror, `plugins/architecture-notes/scripts/` in the plugin source
@@ -22,24 +22,6 @@ Runs a **short** interview and seeds a light architecture (no big design upfront
    contract, never overwriting existing files.
 4. Thereafter `/can` grows the tier one contract at a time (with `/cip` planning driving which
    boundaries to add).
-
-## Regenerate the human-readable doc
-
-The human doc (`docs/architecture-notes/architecture.human.md`) is a temporary compatibility view
-for the remaining transferred legacy JSON contract. Markdown contract notes are already human-readable
-and are not duplicated into this generated file. Remove this operation when the owning child
-converts or deletes the final legacy JSON contract.
-
-1. Run the generator: `<scripts>/New-ArchHumanDoc.ps1 -RepoRoot <repoRoot>`.
-   It materializes the doc from the template on first run, then rebuilds only the region between
-   the `BEGIN/END GENERATED: contracts` markers (diagram + component summary) from the contract
-   sources, preserving the hand-authored Purpose / Decision Records / Resources sections.
-2. It embeds the **canonical contract-sources digest** in the `arch-contracts-sha256` marker. The
-   freshness gate (`scripts/skalary/Test-ArchDocFreshness.ps1`) recomputes that digest and flags
-   drift when contracts changed without a regen. Treat a stale doc as a definition-of-done gap.
-3. Hand-author the narrative regions (Purpose & Scope, Decision Records, Resources) directly; the
-   generator never overwrites them. For larger projects the doc may grow into a per-subsystem
-   hierarchy — keep the overview here and link out.
 
 ## Harvest planning decisions into ADRs (finalization)
 
@@ -64,6 +46,6 @@ plan folder to `-PlanDir`; the script resolves which of the two locations is in 
    `/ci` on the next run.
 4. **ADR lifecycle (bounded auto-load).** Keep only **active** decisions in the Decision Records
    (active) table. When an ADR is superseded, set `status: superseded` (+ `superseded-by`) and
-   move/summarize it out of the active table (into the human-readable doc's decision narrative or a
-   non-indexed archive), so the always-on tier stays lean. This bounding is **enforced by human
+   move or summarize it out of the active table into a non-indexed archive, so the always-on tier
+   stays lean. This bounding is **enforced by human
    review at promotion, not by an automated pruner** — the harvest only ever emits new proposed ADRs.

@@ -94,7 +94,7 @@ $categories = @{
         Sensitivity = 'Architecture lock promotion is excluded.'
         Bootstrap = 'Use the owning scaffold command.'
         Owner = 'design-notes and architecture-notes plugins'
-        Validator = 'Test-ArchDocFreshness.ps1'
+        Validator = 'Test-ArchContract.ps1 and architecture-notes plugin evals'
         Installed = $true
     }
     'plugin-distribution' = @{

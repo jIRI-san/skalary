@@ -19,7 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.10"
+      "version": "1.0.11"
     },
     {
       "description": "Self-contained direct-workflow autonomous plan executor.",
@@ -152,7 +152,7 @@
         "skalary",
         "skill"
       ],
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
