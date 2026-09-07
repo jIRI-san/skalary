@@ -142,8 +142,7 @@ Describe 'isolated direct-workflow consumer installs' {
         }
         foreach ($relative in @(
                 '.autopilot.json', 'registry.json', '.github/plugin/marketplace.json',
-                'schemas/plugin/plugin.schema.json', 'schemas/registry/registry.schema.json',
-                'schemas/receipt/receipt.schema.json'
+                'schemas/plugin/plugin.schema.json', 'schemas/registry/registry.schema.json'
             )) {
             Join-Path $script:repoRoot $relative | Should -Exist
         }

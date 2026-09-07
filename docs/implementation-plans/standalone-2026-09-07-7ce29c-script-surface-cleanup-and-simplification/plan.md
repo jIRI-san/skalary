@@ -191,7 +191,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 4: Converge distributions and prove the reduced surface
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 4.1 Update affected design notes and run existing owned generators (REQ-1, REQ-4, REQ-5, REQ-9, RISK-6) [after: 3.3] `M`
+- [x] 4.1 Update affected design notes and run existing owned generators (REQ-1, REQ-4, REQ-5, REQ-9, RISK-6) [after: 3.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** architecture/design notes describe the reduced implementation; plugin manifests, registry,

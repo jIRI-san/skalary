@@ -634,8 +634,7 @@ Describe 'Epic autopilot child launcher state machine' {
         $successExitIndex | Should -BeGreaterThan $finalPushIndex
         $entrypointText | Should -Match (
             'autopilot_entrypoint_target_close_state\s+\\\s+' +
-            '"\$\{PLAN_PATH\}" "\$\{TARGET\}" "\$\{FINAL_PHASE_NUM\}" "\$\{REVIEW_GATE\}"\s+\\\s+' +
-            '"\$\{WORK_BRANCH\}"'
+            '"\$\{PLAN_PATH\}" "\$\{TARGET\}" "\$\{FINAL_PHASE_NUM\}" "\$\{WORK_BRANCH\}"'
         )
         $dispatchText | Should -Match 'Get-PhaseExecutionState\.ps1'
         $dispatchText | Should -Match 'autopilot_branch_has_published_pr'
@@ -1435,7 +1434,7 @@ Describe 'Epic autopilot child launcher state machine' {
             Should -BeExactly $reviewedTarget
         @(& git -C $evidenceRoot status --porcelain=v1) |
             Should -HaveCount 0
-        [System.IO.File]::ReadAllText($capturePath) |
+        ([System.IO.File]::ReadAllText($capturePath) -replace "`r`n", "`n") |
             Should -BeExactly "## Capture`nPhase: 0`n`nNo entries for this phase.`n"
 
         {
@@ -1488,7 +1487,6 @@ Describe 'Epic autopilot child launcher state machine' {
         $capture | Should -Match 'Epic final crosscheck passed via fallback'
         $capture | Should -Match '\[concern:architecture-patterns\]'
         $capture | Should -Match '\[review:none\]'
-        $capture | Should -Match '\[source-record:[0-9a-f]{64}\]'
         ([regex]::Matches(
             $capture,
             'Epic final crosscheck passed via fallback'

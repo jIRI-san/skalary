@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-07T17:13:53.0950995Z",
+  "generatedAt": "2026-09-07T17:28:52.9264328Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -205,12 +205,12 @@
         },
         {
           "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
         },
         {
           "dest": "skills/autopilot/scripts/EpicAutopilot.psm1",
-          "sha256": "d74a08a97af20f4cde0d271f27266a245a82cdfa7af55931b2255d9202f65d30",
+          "sha256": "2489dec026567d095bd1b625087cae114cd2babee377634d6e53cfcbcfb4af8d",
           "src": "skills/autopilot/scripts/EpicAutopilot.psm1"
         },
         {
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.23"
+      "version": "1.3.25"
     },
     {
       "author": "jIRI-san",
@@ -383,7 +383,7 @@
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/cr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -410,7 +410,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.83"
+      "version": "1.0.84"
     },
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -478,7 +478,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.120"
+      "version": "1.0.121"
     },
     {
       "author": "jIRI-san",
@@ -517,7 +517,7 @@
         },
         {
           "dest": "skills/cep/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/cep/scripts/DirectWorkflow.psm1"
         },
         {
@@ -587,7 +587,7 @@
         },
         {
           "dest": "skills/cip/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/cip/scripts/DirectWorkflow.psm1"
         },
         {
@@ -649,7 +649,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.104"
+      "version": "1.0.105"
     },
     {
       "author": "jIRI-san",
@@ -756,7 +756,7 @@
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
-          "sha256": "e3f15a244f581d63b180f6bc402361214ec33b94cd6d405900cadcbd74be6ac8",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
           "src": "skills/dr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -783,7 +783,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.82"
+      "version": "1.0.83"
     },
     {
       "author": "jIRI-san",
@@ -1080,7 +1080,7 @@
         },
         {
           "dest": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1",
-          "sha256": "2b39e2e9988475b23e692249319514474207e0b5752b2a1bf64cbfc5f561d8f3",
+          "sha256": "b5a274778d08eac22804b0aaea8ffbbe23231336e1cbf86c7211bffb5d665f42",
           "src": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1"
         }
       ],
@@ -1094,7 +1094,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.27"
+      "version": "1.0.28"
     }
   ],
   "retiredPlugins": [
