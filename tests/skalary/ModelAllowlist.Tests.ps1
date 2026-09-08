@@ -70,6 +70,9 @@ Describe 'model allowlist validator' {
             $allowlist.Roles.Standard.Primary | Should -Be 'primary-model-mid'
             $allowlist.Roles.Deep.Primary | Should -Be 'primary-model-high'
             $allowlist.Roles.Independent.Primary | Should -Be 'secondary-model-high'
+            $allowlist.Aliases['secondary-model-low'].Cli | Should -Be 'mai-code-1.1-flash'
+            $allowlist.Aliases['secondary-model-mid'].Cli | Should -Be 'gemini-3.8-flash'
+            $allowlist.Aliases['secondary-model-high'].Cli | Should -Be 'grok-4.6'
 
             foreach ($binding in @($allowlist.Aliases.Values)) {
                 $binding.VSCode | Should -Match '^.+\s\([^)]+\)$'
@@ -202,10 +205,10 @@ Describe 'model allowlist validator' {
     }
 
     Context 'denied vendors' {
-        It 'test:no-gemini-references fails on a Gemini reference anywhere in an agent file' {
+        It 'test:no-anthropic-references fails on a Claude reference anywhere in an agent file' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newAgent -Root $root -Name 'cr' -Body 'Dispatch cr-gemini for the security pass.' | Out-Null
+                & $script:newAgent -Root $root -Name 'cr' -Body 'Dispatch Claude for the security pass.' | Out-Null
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'denied model/vendor'
@@ -228,7 +231,7 @@ Describe 'model allowlist validator' {
 
             foreach ($config in @('plugins/autopilot/.autopilot.json.example', '.github/skills/autopilot/.autopilot.json.example')) {
                 $parsed = Get-Content -LiteralPath (Join-Path $script:repoRoot $config) -Raw | ConvertFrom-Json
-                $parsed.model | Should -Be 'primary-model-low'
+                $parsed.model | Should -Be 'primary-model-mid'
                 $allowlist.Aliases.ContainsKey($parsed.model) | Should -BeTrue
             }
         }
@@ -310,10 +313,10 @@ $heading
             }
         }
 
-        It 'test:no-gemini-references applies the denied vendors to dispatch guides too' {
+        It 'test:no-anthropic-references applies the denied vendors to dispatch guides too' {
             $root = & $script:newFixtureRoot
             try {
-                & $script:newGuide -Root $root -ReviewerModel 'Gemini-preview'
+                & $script:newGuide -Root $root -ReviewerModel 'Claude-unavailable'
                 $result = & $script:invoke -Root $root
                 $result.ExitCode | Should -Be 1
                 $result.Output | Should -Match 'denied model/vendor'

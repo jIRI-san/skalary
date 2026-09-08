@@ -28,7 +28,7 @@ sidecar; the launcher folds it into the ledger and deletes it. Records retain mo
 breakdowns for later routing decisions. A plan total is stored directly; an epic total is the sum of
 its child-plan ledgers. Activity outside Skalary-launched execution is intentionally out of scope.
 
-One AI credit currently equals USD 0.01. This pricing snapshot is dated **2026-09-05**:
+One AI credit currently equals USD 0.01. This pricing snapshot is dated **2026-09-08**:
 
 | Model | Input credits / 1M tokens | Cached input | Cache write | Output credits / 1M tokens |
 |---|---:|---:|---:|---:|
@@ -36,8 +36,9 @@ One AI credit currently equals USD 0.01. This pricing snapshot is dated **2026-0
 | GPT-5.6 Luna | 20 | 2 | 25 | 120 |
 | GPT-5.6 Terra | 200 | 20 | 250 | 1,200 |
 | GPT-5.6 Sol | 400 | 40 | 500 | 2,000 |
-| Claude Sonnet 5 | 200 | 20 | 250 | 1,000 |
-| Claude Opus 5 | 500 | 50 | 625 | 2,500 |
+| MAI-Code-1.1-Flash | 20 | 2 | — | 120 |
+| Gemini 3.8 Flash | 75 | 7.5 | — | 375 |
+| Grok 4.6 | 200 | 50 | — | 600 |
 
 The earlier Sol 50%-off promotion ended on 2026-09-03. Use the
 [official pricing table](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
@@ -106,6 +107,12 @@ never routine validation.
 Skills use aliases directly and focused fixtures hold the boundaries. Repoint aliases from observed
 quality, availability, current official pricing, and operator value, then regenerate host-required
 bindings. Do not add a policy engine, telemetry pipeline, or runtime budget service.
+
+The primary ladder is GPT-5.6 Luna/Terra/Sol. The secondary ladder is MAI-Code-1.1-Flash for routine
+replacement, Gemini 3.8 Flash for standard replacement, and Grok 4.6 for the independent high-risk
+pass. This keeps ordinary review on Terra, uses an available provider-diverse standard fallback, and
+reserves a separate provider family for independent review. Anthropic models are denied while operator
+access is unavailable.
 
 ## Dubious decisions
 

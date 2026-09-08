@@ -23,16 +23,16 @@
             VSCode = 'GPT-5.6 Sol (copilot)'
         }
         'secondary-model-low' = @{
-            Cli    = 'gpt-5-mini'
-            VSCode = 'GPT-5 mini (copilot)'
+            Cli    = 'mai-code-1.1-flash'
+            VSCode = 'MAI-Code-1.1-Flash (copilot)'
         }
         'secondary-model-mid' = @{
-            Cli    = 'claude-sonnet-5'
-            VSCode = 'Claude Sonnet 5 (copilot)'
+            Cli    = 'gemini-3.8-flash'
+            VSCode = 'Gemini 3.8 Flash (copilot)'
         }
         'secondary-model-high' = @{
-            Cli    = 'claude-opus-5'
-            VSCode = 'Claude Opus 5 (copilot)'
+            Cli    = 'grok-4.6'
+            VSCode = 'Grok 4.6 (copilot)'
         }
     }
 
@@ -93,10 +93,9 @@
         Cli    = 'secondary-model-mid'
     }
 
-    # Vendors/models that must not appear anywhere in an agent file — not in
-    # frontmatter, not in prose, not in a dispatch roster. Gemini is dropped because it
-    # is still Public preview and unavailable in Copilot CLI.
+    # Providers that are unavailable to the operator must not appear anywhere in an
+    # agent file — not in frontmatter, prose, or a dispatch roster.
     DeniedPatterns = @(
-        '(?i)gemini'
+        '(?i)anthropic|claude'
     )
 }
