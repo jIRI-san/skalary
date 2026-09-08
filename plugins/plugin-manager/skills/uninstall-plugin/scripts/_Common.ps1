@@ -957,9 +957,9 @@ function Invoke-PluginRemovalPrimitive {
             $sourceRoot = $temporary
         } elseif ([string]$receipt.sourceIdentity.kind -ceq 'github') {
             $temporary = Join-Path ([System.IO.Path]::GetTempPath()) ("skalary-remove-" + [guid]::NewGuid().ToString('N'))
-            git clone -c core.autocrlf=false -c core.eol=lf --no-checkout "https://$($receipt.sourceIdentity.identity).git" $temporary 2>$null | Out-Null
+            git -c core.longpaths=true clone -c core.autocrlf=false -c core.eol=lf --no-checkout "https://$($receipt.sourceIdentity.identity).git" $temporary 2>$null | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "Unable to materialize installed source '$($receipt.sourceIdentity.identity)'." }
-            git -C $temporary checkout --quiet $receipt.ref
+            git -c core.longpaths=true -C $temporary checkout --quiet $receipt.ref
             if ($LASTEXITCODE -ne 0) { throw "Unable to materialize installed ref '$($receipt.ref)'." }
             $sourceRoot = $temporary
         } else {

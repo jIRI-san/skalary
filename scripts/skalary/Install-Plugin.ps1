@@ -97,10 +97,10 @@ function Get-ResolvedSourceContext {
     [void](New-Item -ItemType Directory -Path $sourceTempPath -Force)
 
     if ($resolvedRef -eq 'HEAD') {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath 2>$null | Out-Null
+        git -c core.longpaths=true clone -c core.autocrlf=false -c core.eol=lf --depth 1 $remote $sourceTempPath 2>$null | Out-Null
     }
     else {
-        git clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath 2>$null | Out-Null
+        git -c core.longpaths=true clone -c core.autocrlf=false -c core.eol=lf --depth 1 --branch $resolvedRef $remote $sourceTempPath 2>$null | Out-Null
     }
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to clone source '$([string]$sourceIdentity.identity)' (ref '$resolvedRef')."

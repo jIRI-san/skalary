@@ -73,6 +73,7 @@ Conversely, install protects an unowned collision and unforced remove protects e
 | Tamper/collision | Verify staged registry hash; enforce registry-wide destination uniqueness and receipt ownership. |
 | User edits | Update/remove skip modified files unless explicit `-Force`. |
 | Bootstrap execution | Download scripts/catalog only; cloned plugin payload is copied, never executed. |
+| Windows source materialization | Remote lifecycle clone and checkout commands enable per-command `core.longpaths` so deep repository history can be staged without changing user Git configuration. |
 | Stable output | All catalog/README ordering uses explicit ordinal comparers; equality is ordinal. |
 
 Registry payload hashes are SHA-256 over bytes produced by Git clean filters, so CRLF checkout

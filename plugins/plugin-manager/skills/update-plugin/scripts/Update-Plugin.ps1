@@ -29,10 +29,20 @@ function Get-SourceSnapshot {
         New-PluginSourceIdentity -LocalPath (Resolve-RepoRoot -StartPath $source)
     }
     $refToResolve = if ([string]::IsNullOrWhiteSpace($SourceRef)) { 'HEAD' } else { $SourceRef }
-    $sha = if (Test-Path -LiteralPath $source) {
-        (git -C $source rev-parse $refToResolve).Trim()
-    } else {
-        @(git ls-remote $source $refToResolve | Select-Object -First 1)[0].Split()[0]
+    if (Test-Path -LiteralPath $source) {
+        $sha = (git -C $source rev-parse $refToResolve).Trim()
+    }
+    elseif ($refToResolve -cmatch '^[a-f0-9]{40,64}$') {
+        $sha = $refToResolve
+    }
+    else {
+        $remoteRefs = @(git ls-remote $source $refToResolve)
+        $sha = if ($remoteRefs.Count -gt 0) {
+            ([string]$remoteRefs[0] -split '\s+')[0]
+        }
+        else {
+            $null
+        }
     }
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sha) -or $sha -cnotmatch '^[a-f0-9]{40,64}$') {
         throw "Unable to resolve immutable ref '$refToResolve'."
@@ -42,8 +52,8 @@ function Get-SourceSnapshot {
     if (Test-Path -LiteralPath $source) {
         git -C $source archive $sha | tar -xf - -C $snapshot
     } else {
-        git clone -c core.autocrlf=false -c core.eol=lf --no-checkout $source $snapshot 2>$null | Out-Null
-        git -C $snapshot checkout --quiet $sha
+        git -c core.longpaths=true clone -c core.autocrlf=false -c core.eol=lf --no-checkout $source $snapshot 2>$null | Out-Null
+        git -c core.longpaths=true -C $snapshot checkout --quiet $sha
     }
     if ($LASTEXITCODE -ne 0) { throw "Failed to materialize source '$sha'." }
     return [pscustomobject]@{ Root = $snapshot; Sha = $sha; Identity = $identity; TempPath = $snapshot }

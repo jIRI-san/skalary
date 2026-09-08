@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-07T17:28:52.9264328Z",
+  "generatedAt": "2026-09-08T15:54:15.7074275Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -155,7 +155,7 @@
         },
         {
           "dest": "skills/autopilot/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/autopilot/assets/model-aliases.psd1"
         },
         {
@@ -378,7 +378,7 @@
         },
         {
           "dest": "skills/cr/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/cr/assets/model-aliases.psd1"
         },
         {
@@ -431,7 +431,7 @@
         },
         {
           "dest": "skills/ci/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/ci/assets/model-aliases.psd1"
         },
         {
@@ -502,7 +502,7 @@
         },
         {
           "dest": "skills/cep/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/cip/assets/model-aliases.psd1"
         },
         {
@@ -572,7 +572,7 @@
         },
         {
           "dest": "skills/cip/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/cip/assets/model-aliases.psd1"
         },
         {
@@ -751,7 +751,7 @@
         },
         {
           "dest": "skills/dr/assets/model-aliases.psd1",
-          "sha256": "8c88823e0e7e69c7b472f4bc61676ca5b2c7a48c4b6c7d061d24ff423f39a99c",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
           "src": "skills/dr/assets/model-aliases.psd1"
         },
         {
@@ -800,7 +800,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
-          "sha256": "4789c114a6ebc64458ded3ec7779338c6e46f1a8817954620d823be107c35452",
+          "sha256": "b99e41eda7ab65e879657341746797f63bac7c6f68785a24c63a404c5186f79a",
           "src": "skills/install-plugin/scripts/Install-Plugin.ps1"
         },
         {
@@ -810,7 +810,7 @@
         },
         {
           "dest": "skills/install-plugin/scripts/_Common.ps1",
-          "sha256": "dfc77addcdb64722adcd14feb53d9e2f7e9f2d6e85cc1e4f8ddd03a52cc8e5cc",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
           "src": "skills/install-plugin/scripts/_Common.ps1"
         },
         {
@@ -830,7 +830,7 @@
         },
         {
           "dest": "skills/list-plugins/scripts/_Common.ps1",
-          "sha256": "dfc77addcdb64722adcd14feb53d9e2f7e9f2d6e85cc1e4f8ddd03a52cc8e5cc",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
           "src": "skills/list-plugins/scripts/_Common.ps1"
         },
         {
@@ -850,7 +850,7 @@
         },
         {
           "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
-          "sha256": "dfc77addcdb64722adcd14feb53d9e2f7e9f2d6e85cc1e4f8ddd03a52cc8e5cc",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
           "src": "skills/uninstall-plugin/scripts/_Common.ps1"
         },
         {
@@ -860,12 +860,12 @@
         },
         {
           "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
-          "sha256": "a87a692f6e5be338b3c6f37efb02bfc6668a4a2c0f17b632af6011535e9e70d1",
+          "sha256": "71520ecd57b4fb2824367f5b4d66da5346b171c1200b679ffebe92c8081422cd",
           "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
         },
         {
           "dest": "skills/update-plugin/scripts/_Common.ps1",
-          "sha256": "dfc77addcdb64722adcd14feb53d9e2f7e9f2d6e85cc1e4f8ddd03a52cc8e5cc",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
           "src": "skills/update-plugin/scripts/_Common.ps1"
         }
       ],
@@ -877,7 +877,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.28"
+      "version": "1.0.29"
     },
     {
       "author": "jIRI-san",

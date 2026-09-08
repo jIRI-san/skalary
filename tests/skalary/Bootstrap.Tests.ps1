@@ -29,4 +29,22 @@ Describe 'bootstrap.ps1' {
         $text | Should -Match 'Set-ScriptApproval'
         $text | Should -Match '\$AutoApprove'
     }
+
+    It 'test:Bootstrap.RemoteLifecycleSupportsWindowsLongPaths enables long paths for clone and checkout' {
+        foreach ($relative in @(
+                'scripts/skalary/Install-Plugin.ps1'
+                'scripts/skalary/Update-Plugin.ps1'
+                'scripts/skalary/_Common.ps1'
+            )) {
+            $content = [System.IO.File]::ReadAllText((Join-Path $root $relative))
+            $gitMaterializationCommands = @(
+                $content -split '\r?\n' |
+                    Where-Object { $_ -match '^\s*git\s+.*\b(?:clone|checkout)\b' }
+            )
+            $gitMaterializationCommands.Count | Should -BeGreaterThan 0 -Because $relative
+            foreach ($command in $gitMaterializationCommands) {
+                $command | Should -Match '\s-c\s+core\.longpaths=true(?:\s|$)' -Because $relative
+            }
+        }
+    }
 }
