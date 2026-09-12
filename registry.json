@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-12T14:40:17.7102854Z",
+  "generatedAt": "2026-09-12T15:55:27.6226987Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -865,7 +865,7 @@
         },
         {
           "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
-          "sha256": "71520ecd57b4fb2824367f5b4d66da5346b171c1200b679ffebe92c8081422cd",
+          "sha256": "a3ed2faafb96def27abdabf4026ed0d878b41a4e9c55d20e85238ec3a08962a9",
           "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
         },
         {
@@ -882,7 +882,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.29"
+      "version": "1.0.30"
     },
     {
       "author": "jIRI-san",

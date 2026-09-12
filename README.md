@@ -87,7 +87,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `create-implementation-plan` | 1.0.106 | stable | design-review | 28 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.85 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
-| `plugin-manager` | 1.0.29 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
+| `plugin-manager` | 1.0.30 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
 | `process-pr-comments` | 1.0.2 | stable | — | 2 | Process PR comments skill for classifying, fixing, and replying to review feedback. |
 | `self-improvement` | 1.0.84 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
 | `skalary-config` | 1.0.5 | stable | — | 5 | Discover Skalary configuration surfaces and safely preview category-scoped changes. |

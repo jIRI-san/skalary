@@ -40,9 +40,10 @@ and the authority to materialize the old manifest; they never track per-file own
 
 Install preflights the complete manifest set, refuses an unowned destination unless `-Force`, writes
 the confined payload directly, verifies resulting bytes, and writes the receipt last. An unchanged rerun
-does not mutate files. Update requires a matching source identity, derives both old and target manifests,
-and replaces their path union under the same receipt authority, including local edits. It verifies target
-bytes and old-path absence before advancing the receipt.
+does not mutate files. Update requires a matching source identity, derives both old and target file sets and hashes from each
+immutable snapshot's generated registry, reads source manifests for metadata, and replaces the path union
+under the same receipt authority, including local edits. It verifies target bytes and old-path absence
+before advancing the receipt.
 
 Remove materializes the exact receipt-pinned manifest and preflights every present target. An unforced
 modified target reports all differences and prevents every deletion; missing paths already converge.

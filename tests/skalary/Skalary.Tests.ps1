@@ -172,6 +172,121 @@ Describe 'skalary plugin registry scripts' {
         $rerun.ExitCode | Should -Be 0 -Because $rerun.Output
     }
 
+    It 'test:PluginLifecycle.Update uses immutable registry hashes when manifests omit them' {
+        $source = New-SkalaryFixtureRoot -Prefix 'skalary-update-source'
+        $tempRepos.Add($source)
+        $target = New-ConsumerRepo
+        git init -q $source
+        git -C $source config user.name 'skalary-tests'
+        git -C $source config user.email 'skalary-tests@example.com'
+        git -C $source config commit.gpgsign false
+
+        $pluginName = 'example'
+        $pluginRoot = Join-Path $source "plugins/$pluginName"
+        [void](New-Item -ItemType Directory -Path (Join-Path $pluginRoot 'files') -Force)
+        $manifestPath = Join-Path $source "plugins/$pluginName/plugin.json"
+        $sourcePayload = Join-Path $pluginRoot 'files/payload.txt'
+        $targetPayload = Join-Path $target '.github/skills/example/payload.txt'
+
+        function Write-UpdateSnapshot {
+            param(
+                [Parameter(Mandatory)][string]$Version,
+                [Parameter(Mandatory)][string]$Content
+            )
+
+            Set-Content -LiteralPath $sourcePayload -Value $Content -NoNewline -Encoding utf8NoBOM
+            $manifest = [pscustomobject][ordered]@{
+                name = $pluginName
+                version = $Version
+                files = @(
+                    [pscustomobject][ordered]@{
+                        src = 'files/payload.txt'
+                        dest = 'skills/example/payload.txt'
+                    }
+                )
+            }
+            Set-Content -LiteralPath $manifestPath -Value (
+                ($manifest | ConvertTo-Json -Depth 10) + "`n"
+            ) -Encoding utf8NoBOM
+            $registry = [pscustomobject][ordered]@{
+                retiredPlugins = @()
+                plugins = @(
+                    [pscustomobject][ordered]@{
+                        name = $pluginName
+                        version = $Version
+                        files = @(
+                            [pscustomobject][ordered]@{
+                                src = 'files/payload.txt'
+                                dest = 'skills/example/payload.txt'
+                                sha256 = (Get-FileHash -LiteralPath $sourcePayload -Algorithm SHA256).Hash.ToLowerInvariant()
+                            }
+                        )
+                    }
+                )
+            }
+            Set-Content -LiteralPath (Join-Path $source 'registry.json') -Value (
+                ($registry | ConvertTo-Json -Depth 10) + "`n"
+            ) -Encoding utf8NoBOM
+        }
+
+        Write-UpdateSnapshot -Version '1.0.0' -Content 'original payload'
+        git -C $source add --all
+        git -C $source commit -q -m 'test: initial plugin payload'
+        $oldRef = (git -C $source rev-parse HEAD).Trim()
+
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 10
+        @($manifest.files | Where-Object { $_.PSObject.Properties.Name -contains 'sha256' }) |
+            Should -BeNullOrEmpty
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $targetPayload) -Force)
+        Set-Content -LiteralPath $targetPayload -Value 'original payload' -NoNewline -Encoding utf8NoBOM
+        $sourceIdentityHash = [Convert]::ToHexString(
+            [Security.Cryptography.SHA256]::HashData(
+                [Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($source))
+            )
+        ).ToLowerInvariant()
+        $receipt = [pscustomobject][ordered]@{
+            name = $pluginName
+            version = '1.0.0'
+            sourceIdentity = [pscustomobject][ordered]@{
+                version = 1
+                kind = 'local'
+                identity = "sha256:$sourceIdentityHash"
+            }
+            ref = $oldRef
+        }
+        $receiptPath = Join-Path $target ".github/.skalary/receipts/$pluginName.json"
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $receiptPath) -Force)
+        Set-Content -LiteralPath $receiptPath -Value (
+            ($receipt | ConvertTo-Json -Depth 10) + "`n"
+        ) -Encoding utf8NoBOM
+
+        Write-UpdateSnapshot -Version '2.0.0' -Content 'updated payload'
+        git -C $source add --all
+        git -C $source commit -q -m 'test: update plugin payload'
+        $newRef = (git -C $source rev-parse HEAD).Trim()
+
+        $registry = Get-Content -LiteralPath (Join-Path $source 'registry.json') -Raw |
+            ConvertFrom-Json -Depth 100
+        $registryFile = @(
+            $registry.plugins |
+                Where-Object { [string]$_.name -ceq $pluginName } |
+                ForEach-Object { $_.files } |
+                Where-Object { [string]$_.dest -ceq 'skills/example/payload.txt' }
+        )
+        $registryFile.Count | Should -Be 1
+        [string]$registryFile[0].sha256 | Should -Match '^[a-f0-9]{64}$'
+
+        $update = Invoke-ScriptProcess -RepoRoot $target -ScriptName 'Update-Plugin.ps1' `
+            -ScriptRepoRoot $projectRoot `
+            -Arguments @('-Name', $pluginName, '-Source', $source, '-Ref', 'HEAD')
+        $update.ExitCode | Should -Be 0 -Because $update.Output
+        [System.IO.File]::ReadAllText($targetPayload) | Should -BeExactly 'updated payload'
+
+        $updatedReceipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 10
+        [string]$updatedReceipt.version | Should -BeExactly '2.0.0'
+        [string]$updatedReceipt.ref | Should -BeExactly $newRef
+    }
+
     It 'test:PluginLifecycle.Remove refuses modified payloads until forced and converges on retry' {
         $source = New-RepoClone
         $target = New-ConsumerRepo
