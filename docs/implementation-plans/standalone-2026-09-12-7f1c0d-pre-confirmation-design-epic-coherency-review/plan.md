@@ -1,6 +1,6 @@
 # 7f1c0d: Pre-confirmation design and epic coherency review
 <!-- plan-id: 7f1c0d -->
-<!-- cip-stage: drafted -->
+<!-- cip-stage: done -->
 <!-- planning-confirmed: sha256:7d00db3f3914cc2cd8f76234cabe1f1384fdd9433366471f91982e43fc13d8fc -->
 <!-- Folder naming: <epic-id|standalone>-<yyyy-mm-dd>-<6hex>-<slug> · plan-id is the canonical handle (date/slug/hash all resolve via Resolve-Plan). New-Plan.ps1 fills these in. -->
 
@@ -29,7 +29,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 1: Pre-confirmation design review
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 1.1 Add the mandatory planning-owned review and applicability flow (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-5, RISK-6) `M`
+- [x] 1.1 Add the mandatory planning-owned review and applicability flow (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-5, RISK-6) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `/cip` completes the draft, dispatches one `secondary-model-high` design review, dispatches one `primary-model-high` applicability evaluation, shows all findings and recommendations, asks the operator what to apply, edits only the selected plan changes, and only then performs final planning confirmation.
@@ -43,7 +43,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** the two-call workflow cannot be expressed without conflicting with the installed DR read-only contract; resolve that contract directly rather than adding a parallel reviewer or state machine.
 
   </details>
-- [ ] 1.2 Align the DR reviewer contract with the planning-owned pass (REQ-2, REQ-4, REQ-7, REQ-8, RISK-1, RISK-4, RISK-6) [after: 1.1] `M`
+- [x] 1.2 Align the DR reviewer contract with the planning-owned pass (REQ-2, REQ-4, REQ-7, REQ-8, RISK-1, RISK-4, RISK-6) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the installed DR contract supports a caller-selected pre-confirmation mode in which `secondary-model-high` reports evidence-backed findings without treating them as mandatory fixes, while `/cip` retains applicability judgment and mutation ownership.
@@ -59,7 +59,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Epic coherency in the same pass
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add bounded epic context and coherency checks to the planning review (REQ-3, REQ-4, REQ-6, REQ-8, RISK-2, RISK-3, RISK-4, RISK-7) [after: 1.2] `M`
+- [x] 2.1 Add bounded epic context and coherency checks to the planning review (REQ-3, REQ-4, REQ-6, REQ-8, RISK-2, RISK-3, RISK-4, RISK-7) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** when the current plan has an epic marker, the same secondary review reads the epic intent and structure, targeted sibling intent/interfaces/dependencies/decisions, and relevant current implementation from completed siblings, then reports scope, ownership, dependency, interface, sequencing, duplication, and delivered-behavior conflicts beside the design findings.
@@ -73,7 +73,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** the epic marker cannot resolve or the relevant delivered interface cannot be established cheaply; surface the missing context to the operator instead of inferring compatibility.
 
   </details>
-- [ ] 2.2 Prove user-directed triage without review machinery (REQ-1, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-5, RISK-6) [after: 2.1] `M`
+- [x] 2.2 Prove user-directed triage without review machinery (REQ-1, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-5, RISK-6) [after: 2.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** structural and behavioral tests prove that all findings remain visible, `primary-model-high` recommends fix/simplify/defer/ignore using wider project context and Simplicity First, the operator chooses, and `/cip` applies only selected changes without a second review.
@@ -89,7 +89,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 3: Documentation and distribution
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Update architecture, design, and operator guidance (REQ-1, REQ-3, REQ-5, REQ-7, REQ-8, REQ-9, RISK-1, RISK-3, RISK-6) [after: 2.2] `M`
+- [x] 3.1 Update architecture, design, and operator guidance (REQ-1, REQ-3, REQ-5, REQ-7, REQ-8, REQ-9, RISK-1, RISK-3, RISK-6) [after: 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** active architecture/design notes and operator guides describe the pre-confirmation ordering, two-model responsibilities, epic-context bounds, user authority, direct edit behavior, and explicit rejection of the retired coherency/review lifecycle.
@@ -101,7 +101,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** operator-guide and design-note contract tests recognize the new ordering and no-machinery boundary.
 
   </details>
-- [ ] 3.2 Synchronize consumers and validate the complete workflow (REQ-9, REQ-10, RISK-4, RISK-6, RISK-7) [after: 3.1] `M`
+- [x] 3.2 Synchronize consumers and validate the complete workflow (REQ-9, REQ-10, RISK-4, RISK-6, RISK-7) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** canonical plugin sources, manifest/version/catalog metadata, and dogfood `.github` copies converge; focused planning, review, model-policy, operator-guide, consumer-install, and drift tests pass.

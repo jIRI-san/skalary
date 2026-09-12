@@ -1,6 +1,6 @@
 {
   "name": "create-implementation-plan",
-  "version": "1.0.105",
+  "version": "1.0.106",
   "description": "Direct implementation and epic plan creation.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -16,6 +16,7 @@
     { "src": "skills/cip/SKILL.md", "dest": "skills/cip/SKILL.md" },
     { "src": "skills/cip/assets/model-aliases.psd1", "dest": "skills/cip/assets/model-aliases.psd1" },
     { "src": "skills/cip/assets/decision-protocol.md", "dest": "skills/cip/assets/decision-protocol.md" },
+    { "src": "skills/cip/assets/pre-confirmation-review.md", "dest": "skills/cip/assets/pre-confirmation-review.md" },
     { "src": "skills/cip/assets/plan-template.md", "dest": "skills/cip/assets/plan-template.md" },
     { "src": "skills/cip/scripts/AtomicStore.psm1", "dest": "skills/cip/scripts/AtomicStore.psm1" },
     { "src": "skills/cip/scripts/Get-PlanIndex.ps1", "dest": "skills/cip/scripts/Get-PlanIndex.ps1" },

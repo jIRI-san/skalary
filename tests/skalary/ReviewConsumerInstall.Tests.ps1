@@ -63,6 +63,24 @@ Describe 'isolated direct-workflow consumer installs' {
         }
     }
 
+    It 'test:PlanningReview.ConsumerInstall installs the planning review protocol and DR boundary' {
+        $source = Join-Path $script:repoRoot (
+            'plugins\create-implementation-plan\skills\cip\assets\pre-confirmation-review.md'
+        )
+        $installed = Join-Path $script:fixtureRoot (
+            '.github\skills\cip\assets\pre-confirmation-review.md'
+        )
+        $installed | Should -Exist
+        [System.IO.File]::ReadAllBytes($installed) |
+            Should -Be ([System.IO.File]::ReadAllBytes($source))
+
+        $drSkill = Get-Content -LiteralPath (
+            Join-Path $script:fixtureRoot '.github\skills\dr\SKILL.md'
+        ) -Raw
+        $drSkill | Should -Match 'pre-confirmation reviewer role'
+        $drSkill | Should -Match 'report rule below does not apply to this caller role'
+    }
+
     It 'loads installed direct modules without source-tree fallback' {
         foreach ($skill in @('cr', 'dr', 'ci', 'autopilot')) {
             $module = Join-Path $script:fixtureRoot (

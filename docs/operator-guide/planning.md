@@ -10,22 +10,20 @@ sequenceDiagram
     actor Operator
     participant CEP as /cep
     participant CIP as /cip
-    participant Native as Optional primary-model-mid Validator
-    participant DR as Risk-selected /dr
+    participant Reviewer as secondary-model-high Reviewer
+    participant Evaluator as primary-model-high Evaluator
     participant Git
     Operator->>CEP: Goal or epic reference
     CEP->>Operator: Confirm intent and epic cut
     CEP->>Git: Scaffold epic and preliminary child context
     Operator->>CIP: Plan reference
     CIP->>Operator: Confirm current intent and language meanings
-    opt Concrete unresolved design/requirements choice
-        CIP->>Native: One combined design/requirements call
-        Native-->>CIP: Design and validation result
-    end
-    opt Concrete unresolved design risk
-        CIP->>DR: One bounded direct review
-        DR-->>CIP: Advisory result
-    end
+    CIP->>Reviewer: One read-only design review
+    Reviewer-->>CIP: All evidence-backed findings
+    CIP->>Evaluator: Evaluate every finding in project context
+    Evaluator-->>CIP: fix/simplify/defer/ignore recommendations
+    CIP->>Operator: One consolidated selected-edit choice
+    Operator-->>CIP: Selected edits
     CIP->>Operator: Confirm intent, requirements, risks, decisions together
     Operator-->>CIP: Confirm
     CIP->>Git: Write planning-confirmed marker and commit
@@ -53,7 +51,8 @@ and [`/cip` skill](../../plugins/create-implementation-plan/skills/cip/SKILL.md)
 | Domain | Important entities, terms, relationships, and ownership | `assets/domain.md` |
 | Design | Boundaries, data/control flow, alternatives, tradeoffs | `assets/design.md` and decisions |
 | Criteria | Requirements, risks, decisions, and typed acceptance evidence | Implementation-ready draft |
-| Final | Current intent, requirements, risks, and decisions together | `planning-confirmed` marker |
+| Pre-confirmation review | Complete draft; design findings and applicability recommendations | One selected-edit choice; no rerun |
+| Final | Current intent, requirements, risks, and decisions together after selected edits | `planning-confirmed` marker |
 
 If a correction changes confirmed criteria, reopen the affected confirmation in `/cip`; do not weaken
 an acceptance test during implementation.
@@ -128,8 +127,16 @@ stage/confirmation markers, and vertical checklist. Evidence markers are exactly
 
 ## DR selection, Git baseline, and handoff
 
-DR is not a fixed review panel. Select it only when a concrete unresolved design risk would make the
-plan unsafe or not implementation-ready. Its report is advisory; planning owns correction.
+Standalone DR is not a fixed review panel: select it only when a concrete unresolved design risk would make
+the plan unsafe or not implementation-ready. Its report is advisory; planning owns correction.
+
+Every complete `/cip` draft instead runs one planning-owned read-only `secondary-model-high`/high design
+review followed by one `primary-model-high`/high applicability pass before final confirmation. Epic children
+use the same review call with epic intent and targeted sibling intent, interfaces, dependencies, decisions,
+and relevant current completed implementation; it does not read every sibling or mutate the epic. The
+operator sees every finding with a `fix`, `simplify`, `defer`, or `ignore` recommendation in one choice.
+Only selected edits change the current plan. A failed or incomplete call stops planning visibly; no retry,
+clean requirement, review state, or post-edit rerun is added.
 
 The final confirmation marker is the Git checkpoint. Execution later locates the unique commit that
 introduced its current value and compares `intent.md`, `requirements.md`, `risks.md`, and

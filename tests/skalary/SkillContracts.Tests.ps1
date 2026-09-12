@@ -34,6 +34,21 @@ Describe 'Direct workflow skill contracts' {
         $text | Should -Match 'Judge'
     }
 
+    It 'test:PlanningReview.Ordering keeps pre-confirmation review planning-owned and bounded' {
+        $cip = Get-SkillText 'plugins/create-implementation-plan/skills/cip/SKILL.md'
+        $guide = Get-SkillText 'plugins/create-implementation-plan/skills/cip/assets/pre-confirmation-review.md'
+        $dr = Get-SkillText 'plugins/design-review/skills/dr/SKILL.md'
+
+        $cip | Should -Match '(?s)complete draft.*?secondary-model-high`/high.*?primary-model-high`/high'
+        $cip | Should -Match '(?s)selected edits.*?planning-confirmed'
+        $cip | Should -Match 'one operator choice'
+        $cip | Should -Match 'never rerun'
+        $guide | Should -Match 'exactly these two calls in this order'
+        $guide | Should -Match 'all findings and their recommendations in one consolidated operator selection'
+        $guide | Should -Match 'not persisted as review state'
+        $dr | Should -Match 'caller role does not alter standalone `/dr` routing'
+    }
+
     It 'test:autopilot-plan-id protects criteria in every launched agent' {
         $skill = Get-SkillText 'plugins/autopilot/skills/autopilot/SKILL.md'
         $agent = Get-SkillText 'plugins/autopilot/agents/autopilot.agent.md'
@@ -49,7 +64,7 @@ Describe 'Direct workflow skill contracts' {
             )) {
             $text = Get-SkillText $path
             $text | Should -Match 'terminal phase skips post-phase'
-            $text | Should -Match 'one whole-plan\s+direct CR'
+            $text | Should -Match 'whole-plan\s+direct CR'
             $text | Should -Match 'If scope is unchanged, do not rerun'
         }
     }
@@ -62,9 +77,10 @@ Describe 'Direct workflow skill contracts' {
             $text = Get-SkillText $path
             $text | Should -Match 'read-only'
             $text | Should -Match 'Write-DirectReviewReport'
-            $text | Should -Match '(?s)attacker/(?:untrusted\s+)?input.*reachable capability'
-            $text | Should -Match '(?s)reachable capability.*affected asset'
-            $text | Should -Match '(?s)affected asset.*plausible impact'
+            $text | Should -Match 'attacker/untrusted input'
+            $text | Should -Match 'reachable\s+capability'
+            $text | Should -Match 'affected\s+asset'
+            $text | Should -Match 'plausible\s+impact'
             $text | Should -Match 'clean`, `findings`, or `incomplete'
         }
     }
@@ -76,9 +92,9 @@ Describe 'Direct workflow skill contracts' {
                 'plugins/autopilot/agents/autopilot.agent.md'
             )) {
             $text = Get-SkillText $path
-            $text | Should -Match 'five maximum|hard task maximum'
-            $text | Should -Match 'at most five'
-            $text | Should -Match '600/1,200|target 600 words'
+            $text | Should -Match 'three-call ceiling'
+            $text | Should -Match 'at most three'
+            $text | Should -Match '400/800|target\s+400\s+words'
             $text | Should -Match 'Judge'
         }
     }

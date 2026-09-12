@@ -164,6 +164,26 @@ Describe 'SimpleWorkflow.OperatorGuide' {
         $reviews | Should -Match 'Budget exhaustion'
     }
 
+    It 'test:PlanningReview.Documentation documents the pre-confirmation two-call boundary' {
+        $planning = $script:content['planning.md']
+        $reviews = $script:content['reviews.md']
+        $readme = $script:content['README.md']
+
+        foreach ($token in @(
+                'secondary-model-high`/high',
+                'primary-model-high`/high',
+                'fix`, `simplify`, `defer`, or `ignore',
+                'Only selected edits change the current plan',
+                'no retry,',
+                'post-edit rerun'
+            )) {
+            $planning | Should -Match ([regex]::Escape($token))
+        }
+        $reviews | Should -Match 'It creates no report,\s*\nverdict, receipt, lifecycle, clean requirement, or rerun'
+        $reviews | Should -Match 'standalone `/dr` remains unchanged'
+        $readme | Should -Match 'Pre-confirmation planning review'
+    }
+
     It 'makes the compaction exclusion explicit in guides and design notes' {
         $script:content['README.md'] | Should -Match 'design-note compaction does not apply here'
         $script:content['implementation.md'] | Should -Match 'Guide-only changes do not trigger it'

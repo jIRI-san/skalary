@@ -32,6 +32,12 @@ The `focus` and `exceptions` local standards are the two standalone, localizable
 without a caller-supplied base standard; all other local entries must extend or replace a supplied,
 localizable base ID.
 
+`/cip` may explicitly select DR's pre-confirmation reviewer role after a complete draft. That one
+`secondary-model-high`/high call remains read-only and advisory: it returns all evidence-backed design
+findings and, for an epic child, bounded targeted coherency findings. `/cip` then owns the one
+`primary-model-high`/high applicability pass, operator selection, and current-plan edits. No clean verdict,
+report, retry, rerun, finding state, or standalone `/dr` routing change follows from this caller mode.
+
 ## Proportional security
 
 A blocking finding needs attacker/untrusted input, reachable capability, affected asset, and plausible

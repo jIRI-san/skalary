@@ -11,6 +11,7 @@ active contracts are the [`CR skill`](../../plugins/code-review/skills/cr/SKILL.
 |---|---|---|
 | Standalone `/cr` | `uncommitted`, `branch`, commit count/batch, or file/folder paths | Chat unless the operator explicitly requests saving |
 | Standalone `/dr` | Explicit plan, session plan, or chat design | Chat unless explicitly saved |
+| `/cip` pre-confirmation review | Complete draft; design plus bounded epic coherency for child plans | One read-only finding set, then planning-owned applicability and operator selection |
 | Non-terminal plan review | One concrete changed-scope risk | `assets/reviews/phase-<N>.md` |
 | Terminal plan review | Whole completed plan, exactly once | `assets/reviews/final.md` |
 
@@ -39,6 +40,14 @@ flowchart TD
 Non-terminal review is omitted when there is no concrete risk. It allows one review event and at most
 one replacement after corrective source changes. The terminal phase skips post-phase review and
 finalization runs one whole-plan event. Never rerun unchanged scope.
+
+The `/cip` pre-confirmation review is separate from implementation-time report cadence. It always runs once
+after the complete draft and before planning-confirmed: `secondary-model-high`/high reviews read-only, then
+`primary-model-high`/high evaluates every finding using project context and Simplicity First. For epic
+children, the reviewer uses only epic intent and targeted sibling intent, interfaces, dependencies,
+decisions, and relevant current delivered behavior. `/cip` shows all findings in one consolidated
+fix/simplify/defer/ignore choice and edits only selected current-plan changes. It creates no report,
+verdict, receipt, lifecycle, clean requirement, or rerun, and standalone `/dr` remains unchanged.
 
 ## Model alias and budget matrix
 

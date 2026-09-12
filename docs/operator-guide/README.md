@@ -51,7 +51,8 @@ The plan layout and marker grammar are defined by
 |---|---|---|---|
 | Intent and epic cut | Operator confirms the current goal/cut | Planning remains open | Answer the focused question |
 | Language gate | Absolutes are confirmed invariants or conditional rules; fuzzy terms are observable | No draft | Clarify through `/cep` or `/cip` |
-| Final planning confirmation | Intent, requirements, risks, and decisions confirmed together | No `planning-confirmed` marker | Revise and reconfirm in `/cip` |
+| Pre-confirmation planning review | Both mandatory read-only design and applicability calls complete; operator selects edits | Visible incomplete stop; no `planning-confirmed` marker | Resolve the named failure, then resume `/cip` |
+| Final planning confirmation | Intent, requirements, risks, and decisions confirmed together after selected review edits | No `planning-confirmed` marker | Revise and reconfirm in `/cip` |
 | Plan validation/admission | Plan structure, dependency, and stage are valid | `refused` or `blocked` | Fix planning/dependency state |
 | Git criteria baseline | Unique marker-introducing commit; four criteria files match through Git clean filters and are committed | `refused`, operator action (`42` in autonomous mode) | Return to `/cip`; commit a new confirmation |
 | Runtime preflight | Config, auth, branch, host/container/sandbox requirements pass | Nonzero failure | Correct the named prerequisite |

@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.105"
+      "version": "1.0.106"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.83"
+      "version": "1.0.85"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

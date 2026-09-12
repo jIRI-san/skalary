@@ -15,7 +15,8 @@ and excluded from design-note compaction.
 
 | Surface | Responsibility |
 |---|---|
-| `/cep`, `/cip` | Decision-ready planning, criteria confirmation, optional combined design/validation, normal Judge |
+| `/cep` | Decision-ready epic planning, criteria confirmation, optional combined design/validation, normal Judge |
+| `/cip` | Decision-ready planning, mandatory pre-confirmation two-model review, operator-selected current-plan edits, criteria confirmation |
 | `/ci`, autopilot | Git criteria baseline, direct evidence, bounded native roles, one terminal review |
 | `/cr`, `/dr` | Risk-selected read-only review and advisory Markdown |
 | `/pfb`, `/si` | Optional feedback and bounded recent-learning intake |

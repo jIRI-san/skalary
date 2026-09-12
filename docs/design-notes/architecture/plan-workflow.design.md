@@ -14,7 +14,14 @@ and is excluded from design-note compaction.
 ## Planning
 
 `/cep` keeps epics as indexes of sibling plans. `/cip` confirms intent, requirements, risks, and
-decisions before writing `planning-confirmed`. Complex choices use host-equivalent context, example,
+decisions before writing `planning-confirmed`. After the complete draft, it performs one mandatory
+`secondary-model-high`/high read-only design review and one `primary-model-high`/high applicability pass
+before the operator's single selected-edit choice and final confirmation. Epic children add bounded
+coherency to the same reviewer call: epic intent and only targeted sibling intent, interfaces,
+dependencies, decisions, and relevant current completed implementation. Every finding remains visible;
+recommendations are `fix`, `simplify`, `defer`, or `ignore`. The pass is conversational advice only: no
+review receipt, verdict, lifecycle, hash, rerun, or automatic clean requirement is added, and
+planning-confirmed remains the sole execution baseline. Complex choices use host-equivalent context, example,
 benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
 matters; free-form input remains one focused question.
 
