@@ -71,10 +71,13 @@ Describe 'Workshop skill contracts' {
         $script:skill | Should -Match 'Ask one focused question at a time'
         $script:skill | Should -Match 'at most three lifetime-distinct concepts'
         $script:skill | Should -Match 'approval is not winner selection'
-        $script:skill | Should -Match 'before any worktree is created or implementer is launched'
+        $script:skill | Should -Match 'before any worktree is\s+created or\s+implementer is launched'
+        $script:skill | Should -Match 'same labels/context in both hosts'
+        $script:skill | Should -Match 'vscode_askQuestions'
+        $script:skill | Should -Match 'numbered CLI list accepting the number or exact\s+label'
         $script:skill | Should -Match 'A correction within an approved concept does not count'
         $script:skill | Should -Match 'including rejected concepts and approved\s+replacement directions'
-        $script:skill | Should -Match 'After three concepts,\s+only correct an existing concept, inspect/select, or reject'
+        $script:skill | Should -Match 'After three concepts,\s+only correct an existing\s+concept,\s+inspect/select, or reject'
     }
 
     It 'test:Workshop.VerticalSlice requires real central integration and discloses peripheral gaps' {

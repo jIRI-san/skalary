@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T19:21:58.9307591Z",
+  "generatedAt": "2026-10-03T19:27:59.1000854Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -1111,7 +1111,7 @@
       "files": [
         {
           "dest": "skills/ws/SKILL.md",
-          "sha256": "85d7b55a4f1c23da064c83b3c75cc9c5198c6416a0f8f453b2503d2b169f1570",
+          "sha256": "aaffa52069002ad91a0cb999417e7425a5f0c1e12ff2360f6615c8f2bd5e11b8",
           "src": "skills/ws/SKILL.md"
         },
         {
@@ -1128,7 +1128,7 @@
         "prototyping",
         "skill"
       ],
-      "version": "1.0.1"
+      "version": "1.0.2"
     }
   ],
   "retiredPlugins": [

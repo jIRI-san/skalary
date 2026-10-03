@@ -92,5 +92,5 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `self-improvement` | 1.0.84 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
 | `skalary-config` | 1.0.5 | stable | — | 5 | Discover Skalary configuration surfaces and safely preview category-scoped changes. |
 | `work-hierarchy-sync` | 1.0.28 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
-| `workshop` | 1.0.1 | stable | — | 2 | Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip. |
+| `workshop` | 1.0.2 | stable | — | 2 | Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip. |
 <!-- END SKALARY PLUGIN CATALOG -->

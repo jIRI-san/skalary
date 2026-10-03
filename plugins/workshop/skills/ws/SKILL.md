@@ -26,16 +26,20 @@ Stop when those are clear; leave production detail as disclosed draft assumption
 Propose at most three lifetime-distinct concepts. Normally offer two or three; offer one only when
 requested or when constraints leave no useful alternative, and say why. Concepts differ in real
 shape—such as interface/ownership, UI layout/navigation, or behavior/data flow—not labels or polish.
-For each, give a concise sketch/example, benefit and tradeoffs, surrounding-code fit, assumptions,
-likely touchpoints, a few steps, a demo and focused check, plus `effort: <1-10>` and
-`complexity: <1-10>`. Keep the same goal, base, central behavior, and validation budget across them.
+For each, give current context and a concise sketch/example, expected benefits, pros/cons,
+surrounding-code fit, assumptions, likely touchpoints, a few steps, a demo and focused check, plus
+`effort: <1-10>` and `complexity: <1-10>`. Recommend a direction only as advice, not a winner.
+Keep the same goal, base, central behavior, and validation budget across them.
 
-Present one ordered set for approval. The operator approves or revises the entire set and scope
-before any worktree is created or implementer is launched; approval is not winner selection. Count
-every distinct concept against a lifetime cap of three, including rejected concepts and approved
-replacement directions. A correction within an approved concept does not count as a new concept.
-Any replacement direction returns to set approval and counts toward the cap. After three concepts,
-only correct an existing concept, inspect/select, or reject; never introduce a hidden fourth.
+Present one ordered set with the same labels/context in both hosts. Use `vscode_askQuestions` in
+VS Code; otherwise use the host question tool or a numbered CLI list accepting the number or exact
+label. Include a recommendation/default, effort and complexity; add Mermaid only when relationships
+or sequence matter. The operator approves or revises the entire set and scope before any worktree is
+created or implementer is launched; approval is not winner selection. Count every distinct concept
+against a lifetime cap of three, including rejected concepts and approved replacement directions.
+A correction within an approved concept does not count as a new concept. Any replacement direction
+returns to set approval and counts toward the cap. After three concepts, only correct an existing
+concept, inspect/select, or reject; never introduce a hidden fourth.
 
 ## Build and inspect
 
