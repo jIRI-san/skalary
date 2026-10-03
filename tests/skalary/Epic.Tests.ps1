@@ -43,6 +43,21 @@ Describe 'New-Epic' {
     }
 
     Context 'test:epic-scaffold-links-children' {
+        It 'test:intentalignment-epic-intent-scaffold retains selected wording in existing epic sections' {
+            $tmp = & $newTempRoot
+            try {
+                $result = & $newEpic -Title 'Intent fixture' -Slug 'intent-fixture' `
+                    -RepoRoot $tmp -Date '2026-08-01' -EpicId 'dd44ee'
+                $epicText = Get-Content -LiteralPath $result.EpicFile -Raw
+                $epicText | Should -Match '(?s)## Goal.*Selected OP wording: TBD.*Confirmed interpretation: TBD'
+                $epicText | Should -Match '(?s)## Decomposition notes.*epic-level boundaries'
+                $epicText | Should -Not -Match '^## Intent'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
         It 'test:epic-scaffold-links-children scaffolds an epic folder with an epic.md anchor' {
             $tmp = & $newTempRoot
             try {
@@ -55,6 +70,9 @@ Describe 'New-Epic' {
                 $epicText = Get-Content -LiteralPath $result.EpicFile -Raw
                 $epicText | Should -Match '<!--\s*epic-id:\s*aa11bb\s*-->'
                 $epicText | Should -Match '(?m)^#\s+aa11bb: Payments rework'
+                $epicText | Should -Match 'Selected OP wording: TBD'
+                $epicText | Should -Match 'Confirmed interpretation: TBD'
+                $epicText | Should -Match '## Decomposition notes'
 
                 # The epic sits beside plans, not inside the plan namespace: plan resolution must not see it.
                 @(Get-PlanInventory -RepoRoot $tmp) | Should -HaveCount 0

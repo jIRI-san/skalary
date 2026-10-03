@@ -22,7 +22,7 @@
 
 ## Phase 1: Deliver early intent alignment through execution
 
-- [ ] 1.1 Capture meaningful intent and bounded historical conflicts before drafting (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2) `L`
+- [x] 1.1 Capture meaningful intent and bounded historical conflicts before drafting (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `/cep` and `/cip` expose consequential ambiguity before decomposition/design, preserve selected OP wording and confirmed interpretations, and reconcile relevant prior intent. Existing `intent.md` and `design.md` provide the capture and lightweight RFC.
@@ -37,7 +37,7 @@
 
   </details>
 
-- [ ] 1.2 Carry alignment into existing draft review and implementation stops (REQ-4, REQ-5, REQ-10, RISK-1, RISK-3) [after: 1.1] `M`
+- [x] 1.2 Carry alignment into existing draft review and implementation stops (REQ-4, REQ-5, REQ-10, RISK-1, RISK-3) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** existing pre-confirmation review checks OP-to-draft drift; `/ci` and autopilot distinguish authorized choices from newly exposed intent decisions. A material unresolved choice preserves progress and uses operator-action stop 42. CIP corrects the affected existing criteria and uses existing reconfirmation/baseline handling before CI resumes; no full redraft.
@@ -54,7 +54,7 @@
 
 ## Phase 2: Deliver evidence-led, codebase-aware reviews
 
-- [ ] 2.1 Strengthen CR/DR candidate evidence and selective independent review (REQ-4, REQ-6, REQ-10, RISK-4) [after: 1.2] `M`
+- [x] 2.1 Strengthen CR/DR candidate evidence and selective independent review (REQ-4, REQ-6, REQ-10, RISK-4) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** findings demonstrate a failure or contract conflict and check disconfirming evidence. DR includes alignment; CR checks confirmed outcomes. Selected independent reviewers receive scope/contracts before earlier conclusions.
@@ -67,7 +67,7 @@
 
   </details>
 
-- [ ] 2.2 Ground technology guidance in local conventions and targeted documentation (REQ-7, REQ-8, REQ-10, RISK-5, RISK-6) [after: 2.1] `M`
+- [x] 2.2 Ground technology guidance in local conventions and targeted documentation (REQ-7, REQ-8, REQ-10, RISK-5, RISK-6) [after: 2.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** implementation and review use the same scoped rules; only named consequential uncertainties trigger version-specific official-documentation lookup.
@@ -82,7 +82,7 @@
 
   </details>
 
-- [ ] 2.3 Publish the review slice with focused consumer checks (REQ-10, RISK-7) [after: 2.2] `S`
+- [x] 2.3 Publish the review slice with focused consumer checks (REQ-10, RISK-7) [after: 2.2] `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** canonical and installed review/implementation skills agree; affected notes and guides describe behavior.

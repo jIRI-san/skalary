@@ -37,6 +37,9 @@ localizable base ID.
 findings and, for an epic child, bounded targeted coherency findings. `/cip` then owns the one
 `primary-model-high`/high applicability pass, operator selection, and current-plan edits. No clean verdict,
 report, retry, rerun, finding state, or standalone `/dr` routing change follows from this caller mode.
+The reviewer compares selected OP wording and confirmed interpretations with the draft, distinguishing
+unsupported additions, omissions, scope shifts, and consequential ambiguity from technical findings.
+Explicit bounded discretion and intentional openness are not drift.
 
 ## Proportional security
 
@@ -55,3 +58,13 @@ failed/incomplete selected security work forces `incomplete`.
 
 Persisted reports are history, not evidence. Callers pass the active result, full current source, and
 exact scope to `Invoke-DirectEvidence`; unchanged scope is not rerun and unresolved work stops non-clean.
+
+## Candidate evidence
+
+A technical candidate names its trigger, exact path or boundary, supporting code/test/reproduction
+evidence, and concrete impact. Check plausible disconfirming evidence in guards, callers, configuration,
+contracts, and tests; report what was checked and reject a candidate that an applicable guard defeats.
+A cheap reproduction is preferred, not mandatory: a complete static trace is valid evidence. Group
+duplicate root causes and keep defects, plan-intent alignment questions, and optional advice distinct.
+When an existing risk selects an independent reviewer, provide scope and applicable contracts before
+earlier conclusions so that the pass can independently trace and disconfirm candidates.

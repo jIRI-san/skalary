@@ -137,6 +137,40 @@ clean
         }
     }
 
+    It 'test:intentalignment-history-reader reads selected epic intent as one of at most three confined historical artifacts' {
+        $fixture = New-DirectConsumerFixture
+        $epicDir = Join-Path $fixture.Root 'docs\implementation-plans\epics\2026-01-02-def456-direct-epic'
+        New-Item -ItemType Directory -Path $epicDir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $epicDir 'epic.md') -Encoding utf8NoBOM -Value @'
+# def456: Direct epic
+<!-- epic-id: def456 -->
+
+## Goal
+
+Selected epic intent.
+
+## Child plans
+
+Generated membership only.
+
+## Decomposition notes
+
+Epic boundaries.
+'@
+
+        $result = & $script:adapter -PlanId def456 -ArtifactKind EpicIntent `
+            -Relationship reuses -RepoRoot $fixture.Root
+        @($result.accepted).Count | Should -Be 1
+        $result.accepted[0].recordKind | Should -Be 'epic'
+        $result.accepted[0].epicId | Should -Be 'def456'
+        $result.untrustedInput | Should -Match 'Selected epic intent'
+        $result.untrustedInput | Should -Match 'historical-context-only'
+
+        { & $script:adapter -PlanId abc123 -ArtifactKind Intent, Design, Decisions, Reviews `
+                -Relationship reuses -RepoRoot $fixture.Root } |
+            Should -Throw -ExpectedMessage '*ArtifactKind*no more than 3 value(s)*'
+    }
+
     It 'keeps the historical adapter dependency closure direct and Markdown-only' {
         $forbidden = @(
             'ReviewRun', 'ReviewResultReceipt', 'PlanEvidence', 'LedgerStore',
@@ -169,7 +203,8 @@ clean
             $imports | Should -Be @(
                 'PlanState.psm1', 'SecretGuard.psm1', 'DirectWorkflow.psm1'
             )
-            $content | Should -Match "supportedKinds = @\('Intent', 'Design', 'Decisions', 'Reviews', 'Learnings'\)"
+            $content | Should -Match "supportedKinds = @\('Intent', 'EpicIntent', 'Design', 'Decisions', 'Reviews', 'Learnings'\)"
+            $content | Should -Match 'MaxCandidates = 3'
             $content | Should -Match '\(\?:phase-\[1-9\]\[0-9\]\*\|final\)\\\.md'
         }
     }
