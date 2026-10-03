@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-12T15:55:27.6226987Z",
+  "generatedAt": "2026-10-03T19:21:58.9307591Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -562,7 +562,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "2d591074c1c9edad7fe74f51ba748387c2d306ad91406044e8c41dd3c3e784ee",
+          "sha256": "b8fd6ee79cb1faa56507ef932749243fdf17b9a94d2b8f2a93ee2fd32288319c",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -654,7 +654,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.106"
+      "version": "1.0.107"
     },
     {
       "author": "jIRI-san",
@@ -1100,6 +1100,35 @@
         "sync"
       ],
       "version": "1.0.28"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/ws/SKILL.md",
+          "sha256": "85d7b55a4f1c23da064c83b3c75cc9c5198c6416a0f8f453b2503d2b169f1570",
+          "src": "skills/ws/SKILL.md"
+        },
+        {
+          "dest": "skills/ws/assets/worktrees.md",
+          "sha256": "4551fa86f925451d88cac40e0f2eb5eb1b477c89bef42a9815d168f9793da771",
+          "src": "skills/ws/assets/worktrees.md"
+        }
+      ],
+      "license": "MIT",
+      "name": "workshop",
+      "status": "stable",
+      "tags": [
+        "planning",
+        "prototyping",
+        "skill"
+      ],
+      "version": "1.0.1"
     }
   ],
   "retiredPlugins": [

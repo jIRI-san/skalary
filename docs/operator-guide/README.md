@@ -10,6 +10,7 @@ sources of truth; links below point to them.
 
 | Goal | Route | Guide |
 |---|---|---|
+| Compare implementation concepts in runnable, isolated prototypes | `/ws` | [Workshop](workshop.md) |
 | Split a large goal into independently executable plans | `/cep` | [Planning](planning.md) |
 | Create or repair one confirmed plan | `/cip` | [Planning](planning.md) |
 | Continue a plan interactively or choose autonomous execution | `/ci` | [Implementation](implementation.md) |
@@ -25,6 +26,7 @@ what wins when prose and executable state disagree.
 |---|---|---|---|---|---|
 | Epic index | `/cep`, then epic `/ci` | [`docs/implementation-plans/epics/`](../implementation-plans/epics/) | Created after epic-cut confirmation; its table is a generated mirror; successful terminal completion moves it to `archived/epics/` | Child plan `epic:`/`depends-on:` markers for membership/order; committed `epic.md` for epic identity and archive path for terminal state | Operator, later `/cip` |
 | Plan index and progress | `/cip`, then `/ci`/autopilot | [`docs/implementation-plans/<plan>/plan.md`](../implementation-plans/) | Identity and confirmation marker are planning-owned; checklist, stage, and worktree markers stay mutable during execution | Current Git tree plus plan parser | `/ci`, autopilot, validators |
+| Workshop variants and handoff | `/ws`, then operator | Host conversation/session artifacts and retained Git branches/worktrees | Approved concepts become inspectable drafts; only explicit selection/handoff enters CIP | Recorded base and prototype commits plus operator selection | `/cip` (draft input only) |
 | Intent | `/cip` | `assets/intent.md` in the plan | Confirmed before drafting; immutable during execution unless planning is reopened | Confirmation-baseline Git tree | Admission and implementation |
 | Domain model | `/cip` | `assets/domain.md` | Planning context; revise through `/cip` | Current committed file | Designer, implementer, DR |
 | Approved design | `/cip` | `assets/design.md` | Confirmed design context; revise through `/cip` | Current committed file | Implementer and DR |
@@ -49,6 +51,8 @@ The plan layout and marker grammar are defined by
 
 | Point | Pass condition | Stop/outcome | Resume |
 |---|---|---|---|
+| Workshop set approval | Operator approves/revises the whole concept set before isolated prototype work | No worktree or implementer launch | Revise the set; new directions count toward the three-concept lifetime cap |
+| Workshop selection and handoff | Operator inspects comparable runnable slices and selects a retained branch/worktree | No implicit winner, merge, cleanup, or CIP invocation | Correct/reapprove, select, or reject; request CIP with an explicit handoff |
 | Intent and epic cut | Operator confirms the current goal/cut | Planning remains open | Answer the focused question |
 | Language gate | Absolutes are confirmed invariants or conditional rules; fuzzy terms are observable | No draft | Clarify through `/cep` or `/cip` |
 | Pre-confirmation planning review | Both mandatory read-only design and applicability calls complete; operator selects edits | Visible incomplete stop; no `planning-confirmed` marker | Resolve the named failure, then resume `/cip` |
@@ -68,11 +72,12 @@ The plan layout and marker grammar are defined by
 
 | Limit | Active value | Authority |
 |---|---:|---|
-| Monthly AI credits | 180,000 operating; 20,000 reserve; 200,000 ceiling | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
-| Delegated calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum, including retries and replacements | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Monthly AI credits | 180,000 operating; 20,000 reserve; 200,000 ceiling | Operator-set budget; verify current model pricing below |
+| Delegated calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum, including retries and replacements | [Direct workflow architecture](../architecture-notes/arch-direct-workflow.md) |
 | Supporting historical artifacts | At most 3 | [Direct workflow architecture](../architecture-notes/arch-direct-workflow.md) |
-| Delegated prompt | 400-word target; 800-word hard cap | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
-| Model ladder | `primary-model-low` routine; `primary-model-mid` standard; `primary-model-high` deep; `secondary-model-high` independent; committed context is `default` | [Agent cost policy](../design-notes/explorations/agent-cost-optimization.design.md) |
+| Workshop concepts | At most 3 distinct concepts over one workshop, including rejected/replacement directions | [`/ws` skill](../../plugins/workshop/skills/ws/SKILL.md) |
+| Delegated prompt | 400-word target; 800-word hard cap | [CI](../../plugins/continue-implementation/skills/ci/SKILL.md) and [CIP](../../plugins/create-implementation-plan/skills/cip/SKILL.md) |
+| Model ladder | `primary-model-low` routine; `primary-model-mid` standard; `primary-model-high` deep; `secondary-model-high` independent; committed context is `default` | [CI](../../plugins/continue-implementation/skills/ci/SKILL.md) and [CIP](../../plugins/create-implementation-plan/skills/cip/SKILL.md) |
 | Observable stuck recovery | 2 no-progress checks, 1 redirect, at most 1 replacement | [`/ci` skill](../../plugins/continue-implementation/skills/ci/SKILL.md) |
 | Non-terminal review | Only on concrete risk; 1 event plus at most 1 changed-scope replacement | [Review design](../design-notes/architecture/review-reporting.design.md) |
 | Terminal review | Exactly 1 whole-plan review event | [Direct workflow contract](../architecture-notes/arch-direct-workflow.md) |

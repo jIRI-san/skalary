@@ -1,6 +1,6 @@
 {
   "name": "workshop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip.",
   "author": "jIRI-san",
   "license": "MIT",

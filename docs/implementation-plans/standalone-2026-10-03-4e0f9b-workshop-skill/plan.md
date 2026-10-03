@@ -78,7 +78,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 ## Phase 2: Distribution, documentation, and host verification
 <!-- worktree: jiri-san-implement-workshop-skill -->
 
-- [ ] 2.1 Generate install surfaces and document the workshop boundary (REQ-1, REQ-8, RISK-7) [after: 1.2] `M`
+- [x] 2.1 Generate install surfaces and document the workshop boundary (REQ-1, REQ-8, RISK-7) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** source plugin is discoverable/installable; dogfood and human/agent docs reflect actual behavior.

@@ -84,7 +84,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `autopilot` | 1.3.25 | partial | code-review, create-implementation-plan | 40 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.84 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
 | `continue-implementation` | 1.0.121 | stable | autopilot, code-review, create-implementation-plan | 9 | Direct plan implementation workflow with Git criteria protection. |
-| `create-implementation-plan` | 1.0.106 | stable | design-review | 28 | Direct implementation and epic plan creation. |
+| `create-implementation-plan` | 1.0.107 | stable | design-review | 28 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.4 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.85 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
 | `plugin-manager` | 1.0.30 | stable | — | 15 | Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts. |
@@ -92,4 +92,5 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `self-improvement` | 1.0.84 | stable | create-implementation-plan | 12 | Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff. |
 | `skalary-config` | 1.0.5 | stable | — | 5 | Discover Skalary configuration surfaces and safely preview category-scoped changes. |
 | `work-hierarchy-sync` | 1.0.28 | stable | — | 4 | Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal. |
+| `workshop` | 1.0.1 | stable | — | 2 | Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip. |
 <!-- END SKALARY PLUGIN CATALOG -->

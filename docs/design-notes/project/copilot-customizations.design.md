@@ -17,6 +17,7 @@ and excluded from design-note compaction.
 |---|---|
 | `/cep` | Decision-ready epic planning, criteria confirmation, optional combined design/validation, normal Judge |
 | `/cip` | Decision-ready planning, mandatory pre-confirmation two-model review, operator-selected current-plan edits, criteria confirmation |
+| `/ws` | Lightweight concept interview, up to three isolated runnable prototypes, operator selection, explicit draft handoff to `/cip` |
 | `/ci`, autopilot | Git criteria baseline, direct evidence, bounded native roles, one terminal review |
 | `/cr`, `/dr` | Risk-selected read-only review and advisory Markdown |
 | `/pfb`, `/si` | Optional feedback and bounded recent-learning intake |
@@ -38,6 +39,7 @@ Distribution completion order, catalogs, dogfood, versioning, and drift authorit
 
 - Prompts are thin shortcuts; skills own shared instructions.
 - Agents are thin host shims unless CLI execution requires otherwise.
+- `/ws` is instruction-first and standalone; planning/review plugins are needed only at the requested CIP transition.
 - Declare every payload; declare first-use non-`.github/` paths as scaffolds.
 - Keep `SKILL.md` small and put active on-demand detail in installed assets.
 - Use terminal Git commands.

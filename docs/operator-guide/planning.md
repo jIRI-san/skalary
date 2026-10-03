@@ -101,8 +101,9 @@ observable prose are excluded.
 | Context | Committed routing uses `default`; `long_context` is explicit opt-in; at most 3 supporting historical artifacts |
 | Prompt | 400-word target, 800-word hard cap |
 
-A fallback replaces a call. Built-in search/file/command tools are not agent calls. The full rationale
-is in the [agent-cost policy](../design-notes/explorations/agent-cost-optimization.design.md).
+A fallback replaces a call. Built-in search/file/command tools are not agent calls. The active limits
+and review boundary are documented in the
+[direct workflow architecture](../architecture-notes/arch-direct-workflow.md).
 
 ## Plan files and markers
 

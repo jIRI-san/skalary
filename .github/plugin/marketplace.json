@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.106"
+      "version": "1.0.107"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -168,6 +168,19 @@
         "sync"
       ],
       "version": "1.0.28"
+    },
+    {
+      "description": "Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip.",
+      "license": "MIT",
+      "name": "workshop",
+      "source": "plugins/workshop",
+      "strict": false,
+      "tags": [
+        "planning",
+        "prototyping",
+        "skill"
+      ],
+      "version": "1.0.1"
     }
   ]
 }

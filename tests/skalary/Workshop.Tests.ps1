@@ -19,8 +19,13 @@ Describe 'Workshop skill contracts' {
         @($manifest.dependencies).Count | Should -Be 0
         @($manifest.files).Count | Should -Be 2
         foreach ($file in $manifest.files) {
-            Test-Path -LiteralPath (Join-Path $script:pluginRoot $file.src) -PathType Leaf |
-                Should -BeTrue
+            $sourcePath = Join-Path $script:pluginRoot $file.src
+            $installedPath = Join-Path (Join-Path $script:repoRoot '.github') $file.dest
+            Test-Path -LiteralPath $sourcePath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $installedPath -PathType Leaf | Should -BeTrue
+            [System.IO.File]::ReadAllText($installedPath) | Should -BeExactly (
+                [System.IO.File]::ReadAllText($sourcePath)
+            )
             $file.dest | Should -Not -Match '(^/|\\.\\.|^[A-Za-z]:)'
         }
         $script:skill | Should -Match '(?m)^name: ws\r?$'
