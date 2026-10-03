@@ -127,6 +127,7 @@ Describe 'repository-maintenance structural evals' {
         $helper | Should -Match 'ambiguous identity'
         $helper | Should -Match 'Dictionary\[string, object\]'
         $helper | Should -Match '\[StringComparer\]::Ordinal'
+        $helper | Should -Match 'Get-FindingNotes'
         $helper | Should -Match 'Assert-VerifiedHandoff'
         $helper | Should -Match 'no content was changed'
         $helper | Should -Match 'RecordDisposition'

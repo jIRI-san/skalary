@@ -330,6 +330,23 @@ function New-FindingBlock {
     return "<!-- rcs-finding: $id -->$NewLine$($lines -join $NewLine)"
 }
 
+function Get-FindingNotes {
+    param([Parameter(Mandatory)][string]$Block)
+
+    $managedLine = [regex]::new(
+        '^(?:<!-- rcs-finding: RCS-[A-Za-z0-9-]{1,48} -->|### RCS-[A-Za-z0-9-]{1,48} - .+|\*\*(?:Category|Subject|Scope|Citations|Expectation or rationale|Current behavior / reachability|Impact|Exceptions / counter-evidence|Uncertainty and coverage limits|Recommended action|Benefits|Tradeoffs|Effort|Complexity):\*\* .*)$'
+    )
+    $notes = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in ($Block -split "`r?`n")) {
+        if (-not $managedLine.IsMatch($line)) { $notes.Add($line) }
+    }
+    while ($notes.Count -and [string]::IsNullOrWhiteSpace($notes[0])) { $notes.RemoveAt(0) }
+    while ($notes.Count -and [string]::IsNullOrWhiteSpace($notes[$notes.Count - 1])) {
+        $notes.RemoveAt($notes.Count - 1)
+    }
+    return $notes.ToArray()
+}
+
 function Add-Findings {
     param([Parameter(Mandatory)][string]$Text,
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Findings,
@@ -359,10 +376,17 @@ function Add-Findings {
                 throw "Finding ID '$id' has ambiguous identity: '$field' changed. Ask the operator whether to reuse it or choose a new ID."
             }
         }
-        if ($old -cne $candidate.TrimEnd("`r", "`n")) {
+        $notes = @(Get-FindingNotes -Block $old)
+        $replacement = if ($notes.Count) {
+            $candidate + "$NewLine$NewLine" + ($notes -join $NewLine)
+        }
+        else {
+            $candidate
+        }
+        if ($old -cne $replacement.TrimEnd("`r", "`n")) {
             $at = $updated.IndexOf($old, [StringComparison]::Ordinal)
             if ($at -lt 0) { throw "Existing finding '$id' could not be safely updated." }
-            $updated = $updated.Remove($at, $old.Length).Insert($at, $candidate)
+            $updated = $updated.Remove($at, $old.Length).Insert($at, $replacement)
         }
     }
     if (-not $additions.Count) { return $updated }

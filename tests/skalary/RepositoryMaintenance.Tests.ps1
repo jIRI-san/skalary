@@ -189,16 +189,25 @@ Describe 'Repository maintenance record and discovery' {
             Should -BeExactly 'written'
 
         $before = Get-Content -LiteralPath (Join-Path $root 'docs/repository-maintenance.md') -Raw
+        $before = $before.Replace(
+            '**Complexity:** 2/10',
+            "**Complexity:** 2/10`nHuman annotation: preserve this finding-specific note."
+        )
         $before = $before.Replace('## Operator decisions', "## Operator decisions`n`nHuman note: retain this history.")
         [System.IO.File]::WriteAllText((Join-Path $root 'docs/repository-maintenance.md'), $before)
-        $updated = New-PublishPayload -Survey 'Plans surveyed: 3; one active corrective plan overlaps.'
+        $updatedFinding = New-RecordFinding
+        $updatedFinding.Impact = 'New evidence confirms that the finding affects a second caller.'
+        $updated = New-PublishPayload -Survey 'Plans surveyed: 3; one active corrective plan overlaps.' `
+            -Findings @($updatedFinding)
         (Invoke-RecordWriter -Root $root -Operation 'Publish' `
                 -Json ($updated | ConvertTo-Json -Depth 12 -Compress)).status | Should -BeExactly 'written'
 
         $read = Invoke-RecordWriter -Root $root -Operation 'Read'
         $read.status | Should -BeExactly 'present'
         $read.content | Should -Match 'Human note: retain this history.'
+        $read.content | Should -Match 'Human annotation: preserve this finding-specific note.'
         $read.content | Should -Match 'The operator tool is intentionally retained.'
+        $read.content | Should -Match 'New evidence confirms that the finding affects a second caller.'
         $read.content | Should -Match 'Plans surveyed: 3'
         (Invoke-RecordWriter -Root $root -Operation 'Publish' `
                 -Json ($updated | ConvertTo-Json -Depth 12 -Compress)).status | Should -BeExactly 'unchanged'
