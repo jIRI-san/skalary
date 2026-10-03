@@ -86,6 +86,26 @@ Describe 'Archive-Epic' {
         }
     }
 
+    It 'WhatIf skips the generated-table refresh and does not report an archive' {
+        $fixture = & $newArchiveFixture
+        try {
+            $before = [System.IO.File]::ReadAllText($fixture.Epic.EpicFile)
+            $result = & $archiveEpic abc123 -RepoRoot $fixture.Root -WhatIf
+
+            $result.Status | Should -BeExactly 'what-if'
+            $result.Path | Should -BeExactly $fixture.Epic.Path
+            $result.EpicFile | Should -BeExactly $fixture.Epic.EpicFile
+            Test-Path -LiteralPath $fixture.Epic.Path | Should -BeTrue
+            [System.IO.File]::ReadAllText($fixture.Epic.EpicFile) | Should -BeExactly $before
+            Test-Path -LiteralPath (Join-Path $fixture.Root `
+                    'docs/implementation-plans/archived/epics/2026-08-01-abc123-archive-fixture') |
+                Should -BeFalse
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture.Root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'refuses incomplete epics and complete epics with active child folders' {
         foreach ($case in @(
                 @{ Incomplete = $true; KeepActive = $true; Match = '*is incomplete*' },
