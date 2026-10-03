@@ -79,3 +79,10 @@ repo-cited lessons. Commit its replacement of `docs/feedback/recent-learning.md`
 Before interactive archival, offer installed `/pfb`. Decline, no answer, or an absent skill skips it:
 feedback is never blocking and never substitutes
 for a failed evidence marker. Headless execution skips `/pfb`; it never queues or invents a verdict.
+
+After successful whole-plan finalization and the committed learning handoff, run installed
+`.github/skills/ci/scripts/Archive-Plan.ps1 -Plan <canonical-plan-id> -RepoRoot <canonical-repo-root>`.
+Require `archived` or `already-archived`, then commit the move with the entire plan directory and assets.
+This applies to standalone and epic-child plans. Step/phase targets never archive; incomplete review,
+failed evidence, or an operator stop never reaches this action. Re-resolve the plan by ID after the move;
+keep archived plans as history, not new execution targets. Preserve existing staging/push guards.

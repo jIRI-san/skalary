@@ -68,6 +68,9 @@ globs:
   10 cited items, and at most 16 KiB UTF-8. `/si` rejects malformed, oversized, secret-containing, bad
   citation, and stale input before collision-safe untrusted framing; missing and explicit-empty remain
   distinct no-candidate states.
+- After that committed handoff, successful whole-plan finalization archives standalone and epic-child
+  plans with all assets unchanged and commits the move. Phase targets and non-clean finalization never
+  archive; the deterministic helper checks completion/confinement, not persisted-review authority.
 - The learning writer physically confines and rejects links in every existing repository, parent,
   target, and temporary-path component before replacement.
 - If a planning, review, CI, or autopilot surface needs a complex predefined operator choice, both hosts

@@ -30,6 +30,7 @@ Describe 'Dormant direct workflow core' {
         function New-DirectWorkflowFixture {
             param(
                 [switch]$PlanOnlyBaseline,
+                [switch]$ValidCriteria,
                 [string]$Id = 'abc123'
             )
 
@@ -69,6 +70,11 @@ Describe 'Dormant direct workflow core' {
                 requirements = '# Requirements' + "`n`n" + 'Keep observable requirements.'
                 risks = '# Risks' + "`n`n" + 'Keep accepted risks.'
                 decisions = '# Decisions' + "`n`n" + 'Keep operator decisions.'
+            }
+            if ($ValidCriteria) {
+                $criteria.requirements = "# Requirements`n`n| ID | Requirement | Acceptance Criteria | Phases/Steps |`n|---|---|---|---|`n| REQ-1 | Keep criteria | file:plan.md#exists | 1.1 |"
+                $criteria.risks = "# Risks`n`n| ID | Risk | Likelihood | Impact | Mitigation | Steps |`n|---|---|---|---|---|---|`n| RISK-1 | Drift | Low | Low | Preserve | 1.1 |"
+                $criteria.decisions = "# Decisions`n`n- Keep operator decisions."
             }
             foreach ($entry in $criteria.GetEnumerator()) {
                 Set-Content -LiteralPath (Join-Path $assetsDir "$($entry.Key).md") `
@@ -223,12 +229,15 @@ Describe 'Dormant direct workflow core' {
     }
 
     It 'test:SimpleWorkflow.CriteriaProtection follows a confirmed plan into the archive' {
-        $fixture = New-DirectWorkflowFixture -Id 'a1c100'
+        $fixture = New-DirectWorkflowFixture -Id 'a1c100' -ValidCriteria
         $archiveRoot = Join-Path $fixture.Root 'docs/implementation-plans/archived'
         $archivedPlanDir = Join-Path $archiveRoot (Split-Path $fixture.PlanDir -Leaf)
-        New-Item -ItemType Directory -Path $archiveRoot -Force | Out-Null
+        $completedPlan = (Get-Content -LiteralPath $fixture.PlanPath -Raw).Replace('- [ ] 1.1', '- [x] 1.1')
+        Set-Content -LiteralPath $fixture.PlanPath -Value $completedPlan -Encoding utf8NoBOM -NoNewline
+        (& (Join-Path $repoRoot 'scripts\skalary\Archive-Plan.ps1') `
+            -Plan $fixture.PlanReference -RepoRoot $fixture.Root).Status | Should -BeExactly 'archived'
         Invoke-DirectFixtureGit -Root $fixture.Root -Argument @(
-            'mv', '--', $fixture.PlanDir, $archivedPlanDir
+            'add', '--all'
         ) | Out-Null
         Invoke-DirectFixtureGit -Root $fixture.Root -Argument @(
             'commit', '--quiet', '-m', 'archive confirmed fixture'

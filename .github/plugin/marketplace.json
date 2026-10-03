@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.27"
+      "version": "1.3.28"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.123"
+      "version": "1.0.124"
     },
     {
       "description": "Direct implementation and epic plan creation.",

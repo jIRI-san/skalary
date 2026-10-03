@@ -90,7 +90,7 @@ flowchart TD
     P -->|No| Q[Findings/incomplete stop]
     P -->|Yes| R[Commit completed source]
     R --> S[Replace and commit recent-learning handoff]
-    S --> T[Complete; archive when directed]
+    S --> T[Archive entire plan and commit move]
 ```
 
 ## Native work, progress, and recovery
@@ -155,11 +155,22 @@ interrupted work has readable Git/Markdown progress.
    [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) using
    [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1): zero to ten concise
    lessons, each with a repo-relative source-commit citation, maximum 16 KiB UTF-8.
-7. If `/pfb` is installed, interactive `/ci` offers it before archival; headless autopilot queues its
-   question instead of prompting. Missing, declined, unanswered, or failed feedback never blocks
+7. If `/pfb` is installed, interactive `/ci` offers it before archival; headless autopilot skips it.
+   Missing, declined, unanswered, or failed feedback never blocks
    completion and never replaces evidence.
-8. Commit the handoff. The completed plan can then move to the repository's archived-plan area when the
-   active completion flow directs it.
+8. Commit the handoff, then archive the complete plan directory and commit the move. Standalone and
+   epic-child plans use the same helper; phase-only completion never archives.
+
+For a previously finalized plan still in the active area, run the installed helper directly:
+
+```powershell
+.github\skills\ci\scripts\Archive-Plan.ps1 -Plan <plan-id> -RepoRoot <repo-root>
+```
+
+Use `-WhatIf` to preview. The helper refuses incomplete or empty checklists, ambiguous references,
+linked paths, and destination collisions. It preserves intent, criteria, reviews, credit ledgers, and
+other assets unchanged; repeated archival returns `already-archived`. It does not perform or replace
+final validation/review. Commit the move and use the plan ID for later historical reads.
 
 ## Outcomes and exit codes
 

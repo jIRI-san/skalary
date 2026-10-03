@@ -51,5 +51,9 @@ auxiliary history, recovery, or lifecycle state.
 
 Phase targets execute and close only their named phase. For `whole-plan`, the launcher follows the
 closed phase set with one explicit completion target. That target alone owns final focused validation,
-the terminal review, compaction, and recent-learning publication; on resume it reuses an unchanged
-terminal result rather than duplicating review.
+the terminal review, compaction, recent-learning publication, and plan archival; on resume it reuses an
+unchanged terminal result rather than duplicating review. After the committed learning handoff, invoke
+`.github/skills/autopilot/scripts/Archive-Plan.ps1 -Plan <canonical-plan-id> -RepoRoot
+<canonical-repo-root>` and commit the move, preserving all assets. Require `archived` or
+`already-archived`. This covers standalone and epic-child plans; failed/incomplete finalization and
+phase-only targets never archive. Re-resolve by ID after the move and preserve staging/push guards.

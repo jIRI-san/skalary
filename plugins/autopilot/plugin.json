@@ -1,6 +1,6 @@
 {
   "name": "autopilot",
-  "version": "1.3.27",
+  "version": "1.3.28",
   "description": "Self-contained direct-workflow autonomous plan executor.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -22,6 +22,7 @@
     { "src": "skills/autopilot/assets/model-aliases.psd1", "dest": "skills/autopilot/assets/model-aliases.psd1" },
     { "src": "skills/autopilot/scripts/AtomicStore.psm1", "dest": "skills/autopilot/scripts/AtomicStore.psm1" },
     { "src": "skills/autopilot/scripts/Archive-Epic.ps1", "dest": "skills/autopilot/scripts/Archive-Epic.ps1" },
+    { "src": "skills/autopilot/scripts/Archive-Plan.ps1", "dest": "skills/autopilot/scripts/Archive-Plan.ps1" },
     { "src": "skills/autopilot/scripts/New-Epic.ps1", "dest": "skills/autopilot/scripts/New-Epic.ps1" },
     { "src": "skills/autopilot/scripts/EpicAutopilot.psm1", "dest": "skills/autopilot/scripts/EpicAutopilot.psm1" },
     { "src": "skills/autopilot/scripts/Get-PlanState.ps1", "dest": "skills/autopilot/scripts/Get-PlanState.ps1" },

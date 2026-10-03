@@ -73,4 +73,10 @@ append it or write auxiliary history, recovery, or lifecycle state.
 
 Headless completion skips `/pfb`; it never queues or invents an operator verdict. Interactive `/ci`
 may offer the installed skill separately, and feedback never substitutes for implementation evidence.
+After successful whole-plan finalization and the committed learning handoff, invoke installed
+`.github/skills/autopilot/scripts/Archive-Plan.ps1 -Plan <canonical-plan-id> -RepoRoot
+<canonical-repo-root>`. Require `archived` or `already-archived`; commit the directory move and all
+assets with existing staging/push guards. Standalone and epic-child plans use the same helper.
+Never archive from a phase target, incomplete review, failed evidence, or operator stop.
+Re-resolve by ID after archival; the former active path no longer exists.
 Exit `0` only for complete, `42` for operator action, `43` for offline rebundle, and nonzero otherwise.

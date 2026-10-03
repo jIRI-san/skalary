@@ -2,7 +2,7 @@
 description: Direct plan creation and execution using Git criteria, Markdown progress, and current evidence.
 globs:
   - docs/implementation-plans/**
-  - scripts/skalary/{PlanState,Test-Plan,DirectWorkflow,Get-PlanIndex,Get-DirectPlanArtifactConsumerContext,Get-DesignNoteCompactionContext,Write-RecentLearning,New-Plan,New-Epic}.ps*1
+  - scripts/skalary/{PlanState,Test-Plan,DirectWorkflow,Get-PlanIndex,Get-DirectPlanArtifactConsumerContext,Get-DesignNoteCompactionContext,Write-RecentLearning,Archive-Plan,New-Plan,New-Epic}.ps*1
   - plugins/{create-implementation-plan,continue-implementation}/**
 ---
 
@@ -33,6 +33,15 @@ Completed epic indexes move under `docs/implementation-plans/archived/epics/` af
 child table is refreshed. `Archive-Epic.ps1` refuses incomplete epics, unarchived children, linked
 sources, and destination collisions; repeating it for an archived epic is a no-op. Archived indexes
 remain resolvable human-readable history and are never execution targets.
+
+Completed standalone and epic-child plans use `Archive-Plan.ps1` to move their entire unchanged
+directory into `docs/implementation-plans/archived/`. It reuses plan resolution, checklist completion,
+and corpus confinement; refuses empty/incomplete checklists, links/reparse points, ambiguous references,
+and destination collisions; and supports a non-mutating `-WhatIf` and idempotent archived result.
+The command checks mechanical readiness, not review quality: CI/autopilot own current evidence and
+successful whole-plan finalization before calling it after the committed learning handoff. Phase-only
+targets never archive. Commit the move; criteria and intent are preserved, not reconfirmed or rewritten.
+No extra lifecycle record is created.
 
 Each epic child owns one outcome, explicit non-goals and interface boundaries, plus dependency rationale.
 `/cip` disposes every discovered edge case into a requirement, risk, or non-goal. Nontrivial AI steps
