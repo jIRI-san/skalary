@@ -53,7 +53,7 @@
 
 ## Phase 2: Issue-to-PR chain and recoverable polling
 
-- [ ] 2.1 Implement finite ticks, checkpoints and provider reconciliation (REQ-5, REQ-6, REQ-7, RISK-3) [after: 1.2] `L`
+- [x] 2.1 Implement finite ticks, checkpoints and provider reconciliation (REQ-5, REQ-6, REQ-7, RISK-3) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** one chain per project can wait for checks and human PR merge, resume after restart, and reconcile a side effect that completed before checkpoint persistence.

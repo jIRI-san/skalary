@@ -17,9 +17,9 @@ explicit local dependency bootstrap; do not copy dependencies into the global pl
 change other plugins' path rules. Initial work uses ordinary `/ci`.
 
 Preview then apply setup using the digest returned by preview. Setup creates only missing paths below
-`.factory-loop/` and `scripts/factory-loop/`, preserves consumer edits on rerun, and stores no
-credentials. It does not claim live readiness until project-owned commands are configured and their
-access checks pass.
+`.factory-loop/` and `scripts/factory-loop/`, and bootstraps the existing plan-baseline scripts under
+`.github/skills/ci/scripts/`. It preserves consumer edits on rerun and stores no credentials. It does
+not claim live readiness until project-owned commands are configured and their access checks pass.
 
 ## Live command contract
 

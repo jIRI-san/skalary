@@ -26,7 +26,8 @@ function Resolve-FactoryLoopConsumerPath {
     }
     $normalized = $RelativePath.Replace('\', '/').Trim('/')
     if (-not ($normalized.StartsWith('.factory-loop/', [System.StringComparison]::Ordinal) -or
-            $normalized.StartsWith('scripts/factory-loop/', [System.StringComparison]::Ordinal))) {
+            $normalized.StartsWith('scripts/factory-loop/', [System.StringComparison]::Ordinal) -or
+            $normalized.StartsWith('.github/skills/ci/scripts/', [System.StringComparison]::Ordinal))) {
         throw "Consumer path is outside factory-loop setup ownership: $RelativePath"
     }
 
@@ -68,7 +69,17 @@ function Get-FactoryLoopSetupFiles {
     param()
 
     $templateRoot = Get-FactoryLoopTemplateRoot
-    return @(
+    $dependencyRoots = @(
+        (Join-Path $PSScriptRoot '..\..\ci\scripts'),
+        (Join-Path $PSScriptRoot '..\dependencies\ci\scripts')
+    )
+    $dependencyRoot = $dependencyRoots |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Container } |
+        Select-Object -First 1
+    if (-not $dependencyRoot) {
+        throw 'The bundled continue-implementation baseline dependency is missing from the factory-loop plugin.'
+    }
+    $files = @(
         [pscustomobject]@{
             RelativePath = '.factory-loop/factory-loop.json'
             SourcePath = Join-Path $templateRoot 'factory-loop.json'
@@ -82,6 +93,13 @@ function Get-FactoryLoopSetupFiles {
             SourcePath = Join-Path $templateRoot 'demo/Invoke-Acceptance.ps1'
         }
     )
+    foreach ($name in @('DirectWorkflow.psm1', 'PlanState.psm1', 'SecretGuard.psm1')) {
+        $files += [pscustomobject]@{
+            RelativePath = ".github/skills/ci/scripts/$name"
+            SourcePath = Join-Path $dependencyRoot $name
+        }
+    }
+    return $files
 }
 
 function Get-FactoryLoopSetupPreview {
@@ -388,8 +406,11 @@ function New-FactoryLoopDemoProject {
     $templates = Join-Path (Get-FactoryLoopTemplateRoot) 'demo'
     $application = Join-Path $root 'application'
     [void](New-Item -ItemType Directory -Path $application -Force)
+    [void](New-Item -ItemType Directory -Path (Join-Path $root '.factory-loop') -Force)
     Copy-Item -LiteralPath (Join-Path $templates 'Invoke-DemoApp.ps1') -Destination $application
     Copy-Item -LiteralPath (Join-Path $templates 'Invoke-Acceptance.ps1') -Destination $application
+    Copy-Item -LiteralPath (Join-Path (Get-FactoryLoopTemplateRoot) 'factory-loop.json') `
+        -Destination (Join-Path $root '.factory-loop/factory-loop.json') -Force
     Set-Content -LiteralPath (Join-Path $root '.gitignore') -Value ".factory-loop/`n" `
         -Encoding utf8NoBOM -NoNewline
     [void](Initialize-FactoryLoopLoopback -RepoRoot $root)

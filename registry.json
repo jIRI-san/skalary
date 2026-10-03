@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T18:46:18.6834784Z",
+  "generatedAt": "2026-10-03T19:41:13.5694374Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -800,23 +800,48 @@
       "files": [
         {
           "dest": "skills/factory-loop/SKILL.md",
-          "sha256": "cf2cf122a8d68c646307bfbb7eceb63c3bf463bfe5379042da27eec4b0d1bafc",
+          "sha256": "e014d458e102cbb033f599eada64fb606e094896aa2e05ee4637c27d9fe35083",
           "src": "skills/factory-loop/SKILL.md"
         },
         {
           "dest": "skills/factory-loop/assets/operator-guide.md",
-          "sha256": "a2adddf4b1ee898a571cd6af9814162fb98d77a74882aa165d545334de91d2d4",
+          "sha256": "079a34fe127370b31cb9a378a0029850b86cb218d9690eff91be70846cb0dea7",
           "src": "skills/factory-loop/assets/operator-guide.md"
         },
         {
+          "dest": "skills/factory-loop/dependencies/ci/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/ci/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/factory-loop/dependencies/ci/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/ci/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/factory-loop/dependencies/ci/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/ci/scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1",
+          "sha256": "3228e0eb9f125d4ef1c78b60960edb36d9e5c9614c0d161fc91b4ab40e6c3487",
+          "src": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1"
+        },
+        {
           "dest": "skills/factory-loop/scripts/FactoryLoop.psm1",
-          "sha256": "54bad33ff3f2323bf1837d7a8aabc02efe39fe0107efd4d3dcead1f00d7787df",
+          "sha256": "4b4b3b7448d8af958e48c18d1c032bdb6dcf45a2145a0aab30bd7c6e3d3e32de",
           "src": "skills/factory-loop/scripts/FactoryLoop.psm1"
         },
         {
           "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1",
           "sha256": "789e2f3b096f72e508526c6f4ff1b84449e2053fd0b439dccd69c2ef0297613a",
           "src": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1",
+          "sha256": "004d99051a125a1e1d121352f3a2b689fd49f84710686c1db27c496b3fc52308",
+          "src": "skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1"
         },
         {
           "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
@@ -827,6 +852,11 @@
           "dest": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1",
           "sha256": "6bf6c1f38283d8ab810fdff308ed99a7cc651ab72a613ce1de1000360d86e264",
           "src": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/Start-FactoryLoopChain.ps1",
+          "sha256": "220bedcecf50e106396ee96879d6bc538ba529852d34c38f89b7cc86f49cb593",
+          "src": "skills/factory-loop/scripts/Start-FactoryLoopChain.ps1"
         },
         {
           "dest": "skills/factory-loop/templates/FactoryLoop.Adapter.ps1",
@@ -863,6 +893,13 @@
           "confine": "Resolve-FactoryLoopConsumerPath",
           "mode": "parameterized",
           "owner": "Setup-FactoryLoop.ps1",
+          "path": ".github/skills/ci/scripts/**",
+          "trigger": "explicit setup of a selected consumer"
+        },
+        {
+          "confine": "Resolve-FactoryLoopConsumerPath",
+          "mode": "parameterized",
+          "owner": "Setup-FactoryLoop.ps1",
           "path": "scripts/factory-loop/**",
           "trigger": "explicit setup of a selected consumer"
         }
@@ -873,7 +910,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.1"
+      "version": "0.1.6"
     },
     {
       "author": "jIRI-san",

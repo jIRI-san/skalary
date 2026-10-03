@@ -1,6 +1,6 @@
 {
   "name": "factory-loop",
-  "version": "0.1.1",
+  "version": "0.1.6",
   "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -33,6 +33,30 @@
       "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1"
     },
     {
+      "src": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1",
+      "dest": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1"
+    },
+    {
+      "src": "skills/factory-loop/scripts/Start-FactoryLoopChain.ps1",
+      "dest": "skills/factory-loop/scripts/Start-FactoryLoopChain.ps1"
+    },
+    {
+      "src": "skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1",
+      "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1"
+    },
+    {
+      "src": "skills/ci/scripts/DirectWorkflow.psm1",
+      "dest": "skills/factory-loop/dependencies/ci/scripts/DirectWorkflow.psm1"
+    },
+    {
+      "src": "skills/ci/scripts/PlanState.psm1",
+      "dest": "skills/factory-loop/dependencies/ci/scripts/PlanState.psm1"
+    },
+    {
+      "src": "skills/ci/scripts/SecretGuard.psm1",
+      "dest": "skills/factory-loop/dependencies/ci/scripts/SecretGuard.psm1"
+    },
+    {
       "src": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
       "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1"
     },
@@ -63,6 +87,13 @@
     },
     {
       "path": "scripts/factory-loop/**",
+      "mode": "parameterized",
+      "owner": "Setup-FactoryLoop.ps1",
+      "trigger": "explicit setup of a selected consumer",
+      "confine": "Resolve-FactoryLoopConsumerPath"
+    },
+    {
+      "path": ".github/skills/ci/scripts/**",
       "mode": "parameterized",
       "owner": "Setup-FactoryLoop.ps1",
       "trigger": "explicit setup of a selected consumer",

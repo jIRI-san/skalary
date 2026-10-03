@@ -22,9 +22,10 @@ Preview, inspect the planned paths and digest, then apply that exact preview:
 .github/skills/factory-loop/scripts/Setup-FactoryLoop.ps1 -Action apply -RepoRoot . -ExpectedDigest <digest>
 ```
 
-Setup writes only missing project-owned files. It never stores credentials or overwrites existing
-consumer content. For an idea, use `/cip` to create and confirm a plan; for a prepared plan, verify
-its confirmation before ordinary `/ci` admission.
+Setup writes only missing project-owned files and bootstraps the existing plan-baseline scripts under
+`.github/skills/ci/scripts/`. It never stores credentials or overwrites existing consumer content.
+For an idea, use `/cip` to create and confirm a plan; for a prepared plan, verify its confirmation
+before ordinary `/ci` admission.
 
 ## Local demo
 
@@ -46,10 +47,21 @@ later working-tree changes cannot replace that artifact.
 
 ## Tick and resume
 
-`Invoke-FactoryLoopTick.ps1` performs one finite deterministic poll. It never invokes an agent while
-waiting. Invoke it again from a personal scheduler or after restart. One active chain per project is
-allowed; a missing, malformed, or unidentifiable adapter result pauses the chain instead of guessing
-or retrying a write.
+After selecting a confirmed plan and a feature branch whose exact source SHA you reviewed, initialize
+one chain and invoke one tick:
+
+```powershell
+.github/skills/factory-loop/scripts/Start-FactoryLoopChain.ps1 -RepoRoot . `
+  -ChainId <stable-id> -WorkItemId <provider-id> -PlanReference <plan-id> `
+  -Branch feature/<branch> -SourceSha <full-commit-sha>
+.github/skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1 -RepoRoot .
+```
+
+The chain start re-runs `Test-PlanCriteriaBaseline`; install `continue-implementation` locally if the
+validator is missing. `Invoke-FactoryLoopTick.ps1` performs one finite deterministic poll. It never
+invokes an agent while waiting. Invoke it again from a personal scheduler or after restart. One active
+chain per project is allowed; a missing, malformed, changed-head, or unidentifiable adapter result
+pauses the chain instead of guessing or retrying a write.
 
 Factory repair uses the existing `/ci` launcher only after ordinary initial admission and explicit
 repair authorization. The original criteria baseline is revalidated and cannot be edited by repair.

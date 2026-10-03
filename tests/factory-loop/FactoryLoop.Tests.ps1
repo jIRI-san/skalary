@@ -9,6 +9,84 @@ Describe 'factory-loop plugin' {
         $script:pluginRoot = Join-Path $script:repoRoot 'plugins/factory-loop'
         Import-Module (Join-Path $script:pluginRoot 'skills/factory-loop/scripts/FactoryLoop.psm1') `
             -Force -DisableNameChecking
+        Import-Module (Join-Path $script:pluginRoot 'skills/factory-loop/scripts/FactoryLoop.Runtime.psm1') `
+            -Force -DisableNameChecking
+
+        function New-FactoryLoopRuntimeFixture {
+            param([switch]$LeaveDefect, [switch]$MutateCriteriaBeforeAdmission)
+
+            $demo = Join-Path $TestDrive ('runtime-' + [guid]::NewGuid().ToString('N'))
+            $created = New-FactoryLoopDemoProject -DemoRoot $demo
+            $planSource = Join-Path $script:repoRoot `
+                'docs/implementation-plans/standalone-2026-10-03-961e7d-factory-loop-mvp'
+            $planDestination = Join-Path $demo `
+                'docs/implementation-plans/standalone-2026-10-03-961e7d-factory-loop-mvp'
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $planDestination) -Force)
+            Copy-Item -LiteralPath $planSource -Destination $planDestination -Recurse
+
+            $ciScripts = Join-Path $demo '.github/skills/ci/scripts'
+            [void](New-Item -ItemType Directory -Path $ciScripts -Force)
+            foreach ($name in @('DirectWorkflow.psm1', 'PlanState.psm1', 'SecretGuard.psm1')) {
+                Copy-Item -LiteralPath (Join-Path $script:repoRoot "scripts/skalary/$name") `
+                    -Destination $ciScripts
+            }
+            git -C $demo add -- docs .github
+            git -C $demo -c user.name='Factory Loop Demo' -c user.email='factory-loop-demo@localhost' `
+                commit --quiet -m 'Add confirmed plan baseline fixture'
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to commit the plan baseline fixture.' }
+
+            $branch = if ($LeaveDefect) { 'feature/runtime-failure' } else { 'feature/runtime-fix' }
+            git -C $demo switch -c $branch --quiet
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to create the runtime feature branch.' }
+            if (-not $LeaveDefect) {
+                $appScript = Join-Path $demo 'application/Invoke-DemoApp.ps1'
+                $fixed = (Get-Content -LiteralPath $appScript -Raw).Replace(
+                    '$Subtotal * (1 + $DiscountRate)',
+                    '$Subtotal * (1 - $DiscountRate)'
+                )
+                Set-Content -LiteralPath $appScript -Value $fixed -NoNewline -Encoding utf8NoBOM
+                git -C $demo add -- application/Invoke-DemoApp.ps1
+                git -C $demo -c user.name='Factory Loop Demo' -c user.email='factory-loop-demo@localhost' `
+                    commit --quiet -m 'Fix demo discount calculation'
+                if ($LASTEXITCODE -ne 0) { throw 'Unable to commit the runtime feature change.' }
+            }
+            $sourceSha = (git -C $demo rev-parse HEAD).Trim()
+            if ($MutateCriteriaBeforeAdmission) {
+                Add-Content -LiteralPath (Join-Path $planDestination 'assets/requirements.md') `
+                    -Value "`nUnconfirmed change." -Encoding utf8NoBOM
+            }
+            $item = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain work-item -Action create `
+                -OperationId ('runtime:item:' + [guid]::NewGuid().ToString('N')) `
+                -Payload @{ title = 'Runtime feature' }
+            $chainId = 'chain-' + [guid]::NewGuid().ToString('N')
+            $planReference = '961e7d'
+            $checkpoint = $null
+            $admissionError = $null
+            try {
+                $checkpoint = Initialize-FactoryLoopChain -RepoRoot $demo -ChainId $chainId `
+                    -WorkItemId ([string]$item.data.item.id) -PlanReference $planReference `
+                    -Branch $branch -SourceSha $sourceSha
+            }
+            catch {
+                if (-not $MutateCriteriaBeforeAdmission) { throw }
+                $admissionError = $_.Exception.Message
+            }
+            return [pscustomobject]@{
+                Root = $demo
+                Branch = $branch
+                SourceSha = $sourceSha
+                ChainId = $chainId
+                WorkItemId = [string]$item.data.item.id
+                Checkpoint = $checkpoint
+                AdmissionError = $admissionError
+            }
+        }
+
+        function Read-FactoryLoopRuntimeFixtureCheckpoint {
+            param([Parameter(Mandatory)][string]$RepoRoot)
+            $path = Join-Path $RepoRoot '.factory-loop/checkpoint.json'
+            return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable -Depth 40
+        }
     }
 
     It 'test:FactoryLoop.Install installs repository and global payloads whose setup assets resolve plugin-relatively' {
@@ -46,11 +124,13 @@ Describe 'factory-loop plugin' {
 
         $installedScript = Join-Path $consumer '.github/skills/factory-loop/scripts/Setup-FactoryLoop.ps1'
         $preview = & $installedScript -Action preview -RepoRoot $consumerRoot | ConvertFrom-Json -Depth 20
-        @($preview.files | Where-Object action -EQ 'create') | Should -HaveCount 3
+        @($preview.files | Where-Object action -EQ 'create') | Should -HaveCount 6
         $applied = & $installedScript -Action apply -RepoRoot $consumerRoot `
             -ExpectedDigest $preview.digest | ConvertFrom-Json -Depth 20
-        @($applied.files | Where-Object action -EQ 'preserve') | Should -HaveCount 3
+        @($applied.files | Where-Object action -EQ 'preserve') | Should -HaveCount 6
         Test-Path -LiteralPath (Join-Path $consumerRoot '.factory-loop/factory-loop.json') |
+            Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $consumerRoot '.github/skills/ci/scripts/DirectWorkflow.psm1') |
             Should -BeTrue
         $installedAdapter = Join-Path $consumer '.github/skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1'
         $consumerState = & $installedAdapter -Domain work-item -Action create `
@@ -94,18 +174,20 @@ Describe 'factory-loop plugin' {
         (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash | Should -Be $before
         Test-Path -LiteralPath (Join-Path $consumerRoot 'scripts/factory-loop/FactoryLoop.Adapter.ps1') |
             Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $consumerRoot '.github/skills/ci/scripts/DirectWorkflow.psm1') |
+            Should -BeTrue
     }
 
     It 'test:FactoryLoop.Setup previews, confines and preserves consumer-owned files without writing credentials' {
         $consumer = Join-Path $TestDrive 'setup-consumer'
         [void](New-Item -ItemType Directory -Path $consumer -Force)
         $preview = Get-FactoryLoopSetupPreview -RepoRoot $consumer
-        @($preview.files | Where-Object action -EQ 'create') | Should -HaveCount 3
+        @($preview.files | Where-Object action -EQ 'create') | Should -HaveCount 6
         { Invoke-FactoryLoopSetup -Action apply -RepoRoot $consumer -ExpectedDigest 'wrong' } |
             Should -Throw '*does not match the current preview*'
 
         $result = Invoke-FactoryLoopSetup -Action apply -RepoRoot $consumer -ExpectedDigest $preview.digest
-        @($result.files | Where-Object action -EQ 'preserve') | Should -HaveCount 3
+        @($result.files | Where-Object action -EQ 'preserve') | Should -HaveCount 6
         $configPath = Join-Path $consumer '.factory-loop/factory-loop.json'
         $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -Depth 20
         $config.pollSeconds | Should -Be 60
@@ -115,7 +197,7 @@ Describe 'factory-loop plugin' {
 
         Set-Content -LiteralPath $configPath -Value '{"consumerEdit":true}' -NoNewline -Encoding utf8NoBOM
         $rerun = Get-FactoryLoopSetupPreview -RepoRoot $consumer
-        @($rerun.files | Where-Object action -EQ 'preserve') | Should -HaveCount 3
+        @($rerun.files | Where-Object action -EQ 'preserve') | Should -HaveCount 6
         Invoke-FactoryLoopSetup -Action apply -RepoRoot $consumer -ExpectedDigest $rerun.digest | Out-Null
         Get-Content -LiteralPath $configPath -Raw | Should -BeExactly '{"consumerEdit":true}'
         { Resolve-FactoryLoopConsumerPath -RepoRoot $consumer -RelativePath '../escape.txt' } |
@@ -304,5 +386,206 @@ Describe 'factory-loop plugin' {
                 -ExpectedDigest $artifact.artifactDigest).status | Should -BeExactly 'passed'
         (Test-FactoryLoopArtifactAcceptance -ArtifactPath $artifact.artifactPath `
                 -ExpectedDigest ('0' * 64)).status | Should -BeExactly 'blocked'
+    }
+
+    It 'test:FactoryLoop.Tick performs finite zero-AI polls with one chain and a 60-second default' {
+        $fixture = New-FactoryLoopRuntimeFixture
+        $clockValue = [datetime]::Parse('2026-10-04T03:02:01Z').ToUniversalTime()
+        $expectedTimestamp = $clockValue.ToString('o')
+        $clock = { $clockValue }.GetNewClosure()
+        $first = Invoke-FactoryLoopTick -RepoRoot $fixture.Root -Clock $clock
+        $first.outcome | Should -BeExactly 'progressed'
+        $first.stage | Should -BeExactly 'awaiting-checks'
+        $first.aiCalls | Should -Be 0
+        $observedTimestamp = [datetime](Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $fixture.Root).updatedAtUtc
+        $observedTimestamp.ToUniversalTime().ToString('o') | Should -BeExactly $expectedTimestamp
+
+        $second = Invoke-FactoryLoopTick -RepoRoot $fixture.Root -Clock $clock
+        $second.outcome | Should -BeExactly 'waiting-for-human-merge'
+        $second.stage | Should -BeExactly 'awaiting-merge'
+        $second.nextPollAfterSeconds | Should -Be 60
+        $second.aiCalls | Should -Be 0
+
+        $checkpoint = Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $fixture.Root
+        $checkpoint.pullRequestId | Should -BeExactly 'PR-0001'
+        $checkpoint.criteriaBaselineCommit | Should -Match '^[0-9a-f]{40}$'
+        $checkpoint.expectedSourceSha | Should -BeExactly $fixture.SourceSha
+
+        $lockPath = Resolve-FactoryLoopConsumerPath -RepoRoot $fixture.Root -RelativePath '.factory-loop/loop.lock'
+        $lock = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $lockedTick = Invoke-FactoryLoopTick -RepoRoot $fixture.Root
+            $lockedTick.outcome | Should -BeExactly 'locked'
+            $lockedTick.aiCalls | Should -Be 0
+        }
+        finally {
+            $lock.Dispose()
+        }
+    }
+
+    It 'test:FactoryLoop.Restart reconciles an interruption before provider dispatch' {
+        $before = New-FactoryLoopRuntimeFixture
+        $clockValue = [datetime]::Parse('2026-10-04T03:02:01Z').ToUniversalTime()
+        $expectedTimestamp = $clockValue.ToString('o')
+        $clock = { $clockValue }.GetNewClosure()
+        $beforeHook = {
+            param($Pending)
+            [string]$Pending.requestedAtUtc | Should -BeExactly $expectedTimestamp
+            throw 'interrupt-before-provider-dispatch'
+        }.GetNewClosure()
+        { Invoke-FactoryLoopTick -RepoRoot $before.Root -Clock $clock -BeforeDispatch $beforeHook } |
+            Should -Throw '*interrupt-before-provider-dispatch*'
+        $beforeCheckpoint = Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $before.Root
+        $beforeCheckpoint.pendingOperation.operationId |
+            Should -BeExactly "$($before.ChainId):pull-request:open:1"
+        $beforeState = Get-Content -LiteralPath (Join-Path $before.Root '.factory-loop/loopback.json') -Raw |
+            ConvertFrom-Json -AsHashtable -Depth 40
+        @($beforeState.pullRequests) | Should -BeNullOrEmpty
+        $beforeResume = Invoke-FactoryLoopTick -RepoRoot $before.Root -Clock $clock
+        $beforeResume.pullRequestId | Should -BeExactly 'PR-0001'
+    }
+
+    It 'test:FactoryLoop.Restart reconciles an interruption after provider mutation' {
+        $after = New-FactoryLoopRuntimeFixture
+        $afterHook = {
+            param($Result)
+            throw 'interrupt-after-provider-mutation'
+        }
+        { Invoke-FactoryLoopTick -RepoRoot $after.Root -AfterDispatch $afterHook } |
+            Should -Throw '*interrupt-after-provider-mutation*'
+        $afterCheckpoint = Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $after.Root
+        $afterCheckpoint.pendingOperation.operationId |
+            Should -BeExactly "$($after.ChainId):pull-request:open:1"
+        $afterState = Get-Content -LiteralPath (Join-Path $after.Root '.factory-loop/loopback.json') -Raw |
+            ConvertFrom-Json -AsHashtable -Depth 40
+        @($afterState.pullRequests) | Should -HaveCount 1
+        $prOperation = @($afterState.operations | Where-Object {
+                [string]$_.operationId -ceq "$($after.ChainId):pull-request:open:1"
+            })[0]
+        $providerId = [string]$prOperation.result.providerId
+        $afterResume = Invoke-FactoryLoopTick -RepoRoot $after.Root
+        $afterResume.providerId | Should -BeExactly $providerId
+        $afterState = Get-Content -LiteralPath (Join-Path $after.Root '.factory-loop/loopback.json') -Raw |
+            ConvertFrom-Json -AsHashtable -Depth 40
+        @($afterState.pullRequests) | Should -HaveCount 1
+        @($afterState.operations | Where-Object operationId -CEQ "$($after.ChainId):pull-request:open:1") |
+            Should -HaveCount 1
+    }
+
+    It 'test:FactoryLoop.PrChecks treats a failing build as a bounded repair incident' {
+        $failure = New-FactoryLoopRuntimeFixture -LeaveDefect
+        [void](Invoke-FactoryLoopTick -RepoRoot $failure.Root)
+        $failed = Invoke-FactoryLoopTick -RepoRoot $failure.Root
+        $failed.status | Should -BeExactly 'failed'
+        $failed.stage | Should -BeExactly 'build-failed'
+        $failed.aiCalls | Should -Be 0
+    }
+
+    It 'test:FactoryLoop.PrChecks blocks a changed pull-request head' {
+        $changed = New-FactoryLoopRuntimeFixture
+        [void](Invoke-FactoryLoopTick -RepoRoot $changed.Root)
+        $appScript = Join-Path $changed.Root 'application/Invoke-DemoApp.ps1'
+        Add-Content -LiteralPath $appScript -Value "`n# New PR head" -Encoding utf8NoBOM
+        git -C $changed.Root add -- application/Invoke-DemoApp.ps1
+        git -C $changed.Root -c user.name='Factory Loop Demo' -c user.email='factory-loop-demo@localhost' `
+            commit --quiet -m 'Move PR head after checks'
+        $LASTEXITCODE | Should -Be 0
+        $changedResult = Invoke-FactoryLoopTick -RepoRoot $changed.Root
+        $changedResult.outcome | Should -BeExactly 'blocked'
+        $changedResult.reason | Should -BeExactly 'pull-request-head-changed'
+    }
+
+    It 'test:FactoryLoop.PrChecks blocks a closed unmerged pull request' {
+        $closed = New-FactoryLoopRuntimeFixture
+        [void](Invoke-FactoryLoopTick -RepoRoot $closed.Root)
+        [void](Invoke-FactoryLoopTick -RepoRoot $closed.Root)
+        $statePath = Join-Path $closed.Root '.factory-loop/loopback.json'
+        $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json -AsHashtable -Depth 40
+        $state.pullRequests[0].status = 'closed'
+        [System.IO.File]::WriteAllText(
+            $statePath,
+            (ConvertTo-Json -InputObject $state -Depth 40),
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        $closedResult = Invoke-FactoryLoopTick -RepoRoot $closed.Root
+        $closedResult.outcome | Should -BeExactly 'blocked'
+        $closedResult.reason | Should -BeExactly 'pull-request-closed-unmerged'
+    }
+
+    It 'test:FactoryLoop.CriteriaAdmission blocks changed confirmed criteria before chain creation' {
+        $fixture = New-FactoryLoopRuntimeFixture -MutateCriteriaBeforeAdmission
+        $fixture.AdmissionError | Should -Match 'Confirmed requirements differs from .*baseline commit'
+        Test-Path -LiteralPath (Join-Path $fixture.Root '.factory-loop/checkpoint.json') |
+            Should -BeFalse
+        $state = Get-Content -LiteralPath (Join-Path $fixture.Root '.factory-loop/loopback.json') -Raw |
+            ConvertFrom-Json -AsHashtable -Depth 40
+        @($state.pullRequests) | Should -BeNullOrEmpty
+    }
+
+    It 'test:FactoryLoop.PrChecks blocks cancelled check runs instead of waiting indefinitely' {
+        $fixture = New-FactoryLoopRuntimeFixture
+        [void](Invoke-FactoryLoopTick -RepoRoot $fixture.Root)
+        $cancelledRunner = {
+            param($Domain, $Action, $OperationId, $Payload)
+            return [ordered]@{
+                schemaVersion = 1
+                domain = $Domain
+                action = $Action
+                operationId = $OperationId
+                status = 'ok'
+                providerId = 'loopback:pull-request:PR-0001'
+                data = @{
+                    checks = @{
+                        status = 'cancelled'
+                        headSha = $fixture.SourceSha
+                    }
+                }
+            }
+        }.GetNewClosure()
+        $result = Invoke-FactoryLoopTick -RepoRoot $fixture.Root -AdapterRunner $cancelledRunner
+        $result.outcome | Should -BeExactly 'blocked'
+        $result.reason | Should -BeExactly 'checks-cancelled'
+        $result.aiCalls | Should -Be 0
+    }
+
+    It 'test:FactoryLoop.MergeGate requires human confirmation and records the real merge commit' {
+        $fixture = New-FactoryLoopRuntimeFixture
+        [void](Invoke-FactoryLoopTick -RepoRoot $fixture.Root)
+        $checks = Invoke-FactoryLoopTick -RepoRoot $fixture.Root
+        $checks.outcome | Should -BeExactly 'waiting-for-human-merge'
+        $waiting = Invoke-FactoryLoopTick -RepoRoot $fixture.Root
+        $waiting.status | Should -BeExactly 'open'
+
+        $unconfirmed = Invoke-FactoryLoopLoopback -RepoRoot $fixture.Root -Domain pull-request `
+            -Action merge -OperationId "$($fixture.ChainId):human-merge:unconfirmed" `
+            -Payload @{ pullRequestId = 'PR-0001'; demoRoot = $fixture.Root }
+        $unconfirmed.status | Should -BeExactly 'blocked'
+        $unconfirmed.data.reason | Should -BeExactly 'human-merge-required'
+
+        git -C $fixture.Root switch main --quiet
+        $LASTEXITCODE | Should -Be 0
+        $humanMerge = Invoke-FactoryLoopLoopback -RepoRoot $fixture.Root -Domain pull-request `
+            -Action merge -OperationId "$($fixture.ChainId):human-merge:confirmed" `
+            -Payload @{
+                pullRequestId = 'PR-0001'
+                demoRoot = $fixture.Root
+                expectedSourceSha = $fixture.SourceSha
+                confirmMerge = $true
+            }
+        $humanMerge.status | Should -BeExactly 'ok'
+        $mergedTick = Invoke-FactoryLoopTick -RepoRoot $fixture.Root
+        $mergedTick.stage | Should -BeExactly 'test-deployment'
+        $mergedTick.mergeCommit | Should -Match '^[0-9a-f]{40}$'
+        $mergedTick.aiCalls | Should -Be 0
+    }
+
+    It 'test:FactoryLoop.ChainLimit rejects a second active chain in the project' {
+        $fixture = New-FactoryLoopRuntimeFixture
+        {
+            Initialize-FactoryLoopChain -RepoRoot $fixture.Root -ChainId 'second-chain' `
+                -WorkItemId $fixture.WorkItemId -PlanReference '961e7d' `
+                -Branch $fixture.Branch -SourceSha $fixture.SourceSha
+        } | Should -Throw '*already has active factory-loop chain*'
     }
 }
