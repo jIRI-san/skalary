@@ -1,6 +1,6 @@
 {
   "name": "factory-loop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -27,6 +27,10 @@
     {
       "src": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1",
       "dest": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1"
+    },
+    {
+      "src": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1",
+      "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1"
     },
     {
       "src": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",

@@ -111,7 +111,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

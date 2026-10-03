@@ -157,10 +157,11 @@ function ConvertFrom-FactoryLoopAdapterResult {
     param(
         [Parameter(Mandatory)][object]$Result,
         [Parameter(Mandatory)][ValidateSet(
-            'work-item', 'pull-request', 'deployment', 'version', 'acceptance', 'telemetry', 'evidence'
+            'work-item', 'pull-request', 'deployment', 'version', 'acceptance', 'telemetry', 'evidence', 'approval'
         )][string]$Domain,
         [Parameter(Mandatory)][ValidateSet(
-            'read', 'find', 'create', 'update', 'open', 'checks', 'trigger', 'run', 'query', 'publish', 'close', 'reconcile'
+            'read', 'find', 'create', 'update', 'open', 'checks', 'merge', 'trigger', 'run', 'query',
+            'publish', 'close', 'reconcile', 'approve', 'decline'
         )][string]$Action,
         [Parameter(Mandatory)][string]$OperationId
     )
@@ -208,10 +209,11 @@ function Invoke-FactoryLoopAdapter {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet(
-            'work-item', 'pull-request', 'deployment', 'version', 'acceptance', 'telemetry', 'evidence'
+            'work-item', 'pull-request', 'deployment', 'version', 'acceptance', 'telemetry', 'evidence', 'approval'
         )][string]$Domain,
         [Parameter(Mandatory)][ValidateSet(
-            'read', 'find', 'create', 'update', 'open', 'checks', 'trigger', 'run', 'query', 'publish', 'close', 'reconcile'
+            'read', 'find', 'create', 'update', 'open', 'checks', 'merge', 'trigger', 'run', 'query',
+            'publish', 'close', 'reconcile', 'approve', 'decline'
         )][string]$Action,
         [Parameter(Mandatory)][string]$OperationId,
         [hashtable]$Payload = @{},
@@ -388,6 +390,9 @@ function New-FactoryLoopDemoProject {
     [void](New-Item -ItemType Directory -Path $application -Force)
     Copy-Item -LiteralPath (Join-Path $templates 'Invoke-DemoApp.ps1') -Destination $application
     Copy-Item -LiteralPath (Join-Path $templates 'Invoke-Acceptance.ps1') -Destination $application
+    Set-Content -LiteralPath (Join-Path $root '.gitignore') -Value ".factory-loop/`n" `
+        -Encoding utf8NoBOM -NoNewline
+    [void](Initialize-FactoryLoopLoopback -RepoRoot $root)
     git -C $root init --initial-branch=main --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Unable to initialize the disposable demo Git repository.' }
     git -C $root -c user.name='Factory Loop Demo' -c user.email='factory-loop-demo@localhost' add --all
@@ -448,6 +453,556 @@ function Merge-FactoryLoopDemoPullRequest {
     }
 }
 
+function Get-FactoryLoopLoopbackStatePath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    return Resolve-FactoryLoopConsumerPath -RepoRoot $RepoRoot -RelativePath '.factory-loop/loopback.json'
+}
+
+function Save-FactoryLoopLoopbackState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$State
+    )
+
+    $path = Get-FactoryLoopLoopbackStatePath -RepoRoot $RepoRoot
+    [void](New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force)
+    $temporary = "$path.$([guid]::NewGuid().ToString('N')).tmp"
+    try {
+        $json = ConvertTo-Json -InputObject $State -Depth 50
+        [System.IO.File]::WriteAllText($temporary, $json, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::Move($temporary, $path, $true)
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary) {
+            Remove-Item -LiteralPath $temporary -Force
+        }
+    }
+}
+
+function Initialize-FactoryLoopLoopback {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $path = Get-FactoryLoopLoopbackStatePath -RepoRoot $RepoRoot
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        $existing = Get-Item -LiteralPath $path -Force
+        if (($existing.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Loopback state cannot be a link or reparse point.'
+        }
+        return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable -Depth 50
+    }
+    $state = [ordered]@{
+        schemaVersion = 1
+        provider = 'loopback'
+        simulated = $true
+        counters = [ordered]@{
+            workItem = 0
+            pullRequest = 0
+            deployment = 0
+            approval = 0
+        }
+        workItems = @()
+        pullRequests = @()
+        deployments = @()
+        approvals = @()
+        acceptances = @()
+        telemetry = @()
+        evidence = @()
+        operations = @()
+    }
+    Save-FactoryLoopLoopbackState -RepoRoot $RepoRoot -State $state
+    return $state
+}
+
+function Read-FactoryLoopLoopbackState {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $path = Get-FactoryLoopLoopbackStatePath -RepoRoot $RepoRoot
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return Initialize-FactoryLoopLoopback -RepoRoot $RepoRoot
+    }
+    $item = Get-Item -LiteralPath $path -Force
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'Loopback state cannot be a link or reparse point.'
+    }
+    $state = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable -Depth 50 -ErrorAction Stop
+    if ($state -isnot [System.Collections.IDictionary] -or
+        [int]$state.schemaVersion -ne 1 -or [string]$state.provider -cne 'loopback' -or
+        $state.simulated -ne $true) {
+        throw 'Loopback state has an unsupported or malformed schema.'
+    }
+    foreach ($name in @('counters', 'workItems', 'pullRequests', 'deployments', 'approvals',
+            'acceptances', 'telemetry', 'evidence', 'operations')) {
+        if (-not $state.Contains($name)) { throw "Loopback state is missing '$name'." }
+    }
+    return $state
+}
+
+function New-FactoryLoopLoopbackResult {
+    param(
+        [Parameter(Mandatory)][string]$Domain,
+        [Parameter(Mandatory)][string]$Action,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][ValidateSet('ok', 'waiting', 'blocked', 'not-found')][string]$Status,
+        [Parameter(Mandatory)][string]$ProviderId,
+        [hashtable]$Data = @{}
+    )
+
+    return [ordered]@{
+        schemaVersion = 1
+        domain = $Domain
+        action = $Action
+        operationId = $OperationId
+        status = $Status
+        providerId = $ProviderId
+        data = $Data
+    }
+}
+
+function Find-FactoryLoopLoopbackRecord {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Records,
+        [string]$Id,
+        [string]$OperationId,
+        [string]$DedupeKey,
+        [string]$Title
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Id)) {
+        return $Records | Where-Object { [string]$_.id -ceq $Id } | Select-Object -First 1
+    }
+    if (-not [string]::IsNullOrWhiteSpace($DedupeKey)) {
+        return $Records | Where-Object { [string]$_.dedupeKey -ceq $DedupeKey } | Select-Object -First 1
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OperationId)) {
+        return $Records | Where-Object { [string]$_.operationId -ceq $OperationId } | Select-Object -First 1
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Title)) {
+        return $Records | Where-Object { [string]$_.title -ceq $Title } | Select-Object -First 1
+    }
+    return $null
+}
+
+function Invoke-FactoryLoopDemoBuildCheck {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DemoRoot,
+        [Parameter(Mandatory)][string]$Branch,
+        [Parameter(Mandatory)][string]$SourceSha
+    )
+
+    $root = [System.IO.Path]::GetFullPath($DemoRoot)
+    $branchHead = (git -C $root rev-parse $Branch).Trim()
+    if ($LASTEXITCODE -ne 0 -or $branchHead -cne $SourceSha) {
+        return [pscustomobject]@{
+            status = 'blocked'
+            reason = 'pull-request-head-changed'
+            expectedHead = $SourceSha
+            observedHead = $branchHead
+        }
+    }
+    $worktree = Join-Path ([System.IO.Path]::GetTempPath()) ('factory-loop-check-' + [guid]::NewGuid().ToString('N'))
+    try {
+        git -C $root worktree add --quiet --detach $worktree $SourceSha
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to materialize the PR source for the local build check.' }
+        $application = Join-Path $worktree 'application'
+        $digest = Get-FactoryLoopApplicationDigest -ApplicationRoot $application
+        $acceptance = Test-FactoryLoopArtifactAcceptance -ArtifactPath $application `
+            -ExpectedDigest $digest -Environment test
+        return [pscustomobject]@{
+            status = [string]$acceptance.status
+            headSha = $SourceSha
+            artifactDigest = $digest
+            scenario = [string]$acceptance.scenario
+            expected = [string]$acceptance.expected
+            actual = [string]$acceptance.actual
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $worktree) {
+            git -C $root worktree remove --force $worktree
+            if ($LASTEXITCODE -ne 0) { throw "Unable to remove temporary PR-check worktree '$worktree'." }
+        }
+    }
+}
+
+function Invoke-FactoryLoopLoopback {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet(
+            'work-item', 'pull-request', 'deployment', 'version', 'acceptance', 'telemetry', 'evidence', 'approval'
+        )][string]$Domain,
+        [Parameter(Mandatory)][ValidateSet(
+            'read', 'find', 'create', 'update', 'open', 'checks', 'merge', 'trigger', 'run', 'query',
+            'publish', 'close', 'reconcile', 'approve', 'decline'
+        )][string]$Action,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [hashtable]$Payload = @{}
+    )
+
+    $state = Read-FactoryLoopLoopbackState -RepoRoot $RepoRoot
+    $normalizedPayload = @{} + $Payload
+    foreach ($name in @(
+            'itemId', 'dedupeKey', 'title', 'requiredEnvironments', 'artifactDigest', 'status',
+            'sourceSha', 'branch', 'pullRequestId', 'confirmMerge', 'expectedSourceSha', 'demoRoot',
+            'environment', 'mergeCommit', 'deploymentId', 'targetOperationId', 'artifactPath',
+            'accessible', 'coverage', 'cursor', 'evaluate', 'confirm', 'sanitized', 'commit'
+        )) {
+        if (-not $normalizedPayload.ContainsKey($name)) { $normalizedPayload[$name] = $null }
+    }
+    $Payload = $normalizedPayload
+    $writeActions = @('create', 'update', 'open', 'merge', 'trigger', 'run', 'publish', 'close', 'approve', 'decline')
+    $isWrite = $writeActions -contains $Action
+    if ($isWrite) {
+        $prior = @($state.operations | Where-Object { [string]$_.operationId -ceq $OperationId })
+        if ($prior.Count -gt 1) { throw "Loopback operation key '$OperationId' is not unique." }
+        if ($prior.Count -eq 1) {
+            if ([string]$prior[0].domain -cne $Domain -or [string]$prior[0].action -cne $Action) {
+                throw "Loopback operation key '$OperationId' was already used for another action."
+            }
+            return $prior[0].result
+        }
+    }
+
+    $provider = "loopback:$Domain"
+    $status = 'ok'
+    $data = @{}
+    switch ($Domain) {
+        'work-item' {
+            if ($Action -in @('read', 'update', 'close')) {
+                $record = Find-FactoryLoopLoopbackRecord -Records @($state.workItems) -Id ([string]$Payload.itemId)
+                if ($null -eq $record) { $status = 'not-found'; break }
+                if ($Action -eq 'read') { $data = @{ item = $record }; break }
+                if ($Action -eq 'close') {
+                    $required = if ($Payload.requiredEnvironments) { @($Payload.requiredEnvironments) } else { @('test', 'prod') }
+                    foreach ($environment in $required) {
+                        $passed = @($state.acceptances | Where-Object {
+                                [string]$_.environment -ceq [string]$environment -and
+                                [string]$_.artifactDigest -ceq [string]$Payload.artifactDigest -and
+                                [string]$_.status -ceq 'passed'
+                            }).Count -gt 0
+                        if (-not $passed) {
+                            $status = 'blocked'
+                            $data = @{ reason = 'required-acceptance-missing'; environment = [string]$environment }
+                            break
+                        }
+                    }
+                    if ($status -eq 'blocked') { break }
+                    $published = @($state.evidence | Where-Object {
+                            [string]$_.itemId -ceq [string]$Payload.itemId -and
+                            [string]$_.artifactDigest -ceq [string]$Payload.artifactDigest -and
+                            [string]$_.status -ceq 'published'
+                        }).Count -gt 0
+                    if (-not $published) {
+                        $status = 'blocked'
+                        $data = @{ reason = 'sanitized-evidence-not-published' }
+                        break
+                    }
+                    $record.status = 'closed'
+                }
+                else {
+                    if ($Payload.ContainsKey('title')) { $record.title = [string]$Payload.title }
+                    if ($Payload.ContainsKey('status') -and [string]$Payload.status -in @('open', 'closed')) {
+                        $record.status = [string]$Payload.status
+                    }
+                }
+                $data = @{ item = $record }
+                $provider = "loopback:work-item:$($record.id)"
+            }
+            elseif ($Action -eq 'find') {
+                $record = Find-FactoryLoopLoopbackRecord -Records @($state.workItems) `
+                    -DedupeKey ([string]$Payload.dedupeKey) -Title ([string]$Payload.title)
+                if ($null -eq $record) { $status = 'not-found' } else {
+                    $data = @{ item = $record }
+                    $provider = "loopback:work-item:$($record.id)"
+                }
+            }
+            elseif ($Action -eq 'create') {
+                $record = Find-FactoryLoopLoopbackRecord -Records @($state.workItems) `
+                    -DedupeKey ([string]$Payload.dedupeKey)
+                if ($null -eq $record) {
+                    if ([string]::IsNullOrWhiteSpace([string]$Payload.title)) { throw 'Work item title is required.' }
+                    $state.counters.workItem = [int]$state.counters.workItem + 1
+                    $id = 'WI-{0:d4}' -f [int]$state.counters.workItem
+                    $record = [ordered]@{
+                        id = $id
+                        title = [string]$Payload.title
+                        status = 'open'
+                        dedupeKey = [string]$Payload.dedupeKey
+                        operationId = $OperationId
+                        simulated = $true
+                    }
+                    $state.workItems = @($state.workItems) + @($record)
+                }
+                $data = @{ item = $record }
+                $provider = "loopback:work-item:$($record.id)"
+            }
+            else { throw "Unsupported loopback work-item action '$Action'." }
+        }
+        'pull-request' {
+            if ($Action -eq 'open') {
+                $sourceSha = [string]$Payload.sourceSha
+                if ($sourceSha -notmatch '^[0-9a-f]{40,64}$' -or
+                    [string]::IsNullOrWhiteSpace([string]$Payload.branch)) {
+                    throw 'Pull-request open requires a full source SHA and branch.'
+                }
+                $state.counters.pullRequest = [int]$state.counters.pullRequest + 1
+                $record = [ordered]@{
+                    id = 'PR-{0:d4}' -f [int]$state.counters.pullRequest
+                    itemId = [string]$Payload.itemId
+                    branch = [string]$Payload.branch
+                    sourceSha = $sourceSha
+                    mergeCommit = $null
+                    status = 'open'
+                    checks = @{ status = 'pending'; headSha = $sourceSha }
+                    operationId = $OperationId
+                    simulated = $true
+                }
+                $state.pullRequests = @($state.pullRequests) + @($record)
+                $data = @{ pullRequest = $record }
+                $provider = "loopback:pull-request:$($record.id)"
+            }
+            elseif ($Action -in @('read', 'checks', 'reconcile', 'merge')) {
+                $record = Find-FactoryLoopLoopbackRecord -Records @($state.pullRequests) `
+                    -Id ([string]$Payload.pullRequestId) -OperationId ([string]$Payload.targetOperationId)
+                if ($null -eq $record) { $status = 'not-found'; break }
+                if ($Action -eq 'merge') {
+                    if ($Payload.confirmMerge -ne $true) { $status = 'blocked'; $data = @{ reason = 'human-merge-required' }; break }
+                    $check = Invoke-FactoryLoopDemoBuildCheck -DemoRoot ([string]$Payload.demoRoot) `
+                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha)
+                    if ([string]$record.status -cne 'open' -or
+                        [string]$check.status -cne 'passed' -or
+                        [string]$Payload.expectedSourceSha -cne [string]$record.sourceSha) {
+                        $status = 'blocked'
+                        $data = @{ reason = 'pull-request-not-ready-for-merge'; pullRequest = $record; checks = $check }
+                        break
+                    }
+                    $merge = Merge-FactoryLoopDemoPullRequest -DemoRoot ([string]$Payload.demoRoot) `
+                        -Branch ([string]$record.branch) -ExpectedSourceSha ([string]$record.sourceSha) -ConfirmMerge
+                    $record.mergeCommit = $merge.mergeCommit
+                    $record.status = 'merged'
+                }
+                elseif ($Action -eq 'checks') {
+                    if ($Payload.evaluate -ne $true) {
+                        $status = 'waiting'
+                        $data = @{ checks = $record.checks; pullRequestId = [string]$record.id }
+                        break
+                    }
+                    $check = Invoke-FactoryLoopDemoBuildCheck -DemoRoot ([string]$Payload.demoRoot) `
+                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha)
+                    $status = if ($check.status -eq 'blocked') { 'blocked' } else { 'ok' }
+                    $data = @{ checks = $check; pullRequestId = [string]$record.id }
+                    break
+                }
+                $provider = "loopback:pull-request:$($record.id)"
+                $data = @{ pullRequest = $record }
+            }
+            else { throw "Unsupported loopback pull-request action '$Action'." }
+        }
+        'deployment' {
+            if ($Action -eq 'trigger') {
+                $environment = [string]$Payload.environment
+                if ($environment -notin @('test', 'preprod', 'prod') -or
+                    [string]$Payload.artifactDigest -notmatch '^[0-9a-f]{64}$') {
+                    throw 'Deployment trigger requires a known environment and SHA-256 artifact digest.'
+                }
+                $pr = Find-FactoryLoopLoopbackRecord -Records @($state.pullRequests) `
+                    -Id ([string]$Payload.pullRequestId)
+                if ($null -eq $pr -or [string]$pr.status -cne 'merged') {
+                    $status = 'blocked'; $data = @{ reason = 'human-merged-pull-request-required' }; break
+                }
+                if ($environment -eq 'prod') {
+                    $approved = @($state.approvals | Where-Object {
+                            [string]$_.artifactDigest -ceq [string]$Payload.artifactDigest -and
+                            [string]$_.decision -ceq 'approved'
+                        }).Count -gt 0
+                    if (-not $approved) {
+                        $status = 'blocked'; $data = @{ reason = 'artifact-specific-production-approval-required' }; break
+                    }
+                }
+                foreach ($old in @($state.deployments | Where-Object {
+                            [string]$_.environment -ceq $environment -and
+                            [string]$_.status -ceq 'succeeded'
+                        })) { $old.status = 'superseded' }
+                $state.counters.deployment = [int]$state.counters.deployment + 1
+                $record = [ordered]@{
+                    id = 'DEP-{0:d4}' -f [int]$state.counters.deployment
+                    environment = $environment
+                    status = 'succeeded'
+                    sourceSha = [string]$Payload.sourceSha
+                    mergeCommit = [string]$Payload.mergeCommit
+                    artifactDigest = [string]$Payload.artifactDigest
+                    version = [string]$Payload.artifactDigest
+                    pullRequestId = [string]$Payload.pullRequestId
+                    operationId = $OperationId
+                    simulated = $true
+                }
+                $state.deployments = @($state.deployments) + @($record)
+                $data = @{ deployment = $record }
+                $provider = "loopback:deployment:$($record.id)"
+            }
+            elseif ($Action -in @('read', 'reconcile')) {
+                $record = Find-FactoryLoopLoopbackRecord -Records @($state.deployments) `
+                    -Id ([string]$Payload.deploymentId) -OperationId ([string]$Payload.targetOperationId)
+                if ($null -eq $record -and $Payload.environment) {
+                    $record = @($state.deployments | Where-Object {
+                            [string]$_.environment -ceq [string]$Payload.environment
+                        } | Select-Object -Last 1)
+                    if (@($record).Count -eq 0) { $record = $null }
+                }
+                if ($null -eq $record) { $status = 'not-found' } else {
+                    $data = @{ deployment = $record }
+                    $provider = "loopback:deployment:$($record.id)"
+                }
+            }
+            else { throw "Unsupported loopback deployment action '$Action'." }
+        }
+        'version' {
+            if ($Action -ne 'read') { throw "Unsupported loopback version action '$Action'." }
+            $deployment = @($state.deployments | Where-Object {
+                    [string]$_.environment -ceq [string]$Payload.environment -and
+                    [string]$_.status -ceq 'succeeded'
+                } | Select-Object -Last 1)
+            if ($deployment.Count -eq 0) { $status = 'not-found' } else {
+                $record = $deployment[0]
+                $data = @{ environment = [string]$Payload.environment; version = [string]$record.version; artifactDigest = [string]$record.artifactDigest }
+                $provider = "loopback:deployment:$($record.id)"
+            }
+        }
+        'acceptance' {
+            if ($Action -ne 'run') { throw "Unsupported loopback acceptance action '$Action'." }
+            $deployment = @($state.deployments | Where-Object {
+                    [string]$_.environment -ceq [string]$Payload.environment -and
+                    [string]$_.artifactDigest -ceq [string]$Payload.artifactDigest -and
+                    [string]$_.status -ceq 'succeeded'
+                } | Select-Object -Last 1)
+            if ($deployment.Count -eq 0) {
+                $status = 'blocked'; $data = @{ reason = 'matching-successful-deployment-required' }; break
+            }
+            $result = Test-FactoryLoopArtifactAcceptance -ArtifactPath ([string]$Payload.artifactPath) `
+                -ExpectedDigest ([string]$Payload.artifactDigest) -Environment ([string]$Payload.environment)
+            $acceptance = [ordered]@{
+                environment = [string]$Payload.environment
+                artifactDigest = [string]$Payload.artifactDigest
+                status = [string]$result.status
+                operationId = $OperationId
+                simulated = $true
+            }
+            $state.acceptances = @($state.acceptances) + @($acceptance)
+            $data = @{ acceptance = $acceptance }
+            $provider = "loopback:acceptance:$($Payload.environment):$($Payload.artifactDigest)"
+        }
+        'telemetry' {
+            if ($Action -ne 'query') { throw "Unsupported loopback telemetry action '$Action'." }
+            if ($Payload.accessible -eq $false -or $Payload.coverage -eq $false) {
+                $status = 'blocked'
+                $data = @{ reason = if ($Payload.accessible -eq $false) { 'access-unavailable' } else { 'query-coverage-unavailable' } }
+                break
+            }
+            $events = @($state.telemetry | Where-Object {
+                    [string]$_.environment -ceq [string]$Payload.environment
+                })
+            $data = @{
+                environment = [string]$Payload.environment
+                covered = $true
+                cursor = if ($Payload.cursor) { [string]$Payload.cursor } else { '0' }
+                events = $events
+            }
+        }
+        'approval' {
+            if ($Action -eq 'create') {
+                $digest = [string]$Payload.artifactDigest
+                if ($digest -notmatch '^[0-9a-f]{64}$') { throw 'Approval request requires a SHA-256 artifact digest.' }
+                $record = @($state.approvals | Where-Object { [string]$_.artifactDigest -ceq $digest } |
+                    Select-Object -Last 1)
+                if ($record.Count -eq 0) {
+                    $state.counters.approval = [int]$state.counters.approval + 1
+                    $record = [ordered]@{
+                        id = 'APR-{0:d4}' -f [int]$state.counters.approval
+                        artifactDigest = $digest
+                        decision = 'pending'
+                        operationId = $OperationId
+                        simulated = $true
+                    }
+                    $state.approvals = @($state.approvals) + @($record)
+                    $status = 'waiting'
+                }
+                else { $record = $record[0]; $status = if ($record.decision -eq 'pending') { 'waiting' } else { 'ok' } }
+                $data = @{ approval = $record; artifactDigest = $digest }
+                $provider = "loopback:approval:$($record.id)"
+            }
+            elseif ($Action -in @('read', 'approve', 'decline')) {
+                $digest = [string]$Payload.artifactDigest
+                $record = @($state.approvals | Where-Object { [string]$_.artifactDigest -ceq $digest } |
+                    Select-Object -Last 1)
+                if ($record.Count -eq 0) { $status = 'not-found'; break }
+                $record = $record[0]
+                if ($Action -eq 'approve') {
+                    if ($Payload.confirm -ne $true) { $status = 'blocked'; $data = @{ reason = 'explicit-operator-confirmation-required' }; break }
+                    $record.decision = 'approved'
+                }
+                elseif ($Action -eq 'decline') {
+                    if ($Payload.confirm -ne $true) { $status = 'blocked'; $data = @{ reason = 'explicit-operator-confirmation-required' }; break }
+                    $record.decision = 'declined'
+                }
+                elseif ($record.decision -eq 'pending') { $status = 'waiting' }
+                $data = @{ approval = $record; artifactDigest = $digest }
+                $provider = "loopback:approval:$($record.id)"
+            }
+            else { throw "Unsupported loopback approval action '$Action'." }
+        }
+        'evidence' {
+            if ($Action -eq 'publish') {
+                if ($Payload.sanitized -ne $true -or
+                    [string]$Payload.branch -notmatch '^factory-loop-evidence(?:[-/][A-Za-z0-9._-]+)?$') {
+                    $status = 'blocked'; $data = @{ reason = 'sanitized-separate-evidence-branch-required' }; break
+                }
+                $record = [ordered]@{
+                    itemId = [string]$Payload.itemId
+                    artifactDigest = [string]$Payload.artifactDigest
+                    branch = [string]$Payload.branch
+                    commit = [string]$Payload.commit
+                    status = 'published'
+                    operationId = $OperationId
+                    simulated = $true
+                }
+                $state.evidence = @($state.evidence) + @($record)
+                $data = @{ evidence = $record }
+                $provider = "loopback:evidence:$($Payload.itemId):$($Payload.artifactDigest)"
+            }
+            elseif ($Action -eq 'read') {
+                $record = @($state.evidence | Where-Object {
+                        [string]$_.itemId -ceq [string]$Payload.itemId -and
+                        [string]$_.artifactDigest -ceq [string]$Payload.artifactDigest
+                    } | Select-Object -Last 1)
+                if ($record.Count -eq 0) { $status = 'not-found' } else {
+                    $data = @{ evidence = $record[0] }
+                    $provider = "loopback:evidence:$($Payload.itemId):$($Payload.artifactDigest)"
+                }
+            }
+            else { throw "Unsupported loopback evidence action '$Action'." }
+        }
+    }
+
+    $result = New-FactoryLoopLoopbackResult -Domain $Domain -Action $Action `
+        -OperationId $OperationId -Status $status -ProviderId $provider -Data $data
+    if ($isWrite -and $status -in @('ok', 'waiting')) {
+        $state.operations = @($state.operations) + @([ordered]@{
+                operationId = $OperationId
+                domain = $Domain
+                action = $Action
+                result = $result
+            })
+        Save-FactoryLoopLoopbackState -RepoRoot $RepoRoot -State $state
+    }
+    return $result
+}
+
 Export-ModuleMember -Function @(
     'Resolve-FactoryLoopConsumerPath',
     'Get-FactoryLoopSetupPreview',
@@ -458,5 +1013,7 @@ Export-ModuleMember -Function @(
     'New-FactoryLoopArtifactSnapshot',
     'Test-FactoryLoopArtifactAcceptance',
     'New-FactoryLoopDemoProject',
-    'Merge-FactoryLoopDemoPullRequest'
+    'Merge-FactoryLoopDemoPullRequest',
+    'Initialize-FactoryLoopLoopback',
+    'Invoke-FactoryLoopLoopback'
 )

@@ -36,7 +36,7 @@
   **Stop/escalate when:** global runtime support would require a cross-plugin path framework rather than an explicit local dependency bootstrap.
 
   </details>
-- [ ] 1.2 Create loopback commands and disposable demo application (REQ-3, REQ-4, RISK-2) [after: 1.1] `L`
+- [x] 1.2 Create loopback commands and disposable demo application (REQ-3, REQ-4, RISK-2) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** a local feature item, PR/checks, test/prod deployments, telemetry and bugs implement the live command contracts; acceptance executes against real immutable demo artifacts.

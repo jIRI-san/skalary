@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T18:33:38.0248100Z",
+  "generatedAt": "2026-10-03T18:46:18.6834784Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -805,13 +805,18 @@
         },
         {
           "dest": "skills/factory-loop/assets/operator-guide.md",
-          "sha256": "479b509f8dd783f3de4a20596133ab6eff9242ce54cba0d75f5265f3ad851e4c",
+          "sha256": "a2adddf4b1ee898a571cd6af9814162fb98d77a74882aa165d545334de91d2d4",
           "src": "skills/factory-loop/assets/operator-guide.md"
         },
         {
           "dest": "skills/factory-loop/scripts/FactoryLoop.psm1",
-          "sha256": "916456820e3e92da2c01b2266fe4e6ce4ff0b6bba97f8c4a728be51044c929d4",
+          "sha256": "54bad33ff3f2323bf1837d7a8aabc02efe39fe0107efd4d3dcead1f00d7787df",
           "src": "skills/factory-loop/scripts/FactoryLoop.psm1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1",
+          "sha256": "789e2f3b096f72e508526c6f4ff1b84449e2053fd0b439dccd69c2ef0297613a",
+          "src": "skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1"
         },
         {
           "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
@@ -868,7 +873,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "author": "jIRI-san",

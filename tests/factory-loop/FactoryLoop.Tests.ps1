@@ -52,6 +52,11 @@ Describe 'factory-loop plugin' {
         @($applied.files | Where-Object action -EQ 'preserve') | Should -HaveCount 3
         Test-Path -LiteralPath (Join-Path $consumerRoot '.factory-loop/factory-loop.json') |
             Should -BeTrue
+        $installedAdapter = Join-Path $consumer '.github/skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1'
+        $consumerState = & $installedAdapter -Domain work-item -Action create `
+            -OperationId 'installed-consumer:item:1' -RepoRoot $consumerRoot `
+            -PayloadJson '{"title":"Installed local demo"}' | ConvertFrom-Json -AsHashtable -Depth 20
+        $consumerState.providerId | Should -Match '^loopback:work-item:WI-'
 
         $globalScript = Join-Path $globalPlugin 'skills/factory-loop/scripts/Setup-FactoryLoop.ps1'
         $globalModule = Join-Path $globalPlugin 'skills/factory-loop/scripts/FactoryLoop.psm1'
@@ -59,6 +64,11 @@ Describe 'factory-loop plugin' {
         $globalPreview = & $globalScript -Action preview -RepoRoot $consumerRoot |
             ConvertFrom-Json -Depth 20
         $globalPreview.digest | Should -Be $applied.digest
+        $globalAdapter = Join-Path $globalPlugin 'skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1'
+        $globalState = & $globalAdapter -Domain work-item -Action create `
+            -OperationId 'global-installed:item:1' -RepoRoot $consumerRoot `
+            -PayloadJson '{"title":"Global plugin project action"}' | ConvertFrom-Json -AsHashtable -Depth 20
+        $globalState.providerId | Should -Match '^loopback:work-item:WI-'
         (Get-FileHash -LiteralPath $globalModule -Algorithm SHA256).Hash | Should -Be $moduleBefore
         Test-Path -LiteralPath (Join-Path $consumerRoot '.github/skills/factory-loop/scripts/FactoryLoop.psm1') |
             Should -BeFalse
@@ -140,6 +150,33 @@ Describe 'factory-loop plugin' {
         $seen[0].OperationId | Should -BeExactly 'chain-1:item:create:1'
         $seen[0].Payload.title | Should -BeExactly 'demo'
 
+        $loopbackRoot = Join-Path $TestDrive 'loopback-project'
+        [void](New-Item -ItemType Directory -Path $loopbackRoot -Force)
+        $loopRunner = {
+            param($Domain, $Action, $OperationId, $Payload)
+            Invoke-FactoryLoopLoopback -RepoRoot $loopbackRoot -Domain $Domain -Action $Action `
+                -OperationId $OperationId -Payload $Payload
+        }.GetNewClosure()
+        $first = Invoke-FactoryLoopAdapter -Domain work-item -Action create `
+            -OperationId 'chain-1:work-item:create' -Payload @{ title = 'Local demo feature' } -Runner $loopRunner
+        $replayed = Invoke-FactoryLoopAdapter -Domain work-item -Action create `
+            -OperationId 'chain-1:work-item:create' -Payload @{ title = 'Local demo feature' } -Runner $loopRunner
+        $replayed.providerId | Should -BeExactly $first.providerId
+        $state = Get-Content -LiteralPath (Join-Path $loopbackRoot '.factory-loop/loopback.json') -Raw |
+            ConvertFrom-Json -AsHashtable -Depth 50
+        $state.simulated | Should -BeTrue
+        @($state.workItems) | Should -HaveCount 1
+        @($state.operations | Where-Object operationId -CEQ 'chain-1:work-item:create') |
+            Should -HaveCount 1
+        $adapterScript = Join-Path $script:pluginRoot `
+            'skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1'
+        $cliJson = & $adapterScript -Domain work-item -Action create `
+            -OperationId 'chain-1:work-item:cli' -RepoRoot $loopbackRoot `
+            -PayloadJson '{"title":"CLI-created item"}'
+        $cliResult = $cliJson | ConvertFrom-Json -AsHashtable -Depth 20
+        $cliResult.status | Should -BeExactly 'ok'
+        $cliResult.data.item.title | Should -BeExactly 'CLI-created item'
+
         $mismatched = {
             @{
                 schemaVersion = 1
@@ -188,6 +225,23 @@ Describe 'factory-loop plugin' {
         (Test-FactoryLoopArtifactAcceptance -ArtifactPath $application `
                 -ExpectedDigest $initialDigest).status | Should -BeExactly 'failed'
 
+        git -C $demo switch -c feature/planted-bug --quiet
+        $LASTEXITCODE | Should -Be 0
+        $failedPr = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action open `
+            -OperationId 'demo:pr:planted-bug' -Payload @{
+            branch = 'feature/planted-bug'
+            sourceSha = $created.sourceSha
+        }
+        $failedCheck = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action checks `
+            -OperationId 'demo:checks:planted-bug' -Payload @{
+            pullRequestId = $failedPr.data.pullRequest.id
+            demoRoot = $demo
+            evaluate = $true
+        }
+        $failedCheck.data.checks.status | Should -BeExactly 'failed'
+        git -C $demo switch main --quiet
+        $LASTEXITCODE | Should -Be 0
+
         git -C $demo switch -c feature/fix-discount --quiet
         $LASTEXITCODE | Should -Be 0
         $appScript = Join-Path $application 'Invoke-DemoApp.ps1'
@@ -204,10 +258,30 @@ Describe 'factory-loop plugin' {
         git -C $demo switch main --quiet
         $LASTEXITCODE | Should -Be 0
 
-        { Merge-FactoryLoopDemoPullRequest -DemoRoot $demo -Branch 'feature/fix-discount' `
-                -ExpectedSourceSha $sourceSha } | Should -Throw '*explicit -ConfirmMerge*'
-        $merge = Merge-FactoryLoopDemoPullRequest -DemoRoot $demo -Branch 'feature/fix-discount' `
-            -ExpectedSourceSha $sourceSha -ConfirmMerge
+        $passingPr = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action open `
+            -OperationId 'demo:pr:fix-discount' -Payload @{
+            branch = 'feature/fix-discount'
+            sourceSha = $sourceSha
+        }
+        $passingCheck = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action checks `
+            -OperationId 'demo:checks:fix-discount' -Payload @{
+            pullRequestId = $passingPr.data.pullRequest.id
+            demoRoot = $demo
+            evaluate = $true
+        }
+        $passingCheck.data.checks.status | Should -BeExactly 'passed'
+        $mergePayload = @{
+            pullRequestId = $passingPr.data.pullRequest.id
+            demoRoot = $demo
+            expectedSourceSha = $sourceSha
+        }
+        $deniedMerge = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action merge `
+            -OperationId 'demo:merge:denied' -Payload $mergePayload
+        $deniedMerge.status | Should -BeExactly 'blocked'
+        $mergePayload.confirmMerge = $true
+        $mergeResult = Invoke-FactoryLoopLoopback -RepoRoot $demo -Domain pull-request -Action merge `
+            -OperationId 'demo:merge:approved' -Payload $mergePayload
+        $merge = [pscustomobject]$mergeResult.data.pullRequest
         $merge.sourceSha | Should -BeExactly $sourceSha
         $merge.mergeCommit | Should -Not -BeExactly $sourceSha
         $merge.mergeCommit | Should -Match '^[0-9a-f]{40}$'

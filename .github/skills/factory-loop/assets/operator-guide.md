@@ -50,6 +50,18 @@ project-owned configuration and have the command use the operator's existing aut
 credential store. Validate access and write reconciliation with the project owner; Skalary does not
 provide provider-specific setup or credential handling.
 
+Run loopback commands directly with a stable operation ID:
+
+```powershell
+.github/skills/factory-loop/scripts/Invoke-FactoryLoopAdapter.ps1 `
+  -Domain work-item -Action create -OperationId feature-17:item:create `
+  -RepoRoot <demo-repository> -PayloadJson '{"title":"Discount total"}'
+```
+
+The command creates `.factory-loop/loopback.json` on first use. The state is local, explicitly marked
+simulated, and ignored by Git in the generated demo project. Replaying the same mutation ID returns
+the original simulated provider identity.
+
 ## Demo and artifact identity
 
 Create a disposable demo repository in a chosen temporary directory. The starter acceptance scenario
