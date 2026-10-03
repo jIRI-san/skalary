@@ -1,0 +1,73 @@
+{
+  "name": "factory-loop",
+  "version": "0.1.0",
+  "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "automation",
+    "delivery",
+    "skill"
+  ],
+  "dependencies": [],
+  "status": "partial",
+  "files": [
+    {
+      "src": "skills/factory-loop/SKILL.md",
+      "dest": "skills/factory-loop/SKILL.md"
+    },
+    {
+      "src": "skills/factory-loop/assets/operator-guide.md",
+      "dest": "skills/factory-loop/assets/operator-guide.md"
+    },
+    {
+      "src": "skills/factory-loop/scripts/FactoryLoop.psm1",
+      "dest": "skills/factory-loop/scripts/FactoryLoop.psm1"
+    },
+    {
+      "src": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1",
+      "dest": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1"
+    },
+    {
+      "src": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
+      "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1"
+    },
+    {
+      "src": "skills/factory-loop/templates/factory-loop.json",
+      "dest": "skills/factory-loop/templates/factory-loop.json"
+    },
+    {
+      "src": "skills/factory-loop/templates/FactoryLoop.Adapter.ps1",
+      "dest": "skills/factory-loop/templates/FactoryLoop.Adapter.ps1"
+    },
+    {
+      "src": "skills/factory-loop/templates/demo/Invoke-Acceptance.ps1",
+      "dest": "skills/factory-loop/templates/demo/Invoke-Acceptance.ps1"
+    },
+    {
+      "src": "skills/factory-loop/templates/demo/Invoke-DemoApp.ps1",
+      "dest": "skills/factory-loop/templates/demo/Invoke-DemoApp.ps1"
+    }
+  ],
+  "scaffolds": [
+    {
+      "path": ".factory-loop/**",
+      "mode": "parameterized",
+      "owner": "Setup-FactoryLoop.ps1",
+      "trigger": "explicit setup of a selected consumer",
+      "confine": "Resolve-FactoryLoopConsumerPath"
+    },
+    {
+      "path": "scripts/factory-loop/**",
+      "mode": "parameterized",
+      "owner": "Setup-FactoryLoop.ps1",
+      "trigger": "explicit setup of a selected consumer",
+      "confine": "Resolve-FactoryLoopConsumerPath"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

@@ -101,6 +101,19 @@
       "version": "1.0.85"
     },
     {
+      "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
+      "license": "MIT",
+      "name": "factory-loop",
+      "source": "plugins/factory-loop",
+      "strict": false,
+      "tags": [
+        "automation",
+        "delivery",
+        "skill"
+      ],
+      "version": "0.1.0"
+    },
+    {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
       "license": "MIT",
       "name": "plugin-manager",

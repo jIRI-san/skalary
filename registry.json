@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-12T15:55:27.6226987Z",
+  "generatedAt": "2026-10-03T18:33:38.0248100Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -789,6 +789,86 @@
         "prompt"
       ],
       "version": "1.0.85"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/factory-loop/SKILL.md",
+          "sha256": "cf2cf122a8d68c646307bfbb7eceb63c3bf463bfe5379042da27eec4b0d1bafc",
+          "src": "skills/factory-loop/SKILL.md"
+        },
+        {
+          "dest": "skills/factory-loop/assets/operator-guide.md",
+          "sha256": "479b509f8dd783f3de4a20596133ab6eff9242ce54cba0d75f5265f3ad851e4c",
+          "src": "skills/factory-loop/assets/operator-guide.md"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/FactoryLoop.psm1",
+          "sha256": "916456820e3e92da2c01b2266fe4e6ce4ff0b6bba97f8c4a728be51044c929d4",
+          "src": "skills/factory-loop/scripts/FactoryLoop.psm1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
+          "sha256": "298c4153be31f7b6ab002b96401182cc3653389bcc0df6a2bf8417c594c4be89",
+          "src": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1",
+          "sha256": "6bf6c1f38283d8ab810fdff308ed99a7cc651ab72a613ce1de1000360d86e264",
+          "src": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/templates/FactoryLoop.Adapter.ps1",
+          "sha256": "fcbef07ae78fd3a9f983bed1b395a757f32e8155a984be804687d0e9b7435f69",
+          "src": "skills/factory-loop/templates/FactoryLoop.Adapter.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/templates/demo/Invoke-Acceptance.ps1",
+          "sha256": "c81b1b4549b13d4ae3e2d057903c62f8ec85749b1da821d024749d0ac89bb31a",
+          "src": "skills/factory-loop/templates/demo/Invoke-Acceptance.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/templates/demo/Invoke-DemoApp.ps1",
+          "sha256": "1c8a89c35a811d480e3080f295bd12d82452bc0866430ec17842e19a0700ea79",
+          "src": "skills/factory-loop/templates/demo/Invoke-DemoApp.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/templates/factory-loop.json",
+          "sha256": "0b0003da9c838a1b5a5f8b3a315f40d0325878592e791f05b6aea60ac9afe557",
+          "src": "skills/factory-loop/templates/factory-loop.json"
+        }
+      ],
+      "license": "MIT",
+      "name": "factory-loop",
+      "scaffolds": [
+        {
+          "confine": "Resolve-FactoryLoopConsumerPath",
+          "mode": "parameterized",
+          "owner": "Setup-FactoryLoop.ps1",
+          "path": ".factory-loop/**",
+          "trigger": "explicit setup of a selected consumer"
+        },
+        {
+          "confine": "Resolve-FactoryLoopConsumerPath",
+          "mode": "parameterized",
+          "owner": "Setup-FactoryLoop.ps1",
+          "path": "scripts/factory-loop/**",
+          "trigger": "explicit setup of a selected consumer"
+        }
+      ],
+      "status": "partial",
+      "tags": [
+        "automation",
+        "delivery",
+        "skill"
+      ],
+      "version": "0.1.0"
     },
     {
       "author": "jIRI-san",

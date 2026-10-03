@@ -22,7 +22,7 @@
 
 ## Phase 1: Installable plugin and real local playground
 
-- [ ] 1.1 Package factory-loop and guided project setup (REQ-1, REQ-2, RISK-1) `L`
+- [x] 1.1 Package factory-loop and guided project setup (REQ-1, REQ-2, RISK-1) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** repository and global-style installed entry points discover an explicitly selected consumer and scaffold its non-secret configuration after approval.
