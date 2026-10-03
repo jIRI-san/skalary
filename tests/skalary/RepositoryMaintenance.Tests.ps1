@@ -288,8 +288,30 @@ Describe 'Repository maintenance record and discovery' {
             Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($decision | ConvertTo-Json -Compress)
         } | Should -Throw '*does not resolve to a confirmed active plan*'
+        $assetFolder = Join-Path $planFolder 'assets'
+        [void](New-Item -ItemType Directory -Path $assetFolder -Force)
+        foreach ($asset in @('intent.md', 'requirements.md', 'risks.md', 'decisions.md')) {
+            [System.IO.File]::WriteAllText((Join-Path $assetFolder $asset), "# $asset`nCurrent confirmed context.`n")
+        }
         [System.IO.File]::AppendAllText((Join-Path $planFolder 'plan.md'),
             '<!-- planning-confirmed: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->' + "`n")
+        {
+            Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
+                -Json ($decision | ConvertTo-Json -Compress)
+        } | Should -Throw '*does not resolve to a confirmed active plan*'
+        Import-Module $script:planStatePath -Force -DisableNameChecking
+        try {
+            $digest = Get-PlanningContextDigest -PlanDir $planFolder -RepoRoot $root
+        }
+        finally {
+            Remove-Module PlanState -Force -ErrorAction SilentlyContinue
+        }
+        $planText = Get-Content -LiteralPath (Join-Path $planFolder 'plan.md') -Raw
+        $planText = $planText.Replace(
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            "sha256:$digest"
+        )
+        [System.IO.File]::WriteAllText((Join-Path $planFolder 'plan.md'), $planText)
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($decision | ConvertTo-Json -Compress)).status | Should -BeExactly 'written'
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `

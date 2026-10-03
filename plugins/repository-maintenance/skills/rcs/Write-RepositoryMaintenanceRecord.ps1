@@ -473,8 +473,9 @@ function Assert-VerifiedHandoff {
             throw "Handoff path '$Path' does not match the requested archive state."
         }
         if ($Disposition -eq 'corrective-plan') {
-            $markers = Get-PlanHeaderMarkers -Path $fullPath
-            if ([string]$markers.PlanningConfirmed -cnotmatch '^sha256:[0-9a-f]{64}$') {
+            $context = Get-PlanningContextState -PlanDir $folderPath -RepoRoot $script:Root
+            if (-not $context.IsEnrolled -or -not $context.IsConfirmed -or
+                $context.Status -cne 'confirmed') {
                 throw "Handoff path '$Path' does not resolve to a confirmed active plan."
             }
         }
