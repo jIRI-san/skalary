@@ -98,7 +98,7 @@
   **Verify:** run selected Pester/helper and plugin structural cases; show a disposable end-to-end walkthrough that saves a drift, dead-code and design recommendation and honors one selected disposition. Verify the walk leaves implementation untouched and reports remaining audit gaps.
 
   </details>
-- [ ] 3.2 Converge distribution and perform one final risk-selected review (REQ-12, RISK-8) [after: 3.1] `M`
+- [x] 3.2 Converge distribution and perform one final risk-selected review (REQ-12, RISK-8) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** source, registry, marketplace, dogfood, and foreign consumer installation agree on one independently installable plugin.
