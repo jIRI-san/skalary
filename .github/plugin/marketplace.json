@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.26"
+      "version": "1.3.27"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.122"
+      "version": "1.0.123"
     },
     {
       "description": "Direct implementation and epic plan creation.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.109"
+      "version": "1.0.111"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.86"
+      "version": "1.0.87"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",

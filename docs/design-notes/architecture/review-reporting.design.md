@@ -37,7 +37,7 @@ localizable base ID.
 findings and, for an epic child, bounded targeted coherency findings. `/cip` then owns the one
 `primary-model-high`/high applicability pass, operator selection, and current-plan edits. No clean verdict,
 report, retry, rerun, finding state, or standalone `/dr` routing change follows from this caller mode.
-The reviewer compares selected OP wording and confirmed interpretations with the draft, distinguishing
+The reviewer compares selected operator wording and confirmed interpretations with the draft, distinguishing
 unsupported additions, omissions, scope shifts, and consequential ambiguity from technical findings.
 Explicit bounded discretion and intentional openness are not drift.
 

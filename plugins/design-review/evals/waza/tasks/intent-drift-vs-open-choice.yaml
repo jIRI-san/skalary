@@ -2,7 +2,7 @@ id: intent-drift-vs-open-choice
 name: Separates draft scope drift from an intentionally open criterion
 # ai-credit-disposition: subjective
 description: >
-  dr must compare the draft against selected OP wording and confirmed criteria,
+  dr must compare the draft against selected operator wording and confirmed criteria,
   identify unsupported scope expansion, and avoid mislabeling an explicitly open
   implementation choice as drift.
 tags:
@@ -12,7 +12,7 @@ tags:
 inputs:
   prompt: |
     Review the supplied intent and draft excerpt for alignment only. Do not rewrite
-    the confirmed wording as though the OP approved a broader scope. Identify any
+    the confirmed wording as though the operator approved a broader scope. Identify any
     material mismatch with precise artifact/line references, distinguish it from
     choices intentionally left open, and recommend the smallest correction before
     implementation proceeds. Respond in prose; do not change files.
@@ -42,4 +42,4 @@ graders:
         or a drift finding.
         Recommend narrowing the draft to image attachments and keeping the size choice
         open for the existing decision process; do not invent an answer or silently
-        widen the OP's scope. Otherwise call set_waza_grade_fail with a short reason.
+        widen the operator's scope. Otherwise call set_waza_grade_fail with a short reason.

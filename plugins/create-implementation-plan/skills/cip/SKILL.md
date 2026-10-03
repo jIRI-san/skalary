@@ -18,8 +18,8 @@ Before drafting, follow
 [`./assets/decision-protocol.md`](./assets/decision-protocol.md). It defines host-equivalent complex
 choices and the absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an
 unobservable fuzzy requirement. Catch consequential interpretation ambiguity before drafting, retain
-selected OP wording separately from confirmed interpretation in the existing intent asset, and reconcile
-relevant historical intent without giving it veto power. Reuse `assets/design.md` as the OP-readable
+selected operator wording separately from confirmed interpretation in the existing intent asset, and reconcile
+relevant historical intent without giving it veto power. Reuse `assets/design.md` as the operator-readable
 lightweight RFC; do not add a parallel authority.
 
 Confirm current intent first and draft directly with zero delegated calls. Resolve aliases through

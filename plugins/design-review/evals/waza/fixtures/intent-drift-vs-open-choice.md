@@ -2,10 +2,10 @@
 
 ## `assets/intent.md`
 
-6. Selected OP wording: "Add inline preview only for image attachments; keep video and document behavior unchanged."
+6. Selected operator wording: "Add inline preview only for image attachments; keep video and document behavior unchanged."
 8. Confirmed interpretation: previews apply to image attachments only.
 10. Bounded discretion: choose a loading-indicator style consistent with the current UI.
-12. Intentionally open: maximum image size. Do not turn this into a criterion without the OP's decision.
+12. Intentionally open: maximum image size. Do not turn this into a criterion without the operator's decision.
 
 ## `draft.md`
 

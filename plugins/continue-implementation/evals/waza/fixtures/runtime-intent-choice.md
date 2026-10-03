@@ -4,7 +4,7 @@
 
 - REQ-1: An export link is available to the requester.
 - REQ-2: An export link is available to the requester's owners for 24 hours.
-- Bounded discretion: choose a retry delay from 1–5 seconds; do not ask the OP to choose one.
+- Bounded discretion: choose a retry delay from 1–5 seconds; do not ask the operator to choose one.
 
 ## Current progress
 

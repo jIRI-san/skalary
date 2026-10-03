@@ -53,7 +53,7 @@ Describe 'Proportional review policy fixtures' {
             $skill | Should -Match 'independent evidence trace'
             $skill | Should -Match 'technical defects, plan-intent alignment questions, and optional advice distinct'
         }
-        $script:skills[1] | Should -Match 'selected OP\s+statement'
+        $script:skills[1] | Should -Match 'selected operator\s+statement'
         $script:skills[1] | Should -Match 'exact draft section'
     }
 

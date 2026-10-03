@@ -14,20 +14,20 @@ inputs:
   prompt: |
     Prepare the next planning response from this short operator transcript:
 
-    OP: "Refresh the active record on save."
-    OP: "Only the active record is in scope; do not add batch refresh."
+    operator: "Refresh the active record on save."
+    operator: "Only the active record is in scope; do not add batch refresh."
     Confirmed criterion: A successful save refreshes the active record without
     affecting other records.
     Bounded discretion: Choose a debounce interval from 200–500 ms; this is not an
     acceptance decision.
     Deferred: Persisting refresh work across process restarts is out of scope unless
-    the existing implementation cannot meet the criterion; ask the OP before adding
+    the existing implementation cannot meet the criterion; ask the operator before adding
     durable storage.
 
     The word "refresh" could mean updating the visible client view from the save
     response, or fetching canonical state again from the server. These have different
     stale-data and conflict behavior. Respond in prose only. Do not create or modify
-    files, run scripts, or invent an answer for the OP.
+    files, run scripts, or invent an answer for the operator.
   follow_up_prompts:
     - "State the captured wording, what is confirmed, what remains bounded or deferred, and ask only the one unresolved consequential question."
 
@@ -51,8 +51,8 @@ graders:
         active-record-only scope from the two materially different meanings of
         "refresh," and asks one focused question about whether to update from the save
         response or fetch canonical server state. It must record the 200–500 ms
-        debounce as authorized bounded discretion, not an OP question, and keep
+        debounce as authorized bounded discretion, not an operator question, and keep
         restart persistence deferred unless the current implementation requires it,
-        in which case the OP must decide before durable storage is added. It must not
+        in which case the operator must decide before durable storage is added. It must not
         claim either refresh meaning has already been confirmed or broaden to batch
         work. Otherwise call set_waza_grade_fail with a short reason.

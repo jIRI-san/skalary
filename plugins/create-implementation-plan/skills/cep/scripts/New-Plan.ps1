@@ -83,10 +83,10 @@ TBD
 
 TBD
 
-### Selected OP wording and confirmed interpretation
+### Selected operator wording and confirmed interpretation
 
 - Source/date: TBD
-- OP wording: TBD
+- Operator wording: TBD
 - Confirmed interpretation: TBD
 - Scope/exception: TBD
 
@@ -132,7 +132,7 @@ TBD
 # Approved Design
 
 <!--
-Lightweight RFC for OP review: outcome, proposed behavior, boundaries, important flows, tradeoffs, and
+Lightweight RFC for operator review: outcome, proposed behavior, boundaries, important flows, tradeoffs, and
 open choices. Requirements and decisions remain in their own assets and are linked, not duplicated.
 Replace every TBD and confirm the result with the operator before detailed plan drafting.
 -->

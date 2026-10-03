@@ -25,7 +25,7 @@ planning-confirmed remains the sole execution baseline. Complex choices use host
 benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
 matters; free-form input remains one focused question.
 
-The existing reviewer also compares captured OP wording/confirmed interpretations with the draft, calling
+The existing reviewer also compares captured operator wording/confirmed interpretations with the draft, calling
 out unsupported additions, omissions, scope shifts, and material ambiguity separately from technical
 findings. Bounded discretion and intentional openness are not drift; the alignment lens adds no call.
 
@@ -46,14 +46,16 @@ and exception; fuzzy language requires an observable criterion, threshold, examp
 Code, quotations, analyzed examples, grammar, and already-observable prose are excluded.
 
 CEP/CIP also resolve facts locally and ask only when plausible interpretations change a consequential
-outcome, acceptance criterion, scope, interface, or side effect. Preserve selected OP wording separately
+outcome, acceptance criterion, scope, interface, or side effect. Preserve selected operator wording separately
 from the confirmed interpretation in the existing intent asset; bounded discretion and deferred choices
 record their limits and resolve-or-stop condition. CEP uses epic Goal/Decomposition notes, and child plans
 carry only relevant inherited intent with provenance. The filtered `Get-PlanIndex` result includes bounded
 active/archived plan and epic intent matches; the existing confined reader accepts at most three selected
 artifacts, including `EpicIntent`. Missing/unindexed history stays visible and never becomes a veto.
-`assets/design.md` is the OP-readable lightweight RFC; requirements and decisions remain in their own
-assets.
+`assets/design.md` is the operator-readable lightweight RFC; requirements and decisions remain in their own
+assets. For a broadly under-specified request, planning asks the single highest-leverage missing question
+first instead of presenting a questionnaire; it can follow with another focused question after the operator
+answers if material ambiguity remains.
 
 Planning and execution resolve repository behavior from current contracts, helpers, tests, configuration,
 and pinned versions. Confirmed local choices override generic preference, but a concrete failure defeats

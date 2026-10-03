@@ -9,10 +9,10 @@ Resolve the selected plan and run installed sibling `DirectWorkflow.psm1`
 `Test-PlanCriteriaBaseline` before every mutation and completion resume. Refuse changed, uncommitted, or
 ambiguous intent, requirements, risks, or decisions with exit `42`; progress markers remain mutable.
 
-Implement confirmed outcomes and only the discretion explicitly bounded by OP. If a new material intent
+Implement confirmed outcomes and only the discretion explicitly bounded by the operator. If a new material intent
 choice is unresolved, preserve progress and stop with exit `42`. State two plausible readings, the
 practical consequence, and the exact affected criterion; do not decide silently or edit confirmed
-criteria. After OP resolves it, `/cip` corrects only the affected criteria through the existing
+criteria. After the operator resolves it, `/cip` corrects only the affected criteria through the existing
 reconfirmation/confirmation-commit flow. Resume only after the Git criteria baseline passes; do not
 redraft unrelated work or repeat settled questions without new evidence.
 Resolve behavior from local contracts, helpers, tests, configuration, and pinned versions before generic

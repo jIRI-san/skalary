@@ -34,11 +34,13 @@ Describe 'direct plan intent contract' {
     It 'test:intentalignment-planning-question-bounds captures meaning without another review gate' {
         $protocol = Get-Content -LiteralPath $script:decisionProtocol -Raw
         $protocol | Should -Match 'two plausible interpretations materially change'
-        $protocol | Should -Match 'selected OP wording separately from the agent.s summary'
+        $protocol | Should -Match 'selected operator wording separately from the agent.s summary'
         $protocol | Should -Match 'bounded choice'
         $protocol | Should -Match 'owner and the condition that resolves it or stops implementation'
         $protocol | Should -Match 'no more than three snippets of 240 characters per artifact'
         $protocol | Should -Match 'history informs but does not veto'
+        $protocol | Should -Match 'single highest-leverage'
+        $protocol | Should -Match 'Do not turn every useful planning input into a checklist or a menu'
 
         $cip = Get-Content -LiteralPath $script:cipSkill -Raw
         $cep = Get-Content -LiteralPath $script:cepSkill -Raw
@@ -48,7 +50,7 @@ Describe 'direct plan intent contract' {
         $cep | Should -Match 'relevant inherited wording and provenance'
 
         $epic = Get-Content -LiteralPath $script:newEpic -Raw
-        $epic | Should -Match 'Selected OP wording: TBD'
+        $epic | Should -Match 'Selected operator wording: TBD'
         $epic | Should -Match '## Decomposition notes'
     }
 
@@ -56,7 +58,7 @@ Describe 'direct plan intent contract' {
         $preReview = Get-Content -LiteralPath (
             Join-Path $script:repoRoot 'plugins/create-implementation-plan/skills/cip/assets/pre-confirmation-review.md'
         ) -Raw
-        $preReview | Should -Match 'selected OP wording and confirmed interpretations'
+        $preReview | Should -Match 'selected operator wording and confirmed interpretations'
         $preReview | Should -Match 'unsupported additions, omissions, scope shifts'
         $preReview | Should -Match 'intent-alignment questions distinct from technical findings'
         $preReview | Should -Match 'intentional openness are not drift'
@@ -66,7 +68,7 @@ Describe 'direct plan intent contract' {
         $dr = Get-Content -LiteralPath (
             Join-Path $script:repoRoot 'plugins/design-review/skills/dr/SKILL.md'
         ) -Raw
-        $dr | Should -Match 'selected OP wording and confirmed\s+interpretations'
+        $dr | Should -Match 'selected operator wording and confirmed\s+interpretations'
         $dr | Should -Match 'separately from technical findings'
         $dr | Should -Match 'not drift'
 
@@ -108,7 +110,7 @@ Describe 'direct plan intent contract' {
             ) | ForEach-Object { $_.Groups[1].Value }
         )
         $headings | Should -Be $script:intentSections
-        $scaffold['intent.md'] | Should -Match 'Selected OP wording and confirmed interpretation'
+        $scaffold['intent.md'] | Should -Match 'Selected operator wording and confirmed interpretation'
         $scaffold['intent.md'] | Should -Match 'Deferred choice, owner, and resolve-or-stop condition'
         $scaffold['design.md'] | Should -Match 'Lightweight RFC'
     }

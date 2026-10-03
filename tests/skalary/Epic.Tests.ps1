@@ -49,7 +49,7 @@ Describe 'New-Epic' {
                 $result = & $newEpic -Title 'Intent fixture' -Slug 'intent-fixture' `
                     -RepoRoot $tmp -Date '2026-08-01' -EpicId 'dd44ee'
                 $epicText = Get-Content -LiteralPath $result.EpicFile -Raw
-                $epicText | Should -Match '(?s)## Goal.*Selected OP wording: TBD.*Confirmed interpretation: TBD'
+                $epicText | Should -Match '(?s)## Goal.*Selected operator wording: TBD.*Confirmed interpretation: TBD'
                 $epicText | Should -Match '(?s)## Decomposition notes.*epic-level boundaries'
                 $epicText | Should -Not -Match '^## Intent'
             }
@@ -70,7 +70,7 @@ Describe 'New-Epic' {
                 $epicText = Get-Content -LiteralPath $result.EpicFile -Raw
                 $epicText | Should -Match '<!--\s*epic-id:\s*aa11bb\s*-->'
                 $epicText | Should -Match '(?m)^#\s+aa11bb: Payments rework'
-                $epicText | Should -Match 'Selected OP wording: TBD'
+                $epicText | Should -Match 'Selected operator wording: TBD'
                 $epicText | Should -Match 'Confirmed interpretation: TBD'
                 $epicText | Should -Match '## Decomposition notes'
 

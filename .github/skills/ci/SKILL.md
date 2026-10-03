@@ -18,7 +18,7 @@ mutable.
 During execution, follow confirmed outcomes and bounded discretion. If a new material intent choice is
 not covered by the confirmed criteria, preserve checklist and worktree progress and stop with operator
 action exit `42`; do not silently select an interpretation or rewrite criteria. Report two plausible
-readings, the practical consequence, and the exact affected criterion. After OP resolves it, return to
+readings, the practical consequence, and the exact affected criterion. After the operator resolves it, return to
 `/cip` to correct only affected criteria and use the existing reconfirmation/confirmation-commit flow.
 Resume `/ci` only after `Test-PlanCriteriaBaseline` passes. Do not redraft unrelated work or re-ask a
 settled choice without new evidence. Bounded internal implementation choices proceed.

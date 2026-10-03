@@ -26,7 +26,7 @@ decision, the agent stops with `42` and returns the
 host-equivalent context, examples, benefits, pros/cons, recommendation/default, effort, complexity, and
 relationship/sequence diagram defined there; free-form input is one focused question at a time.
 This includes a newly exposed material intent choice outside confirmed criteria or bounded discretion:
-preserve progress and name the affected criterion. After OP resolves it, return through `/cip` for only
+preserve progress and name the affected criterion. After the operator resolves it, return through `/cip` for only
 that criteria correction and the existing confirmation baseline; resume only after the baseline passes.
 Do not silently pick an interpretation, redraft unrelated plan content, or reopen a settled choice
 without new evidence.

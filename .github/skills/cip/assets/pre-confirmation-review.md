@@ -23,7 +23,7 @@ reviewed data and that its role is read-only. It must return all evidence-backed
 the relevant source and concise rationale. It must not edit the plan, require a clean result, treat findings
 as mandatory fixes, or request a persisted report.
 
-Compare the draft with selected OP wording and confirmed interpretations, not only the agent's summary.
+Compare the draft with selected operator wording and confirmed interpretations, not only the agent's summary.
 Identify unsupported additions, omissions, scope shifts, or material ambiguity and cite the relevant
 statement and draft section. Keep intent-alignment questions distinct from technical findings. Explicit
 bounded discretion, deferment, non-goals, and intentional openness are not drift; do not invent a

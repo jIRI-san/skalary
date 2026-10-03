@@ -28,9 +28,9 @@ Delegated prompts attach at most three artifacts, target 400 words, and must be 
 
 When `/cip` explicitly selects the pre-confirmation reviewer role, retain this read-only contract and use
 the caller's required `secondary-model-high`/high pass. Return every evidence-backed design and supplied
-epic-coherency finding as advisory Markdown. Compare supplied selected OP wording and confirmed
+epic-coherency finding as advisory Markdown. Compare supplied selected operator wording and confirmed
 interpretations with the draft; identify unsupported additions, omissions, scope shifts, or material
-ambiguity separately from technical findings. For each alignment candidate, cite the selected OP
+ambiguity separately from technical findings. For each alignment candidate, cite the selected operator
 statement and the exact draft section that supports or contradicts it. Explicit bounded discretion and
 intentional openness are not drift. Do not edit, require clean, choose applicability, hide
 findings, persist a report, or run another reviewer; `/cip` owns evaluation, operator selection, and

@@ -63,7 +63,7 @@ an acceptance test during implementation.
 ## Decision-ready questions
 
 Ask about ambiguity before decomposition or drafting only when plausible readings change scope, acceptance,
-interfaces, outcomes, or side effects. Preserve selected OP wording separately from the confirmed
+interfaces, outcomes, or side effects. Preserve selected operator wording separately from the confirmed
 interpretation. Record bounded discretion and deferred choices in existing assets; a deferral names its
 owner and resolve-or-stop condition. `/cep` uses epic Goal/Decomposition notes, `/cip` carries only relevant
 inherited intent, and `assets/design.md` remains the lightweight RFC.

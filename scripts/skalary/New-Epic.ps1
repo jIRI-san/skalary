@@ -149,9 +149,9 @@ function Get-EpicScaffold {
 
 ## Goal
 
-<!-- Capture selected OP wording separately from the confirmed interpretation. Record source/date when known. -->
+<!-- Capture selected operator wording separately from the confirmed interpretation. Record source/date when known. -->
 
-- Selected OP wording: TBD
+- Selected operator wording: TBD
 - Confirmed interpretation: TBD
 
 ## Child plans
