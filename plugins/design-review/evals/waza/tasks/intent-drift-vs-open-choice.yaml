@@ -1,0 +1,45 @@
+id: intent-drift-vs-open-choice
+name: Separates draft scope drift from an intentionally open criterion
+# ai-credit-disposition: subjective
+description: >
+  dr must compare the draft against selected OP wording and confirmed criteria,
+  identify unsupported scope expansion, and avoid mislabeling an explicitly open
+  implementation choice as drift.
+tags:
+  - intent-alignment
+  - draft-review
+  - functional
+inputs:
+  prompt: |
+    Review the supplied intent and draft excerpt for alignment only. Do not rewrite
+    the confirmed wording as though the OP approved a broader scope. Identify any
+    material mismatch with precise artifact/line references, distinguish it from
+    choices intentionally left open, and recommend the smallest correction before
+    implementation proceeds. Respond in prose; do not change files.
+  context:
+    fixture: fixtures/intent-drift-vs-open-choice.md
+  follow_up_prompts:
+    - "State the material drift, the intentional open choice that is not drift, and the precise draft correction."
+
+graders:
+  - type: text
+    name: names_drift_and_open_choice
+    config:
+      regex_match:
+        - "(?i)video|document|attachment"
+        - "(?i)open|unresolved|not yet|not drift"
+        - "(?i)intent\\.md|draft\\.md|line"
+  - type: prompt
+    name: rubric_compares_sources_and_preserves_openness
+    config:
+      model: gpt-5.6-terra
+      continue_session: true
+      prompt: |
+        Call set_waza_grade_pass ONLY if the response cites selected wording from
+        `assets/intent.md` (source line 6) and identifies `draft.md` (source lines 4–6)'s
+        video/document preview expansion as unsupported scope drift. It must separately
+        recognize the maximum image size as intentionally open, not a confirmed criterion
+        or a drift finding.
+        Recommend narrowing the draft to image attachments and keeping the size choice
+        open for the existing decision process; do not invent an answer or silently
+        widen the OP's scope. Otherwise call set_waza_grade_fail with a short reason.

@@ -5,10 +5,10 @@ $ErrorActionPreference = 'Stop'
 
 # Fail-closed guards for the shipped ci (continue-implementation) waza convention. waza fails
 # OPEN — a misplaced or misspelled field is warned-and-ignored, so a silently-dropped grader
-# would read as a false PASS. These tests assert EXACT field placement offline. ci ships TWO
-# ported cases: honor-after-dependencies (reasoning, describe-only, judge + text pre-check) and
-# execute-step-atomically (bounded real execution: text pre-check + tool_constraint + a code
-# ordering grader that asserts build/test ran BEFORE the step commit + resume-session judge).
+# would read as a false PASS. These tests assert EXACT field placement offline. ci covers
+# dependency ordering, a runtime intent stop, and execute-step-atomically (bounded real
+# execution: text pre-check + tool_constraint + a code ordering grader that asserts build/test
+# ran BEFORE the step commit + resume-session judge).
 
 Describe 'ci waza convention' {
     BeforeAll {
@@ -35,12 +35,12 @@ Describe 'ci waza convention' {
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
-        It 'test:waza-spec-shape declares NO adversarial block (both cases are functional)' {
+        It 'test:waza-spec-shape declares NO adversarial block (all cases are functional)' {
             $script:evalYaml | Should -Not -Match '(?m)^adversarial:'
         }
     }
 
-    Context 'test:waza-spec-shape — both tasks separate inputs from graders and use a resume-session judge' {
+    Context 'test:waza-spec-shape — every task separates inputs from graders and uses a final text turn' {
         # Fail-open defence: split each task at the col-0 `inputs:`/`graders:` keys and assert the
         # forced-turn lives in the inputs block and graders live in the graders block, so a
         # misspelled/mis-nested parent key cannot silently drop graders and pass green.
@@ -63,11 +63,11 @@ Describe 'ci waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape keeps both deterministic tasks free of prompt graders' {
+        It 'test:waza-spec-shape keeps deterministic tasks free of prompt graders' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic$'
+                $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic\r?$'
                 $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
                 $graders | Should -Not -Match '(?m)^\s+model:'
             }

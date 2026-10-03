@@ -5,10 +5,9 @@ $ErrorActionPreference = 'Stop'
 
 # Fail-closed guards for the shipped cip (create-implementation-plan) waza convention. waza
 # fails OPEN — a misplaced or misspelled field is warned-and-ignored, so a silently-dropped
-# grader would read as a false PASS. These tests assert EXACT field placement offline. Both
-# ported cip cases are REASONING / output-quality scenarios graded on the response (phased
-# plan with REQ/RISK tables; push back on vague scope), so — like autopilot — each task is a
-# text pre-check + resume-session judge with NO tool_constraint / code grader.
+# grader would read as a false PASS. These tests assert EXACT field placement offline. cip
+# cases are reasoning/output-quality scenarios graded on the response, so subjective tasks
+# use a text pre-check plus resume-session judge, with NO tool_constraint / code grader.
 
 Describe 'cip waza convention' {
     BeforeAll {
@@ -33,7 +32,7 @@ Describe 'cip waza convention' {
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
-        It 'test:waza-spec-shape declares NO adversarial block (both cases are functional)' {
+        It 'test:waza-spec-shape declares NO adversarial block (all cases are functional)' {
             $script:evalYaml | Should -Not -Match '(?m)^adversarial:'
         }
 
@@ -42,7 +41,7 @@ Describe 'cip waza convention' {
         }
     }
 
-    Context 'test:waza-spec-shape — both tasks separate inputs from graders and use a resume-session judge' {
+    Context 'test:waza-spec-shape — tasks separate inputs from graders and classify subjective judgments' {
         # Fail-open defence: split each task at the col-0 `inputs:`/`graders:` keys and assert the
         # forced-turn lives in the inputs block and graders live in the graders block, so a
         # misspelled/mis-nested parent key cannot silently drop graders and pass green.
@@ -65,11 +64,11 @@ Describe 'cip waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape uses mid-tier judgment only for the subjective task' {
+        It 'test:waza-spec-shape uses mid-tier judgment only for subjective tasks' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                if ($raw -match '(?m)^# ai-credit-disposition: subjective$') {
+                if ($raw -match '(?m)^# ai-credit-disposition: subjective\r?$') {
                     $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
                     $graders | Should -Match '(?m)^\s+continue_session:\s*true'
                     $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
@@ -89,7 +88,7 @@ Describe 'cip waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape both tasks are reasoning-only (no tool_constraint / code graders — cip produces no tool calls to assert)' {
+        It 'test:waza-spec-shape all tasks are reasoning-only (no tool_constraint / code graders — cip produces no tool calls to assert)' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value

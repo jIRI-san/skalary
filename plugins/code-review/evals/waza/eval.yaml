@@ -1,5 +1,5 @@
 name: code-review
-description: Tier-2 LLM evals for the cr (code-review) agent — functional review quality + prompt-injection safety.
+description: Tier-2 LLM evals for the cr (code-review) agent — evidence-led correctness, disconfirmation, and prompt-injection safety.
 skill: cr
 schemaVersion: "1.2"
 version: "1.0"

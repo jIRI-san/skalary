@@ -24,10 +24,10 @@ Describe 'waza AI credit policy' {
     }
 
     It 'test:AiCreditBudget.WazaRouting classifies every active task' {
-        $script:taskFiles.Count | Should -Be 20
+        $script:taskFiles.Count | Should -Be 26
         foreach ($task in $script:taskFiles) {
             $raw = [System.IO.File]::ReadAllText($task.FullName)
-            $raw | Should -Match '(?m)^# ai-credit-disposition: (deterministic|subjective)$' -Because $task.FullName
+            $raw | Should -Match '(?m)^# ai-credit-disposition: (deterministic|subjective)\r?$' -Because $task.FullName
         }
     }
 
@@ -45,7 +45,7 @@ Describe 'waza AI credit policy' {
                 $raw = [System.IO.File]::ReadAllText($task.FullName)
                 $disposition = [regex]::Match(
                     $raw,
-                    '(?m)^# ai-credit-disposition: (?<value>deterministic|subjective)$'
+                    '(?m)^# ai-credit-disposition: (?<value>deterministic|subjective)\r?$'
                 ).Groups['value'].Value
                 $promptGraders = [regex]::Matches($raw, '(?m)^\s+- type: prompt\s*$').Count
 
