@@ -125,6 +125,9 @@ Describe 'repository-maintenance structural evals' {
             Join-Path $script:pluginRoot 'skills/rcs/Write-RepositoryMaintenanceRecord.ps1'
         ) -Raw
         $helper | Should -Match 'ambiguous identity'
+        $helper | Should -Match 'Dictionary\[string, object\]'
+        $helper | Should -Match '\[StringComparer\]::Ordinal'
+        $helper | Should -Match 'Assert-VerifiedHandoff'
         $helper | Should -Match 'no content was changed'
         $helper | Should -Match 'RecordDisposition'
         $script:decisions | Should -Match 'older rationale'

@@ -335,9 +335,9 @@ function Add-Findings {
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Findings,
         [Parameter(Mandatory)][string]$NewLine)
     $blocks = @(Get-FindingBlocks -Text $Text)
-    $byId = @{}
+    $byId = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     foreach ($block in $blocks) {
-        $byId[$block.Id] = $block
+        $byId.Add($block.Id, $block)
         [void](Get-FindingIdentity -Block $block.Block)
     }
     $updated = $Text
@@ -375,6 +375,99 @@ function Add-Findings {
     return $updated.Substring(0, $header.BodyStart) + $newBody + $updated.Substring($end)
 }
 
+function Assert-VerifiedHandoff {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][ValidateSet('corrective-plan', 'archived')][string]$Disposition
+    )
+
+    $planMatch = [regex]::Match(
+        $Path,
+        '^docs/implementation-plans/(?<archive>archived/)?(?<folder>[^/]+)/plan\.md$'
+    )
+    $epicMatch = [regex]::Match(
+        $Path,
+        '^docs/implementation-plans/archived/epics/(?<folder>[^/]+)/epic\.md$'
+    )
+    if (-not $planMatch.Success -and -not $epicMatch.Success) {
+        throw 'Successful handoffs must reference a current plan.md or archived epic.md under docs/implementation-plans.'
+    }
+    if ($epicMatch.Success -and $Disposition -ne 'archived') {
+        throw 'Corrective-plan handoffs must reference an active plan.md.'
+    }
+
+    $segments = $Path.Split('/')
+    $current = $script:Root
+    for ($index = 0; $index -lt $segments.Count; $index++) {
+        $current = Join-Path $current $segments[$index]
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) {
+            throw "Handoff path '$Path' does not resolve to the required current repository state."
+        }
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ($item.PSObject.Properties.Name -contains 'LinkType' -and $item.LinkType)) {
+            throw "Handoff path '$Path' resolves through a link or reparse point."
+        }
+        $isFile = $index -eq ($segments.Count - 1)
+        if (($isFile -and $item.PSIsContainer) -or
+            (-not $isFile -and -not $item.PSIsContainer)) {
+            throw "Handoff path '$Path' contains an invalid path component."
+        }
+    }
+
+    $fullPath = [System.IO.Path]::GetFullPath($current)
+    $physicalRoot = Resolve-PhysicalRepoPath -Path $script:Root
+    $physicalPath = Resolve-PhysicalRepoPath -Path $fullPath
+    $prefix = $physicalRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $physicalPath.StartsWith($prefix, $script:Compare)) {
+        throw "Handoff path '$Path' escapes the physical repository root."
+    }
+
+    $expectedArchived = $Disposition -eq 'archived'
+    if ($planMatch.Success) {
+        $folderPath = Split-Path -Parent $fullPath
+        $folderMetadata = ConvertFrom-PlanFolderName -FolderName $planMatch.Groups['folder'].Value
+        if ($null -eq $folderMetadata) {
+            throw "Handoff path '$Path' does not identify a recognized plan folder."
+        }
+        $matches = @(
+            Get-PlanInventory -RepoRoot $script:Root `
+                -CanonicalIdFilter @([string]$folderMetadata.FolderId) |
+                Where-Object {
+                    [string]::Equals(
+                        [System.IO.Path]::GetFullPath([string]$_.Path),
+                        $folderPath,
+                        $script:Compare
+                    ) -and [bool]$_.IsArchived -eq $expectedArchived
+                }
+        )
+        if ($matches.Count -ne 1) {
+            $state = if ($expectedArchived) { 'archived' } else { 'active' }
+            throw "Handoff path '$Path' does not resolve to a current $state plan."
+        }
+        if ($expectedArchived -ne $planMatch.Groups['archive'].Success) {
+            throw "Handoff path '$Path' does not match the requested archive state."
+        }
+        return
+    }
+
+    $epicFolder = $epicMatch.Groups['folder'].Value
+    $epicInventory = @(
+        Get-EpicInventory -RepoRoot $script:Root |
+            Where-Object {
+                [string]::Equals(
+                    [System.IO.Path]::GetFullPath([string]$_.Path),
+                    (Split-Path -Parent $fullPath),
+                    $script:Compare
+                ) -and [bool]$_.IsArchived
+            }
+    )
+    if ($epicInventory.Count -ne 1 -or
+        -not [string]::Equals($epicInventory[0].FolderName, $epicFolder, [StringComparison]::Ordinal)) {
+        throw "Handoff path '$Path' does not resolve to a current archived epic."
+    }
+}
+
 function Add-Decision {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object]$Decision,
         [Parameter(Mandatory)][string]$NewLine)
@@ -406,11 +499,17 @@ function Add-Decision {
     else {
         Get-LineValue -Value $outcomeValue -Name 'ActionResult'
     }
-    if ($disposition -eq 'corrective-plan' -and $outcome -notmatch '^(created|updated|reused): .+') {
-        throw 'A corrective-plan disposition requires a successfully completed plan handoff.'
+    if ($disposition -eq 'corrective-plan') {
+        if ($outcome -notmatch '^(created|updated|reused): (?<path>.+)$') {
+            throw 'A corrective-plan disposition requires a successfully completed plan handoff.'
+        }
+        Assert-VerifiedHandoff -Path $Matches.path -Disposition $disposition
     }
-    if ($disposition -eq 'archived' -and $outcome -notmatch '^archived: .+') {
-        throw 'An archived disposition requires a verified successful archive result.'
+    if ($disposition -eq 'archived') {
+        if ($outcome -notmatch '^archived: (?<path>.+)$') {
+            throw 'An archived disposition requires a verified successful archive result.'
+        }
+        Assert-VerifiedHandoff -Path $Matches.path -Disposition $disposition
     }
     $body = @(
         "**Finding:** $id"

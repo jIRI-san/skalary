@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T19:23:19.3359839Z",
+  "generatedAt": "2026-10-03T19:34:53.9850191Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -929,7 +929,7 @@
         },
         {
           "dest": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1",
-          "sha256": "35b805e68f0b9884f125bbd3ca7d2a35360a12253670ca8c754c4b48b0f42d2f",
+          "sha256": "579335099b16020826097e0b2d350e1ef96d93dbde279a0dc4ba68e0ec61b27a",
           "src": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1"
         },
         {

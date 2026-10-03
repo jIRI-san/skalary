@@ -227,11 +227,33 @@ Describe 'Repository maintenance record and discovery' {
             Should -Match 'src/helper.ps1:3'
     }
 
+    It 'test:RCS.RecordRoundTrip matches stable finding IDs with ordinal casing' {
+        $root = New-RecordRoot
+        $original = New-RecordFinding -Id 'RCS-CaseSensitive'
+        (Invoke-RecordWriter -Root $root -Operation 'Publish' `
+                -Json ((New-PublishPayload -Findings @($original)) | ConvertTo-Json -Depth 12 -Compress)).status |
+            Should -BeExactly 'written'
+
+        $caseChanged = New-RecordFinding -Id 'RCS-casesensitive'
+        (Invoke-RecordWriter -Root $root -Operation 'Publish' `
+                -Json ((New-PublishPayload -Findings @($caseChanged)) | ConvertTo-Json -Depth 12 -Compress)).status |
+            Should -BeExactly 'written'
+        $content = (Invoke-RecordWriter -Root $root -Operation 'Read').content
+        $content | Should -Match '### RCS-CaseSensitive -'
+        $content | Should -Match '### RCS-casesensitive -'
+        [regex]::Matches($content, '<!-- rcs-finding: RCS-').Count | Should -Be 2
+    }
+
     It 'test:RCS.DispositionRoundTrip requires successful handoffs and appends changed decisions without erasing history' {
         $root = New-RecordRoot
         $payload = New-PublishPayload
         (Invoke-RecordWriter -Root $root -Operation 'Publish' `
                 -Json ($payload | ConvertTo-Json -Depth 12 -Compress)) | Out-Null
+        $planFolder = Join-Path $root `
+            'docs/implementation-plans/standalone-2026-10-03-aabbcc-remove-helper'
+        [void](New-Item -ItemType Directory -Path $planFolder -Force)
+        [System.IO.File]::WriteAllText((Join-Path $planFolder 'plan.md'),
+            "# Remove unused helper`n<!-- plan-id: aabbcc -->`n")
         $decision = [ordered]@{
             FindingId = 'RCS-unused-private-helper'
             Disposition = 'corrective-plan'
@@ -247,6 +269,11 @@ Describe 'Repository maintenance record and discovery' {
             Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($decision | ConvertTo-Json -Compress)
         } | Should -Throw '*successfully completed*'
+        $decision.ActionResult = 'created: docs/implementation-plans/standalone-2026-10-03-abcdef-missing/plan.md'
+        {
+            Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
+                -Json ($decision | ConvertTo-Json -Compress)
+        } | Should -Throw '*does not resolve to the required current repository state*'
         $decision.ActionResult = 'created: docs/implementation-plans/standalone-2026-10-03-aabbcc-remove-helper/plan.md'
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($decision | ConvertTo-Json -Compress)).status | Should -BeExactly 'written'
@@ -269,6 +296,11 @@ Describe 'Repository maintenance record and discovery' {
         (Invoke-RecordWriter -Root $root -Operation 'Publish' `
                 -Json ((New-PublishPayload -Findings $findings) | ConvertTo-Json -Depth 12 -Compress)).status |
             Should -BeExactly 'written'
+        $activePlanFolder = Join-Path $root `
+            'docs/implementation-plans/standalone-2026-10-03-ab12cd-archive-candidate'
+        [void](New-Item -ItemType Directory -Path $activePlanFolder -Force)
+        [System.IO.File]::WriteAllText((Join-Path $activePlanFolder 'plan.md'),
+            "# Archive candidate`n<!-- plan-id: ab12cd -->`n")
 
         $acceptance = [ordered]@{
             FindingId = 'RCS-scoped-intentional-drift'
@@ -322,14 +354,23 @@ Describe 'Repository maintenance record and discovery' {
             Scope = 'Only the completed standalone plan.'
             Assumptions = 'Current plan evidence remains complete.'
             RevisitWhen = 'Any new linked work reopens the plan.'
-            Citations = @('docs/implementation-plans/standalone-2026-10-03-aabbcc/plan.md:1')
+            Citations = @('docs/implementation-plans/standalone-2026-10-03-ab12cd-archive-candidate/plan.md:1')
             ActionResult = 'pending: current completion gates have not been checked'
         }
         {
             Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($archive | ConvertTo-Json -Compress)
         } | Should -Throw '*verified successful archive*'
-        $archive.ActionResult = 'archived: docs/implementation-plans/archived/standalone-2026-10-03-aabbcc/plan.md'
+        $archive.ActionResult = 'archived: docs/implementation-plans/archived/standalone-2026-10-03-ab12cd-missing/plan.md'
+        {
+            Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
+                -Json ($archive | ConvertTo-Json -Compress)
+        } | Should -Throw '*does not resolve to the required current repository state*'
+        $archiveFolder = Join-Path $root `
+            'docs/implementation-plans/archived/standalone-2026-10-03-ab12cd-archive-candidate'
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $archiveFolder) -Force)
+        Move-Item -LiteralPath $activePlanFolder -Destination $archiveFolder
+        $archive.ActionResult = 'archived: docs/implementation-plans/archived/standalone-2026-10-03-ab12cd-archive-candidate/plan.md'
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($archive | ConvertTo-Json -Compress)).status | Should -BeExactly 'written'
 
@@ -337,7 +378,7 @@ Describe 'Repository maintenance record and discovery' {
         $content | Should -Match 'The operator reopens the scoped decision'
         $content | Should -Match 'The operator accepts this bounded candidate'
         $content | Should -Match 'A newly discovered reflection registration'
-        $content | Should -Match 'archived: docs/implementation-plans/archived/standalone-2026-10-03-aabbcc/plan.md'
+        $content | Should -Match 'archived: docs/implementation-plans/archived/standalone-2026-10-03-ab12cd-archive-candidate/plan.md'
         [regex]::Matches($content, '<!-- rcs-decision: RCS-D-\d{4} -->').Count |
             Should -Be 3
     }
