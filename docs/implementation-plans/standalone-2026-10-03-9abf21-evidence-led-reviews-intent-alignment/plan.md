@@ -97,7 +97,7 @@
 
 ## Phase 3: Prove quality with precisely selected local evals
 
-- [ ] 3.1 Make named paid-case selection exact and fail before spending (REQ-9, RISK-8) [after: 1.2, 2.3] `M`
+- [x] 3.1 Make named paid-case selection exact and fail before spending (REQ-9, RISK-8) [after: 1.2, 2.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `Invoke-WazaEvals.ps1 -Plugin <name> -Case <id> -Quick` executes exactly one requested functional case with one trial, not the unrelated adversarial pack.
@@ -110,7 +110,7 @@
 
   </details>
 
-- [ ] 3.2 Add a small balanced quality suite to existing plugin evals (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-4, RISK-8) [after: 3.1] `L`
+- [~] 3.2 Add a small balanced quality suite to existing plugin evals (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, RISK-4, RISK-8) [after: 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** 12-20 distinct task scenarios total across create-implementation-plan, code-review, design-review, continue-implementation and autopilot suites exercise alignment, review signal and grounding, including clean negatives. Every retained/revised/new task YAML in these suites counts, not only newly relevant tasks.

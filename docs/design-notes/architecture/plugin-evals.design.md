@@ -25,6 +25,13 @@ globs:
 fixture evals to prove missing, skipped, and duplicate required IDs fail. Routine runs omit both,
 so the runner always resolves the repository `plugins/` tree and committed required-ID contract.
 
+For exact paid-case iteration, `-Case <id>` must match exactly one top-level task `id` declared by the
+selected spec's explicit task-file paths. Unknown, ambiguous, or unsupported selectors fail before
+tool provisioning, token resolution, or output creation. A selected case runs the functional mode only;
+`-Case <id> -Quick` adds `--trials 1`, so it runs exactly one functional task and one trial. Omitting
+`-Case` preserves plugin-wide functional and adversarial behavior. Exact selection deliberately refuses
+`tasks_from` specs rather than guessing their task set.
+
 ## File Layout and Contracts
 
 | Surface | Contract |
