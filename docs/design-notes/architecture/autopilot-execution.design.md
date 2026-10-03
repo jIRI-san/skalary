@@ -28,6 +28,15 @@ current evidence, optional combined design/validation, no automatic Judge, nativ
 commit per completed step. Model configuration uses stable aliases; launchers resolve a concrete host
 identifier. Shipped configs select `default` context, while `long_context` remains explicit opt-in.
 
+Factory repair is an explicit host-mode option on this same launcher, not a second framework or a
+change to ordinary `/ci`. It is available only after normal initial admission and authorization for
+one identified failed build or confirmed deployed defect. The launcher revalidates the linked plan's
+original baseline, reserves the corrective call before dispatch, and forbids requirements or
+confirmation/checklist writes. Repair uses two bounded budgets: at most two successor PRs per
+incident and two corrective calls per stable build lineage. It does not merge, resume polling, or
+approve production; those remain factory-loop and operator gates. The normal CI launcher path keeps
+its existing admission and completion behavior.
+
 A complex operator stop exits `42` with context, example, benefits, pros/cons, recommendation/default,
 effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Interactive
 resume shows the same ordered choices; free-form input asks one focused question.

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T19:53:32.3691588Z",
+  "generatedAt": "2026-10-03T21:08:16.9814953Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.26"
+      "version": "1.3.27"
     },
     {
       "author": "jIRI-san",
@@ -800,7 +800,7 @@
       "files": [
         {
           "dest": "skills/factory-loop/SKILL.md",
-          "sha256": "365a5aa5accf0a68b5c6c00f20bddbf453ecff4952e03b1eabc1aff9a0672ba6",
+          "sha256": "ddea8ef21e5efd738ca3ce93d285638e03e1573ad071df5ddfd7585c98ce086c",
           "src": "skills/factory-loop/SKILL.md"
         },
         {
@@ -810,7 +810,7 @@
         },
         {
           "dest": "skills/factory-loop/assets/operator-guide.md",
-          "sha256": "61468bac5475a158ef9263ae9a3a99ea8b83809c317a24aaf390f639ce92cc27",
+          "sha256": "0105013583466250cdcc5b6690a64463a7e7e5f9352775e6e08b947c90c5820b",
           "src": "skills/factory-loop/assets/operator-guide.md"
         },
         {
@@ -830,12 +830,12 @@
         },
         {
           "dest": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1",
-          "sha256": "3bf617f32f9275fe80e434f447e3e075f3d196238dfb819ddbac4db218e3c79d",
+          "sha256": "79596b8731f244174616919e2ff6b533cc95e9cc85fcec9121953910f077f11a",
           "src": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1"
         },
         {
           "dest": "skills/factory-loop/scripts/FactoryLoop.psm1",
-          "sha256": "0b05bd46ee613f751bbd9efdcfb80490420d342f733c2781a5f5d06236e27ec1",
+          "sha256": "e16bda6b4fe5354ac3a311cbef7f5b7944071063cada3290cbcbd208623c4cf3",
           "src": "skills/factory-loop/scripts/FactoryLoop.psm1"
         },
         {
@@ -852,6 +852,11 @@
           "dest": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1",
           "sha256": "298c4153be31f7b6ab002b96401182cc3653389bcc0df6a2bf8417c594c4be89",
           "src": "skills/factory-loop/scripts/New-FactoryLoopDemo.ps1"
+        },
+        {
+          "dest": "skills/factory-loop/scripts/Register-FactoryLoopRepairPullRequest.ps1",
+          "sha256": "bc3115c89e4337c7ef8516757248d0e53e1421a1490332ebe996f4542b41928a",
+          "src": "skills/factory-loop/scripts/Register-FactoryLoopRepairPullRequest.ps1"
         },
         {
           "dest": "skills/factory-loop/scripts/Setup-FactoryLoop.ps1",
@@ -880,7 +885,7 @@
         },
         {
           "dest": "skills/factory-loop/templates/factory-loop.json",
-          "sha256": "0b0003da9c838a1b5a5f8b3a315f40d0325878592e791f05b6aea60ac9afe557",
+          "sha256": "771f49f0efa62c56fd1016c614e1af7dd5c27fdeb58cdba1135ca8a2034d1a6f",
           "src": "skills/factory-loop/templates/factory-loop.json"
         }
       ],
@@ -900,6 +905,13 @@
           "owner": "Setup-FactoryLoop.ps1",
           "path": ".github/skills/ci/scripts/**",
           "trigger": "explicit setup of a selected consumer"
+        },
+        {
+          "confine": "Resolve-FactoryLoopConsumerPath",
+          "mode": "parameterized",
+          "owner": "FactoryLoop.Runtime.psm1",
+          "path": "docs/factory-loop/evidence/**",
+          "trigger": "explicit sanitized evidence publication"
         },
         {
           "confine": "Resolve-FactoryLoopConsumerPath",

@@ -21,13 +21,18 @@ Preview then apply setup using the digest returned by preview. Setup creates onl
 `.github/skills/ci/scripts/`. It preserves consumer edits on rerun and stores no credentials. It does not claim live readiness until project-owned commands are configured and their access checks
 pass.
 
-For a failed build with a stable adapter-provided build lineage ID, an operator may invoke the
-existing `/ci` launcher in host mode with `-FactoryRepair -FactoryRepairPhase <phase-number>`.
-Admission revalidates the linked plan's original criteria and confirms the branch still matches the
-failed PR source SHA. The launcher reserves one repair PR and one corrective call before starting;
-limits are two repair PRs per incident and two corrective calls per stable build lineage. Each
-call is a separate operator boundary. It does not merge, advance the chain, or run when identity,
-access, or criteria are inconclusive. Repair may not change criteria or checklist state.
+For a failed build or a confirmed deployed defect with a stable adapter-provided build lineage ID, an
+operator may invoke the existing `/ci` launcher in host mode with
+`-FactoryRepair -FactoryRepairPhase <phase-number>`. Admission revalidates the linked plan's original
+criteria and confirms the branch still matches the failed source SHA. Each authorized repair reserves
+one corrective call and a separate `factory-repair/<incident>/<attempt>` successor PR before
+starting; the limits are two repair PRs per incident and two corrective calls per stable build
+lineage, across successor heads. Register the reviewed repair SHA with
+`Register-FactoryLoopRepairPullRequest.ps1`; it becomes the source of a new PR and immutable artifact.
+Each call is a separate operator boundary. It does not merge, advance the chain, or run when identity,
+access, or criteria are inconclusive. Repair may not change criteria or checklist state. A repaired
+artifact repeats test acceptance, telemetry, fresh production approval, deployment, and production
+acceptance; resolve the original bug only after that cycle passes.
 
 ## Live command contract
 
@@ -95,9 +100,10 @@ incident and two corrective agent calls per stable failing-build lineage, across
 heads. Repair rechecks `Test-PlanCriteriaBaseline`, skips completed-phase admission, and cannot
 modify requirements, criteria, or confirmation markers. A scope change returns to `/cip`.
 
-Production requires a fresh explicit approval for the exact artifact accepted in test. Native pipeline
-approvals still apply. Missing access or unknown running version is blocked/inconclusive, not success.
-Production checks are read-only by default; there is no automatic merge or rollback.
+Production requires a fresh, explicit, artifact-specific production approval for the exact artifact
+accepted in test. Native pipeline approvals still apply. Missing access or unknown running version is
+blocked/inconclusive, not success. Production checks are read-only by default; there is no automatic
+merge or rollback.
 
 Evidence is sanitized, artifact-bound, and committed on a separate branch/worktree that is excluded
 from deployment triggers. Evidence publication readiness requires the project owner to verify those
@@ -107,5 +113,8 @@ complete. Monitoring then stops.
 ## Premium evaluation
 
 Deterministic local tests are the acceptance authority and require no AI, network, or credentials.
-Optional Waza tasks live under `evals/waza/`; run them only by explicit operator request. Any
-write-enabled scenario requires a disposable checkout because Waza workspaces are not an OS sandbox.
+Optional Waza tasks live under `plugins/factory-loop/evals/waza/`; run them only by explicit
+operator request with `scripts/skalary/Invoke-WazaEvals.ps1 -Plugin factory-loop`. They are
+describe-only and do not execute live adapters. Premium evaluation is not part of build, test, or
+acceptance. Any future write-enabled scenario requires a disposable checkout because Waza workspaces
+are not an OS sandbox.

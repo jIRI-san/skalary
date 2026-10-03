@@ -27,7 +27,8 @@ function Resolve-FactoryLoopConsumerPath {
     $normalized = $RelativePath.Replace('\', '/').Trim('/')
     if (-not ($normalized.StartsWith('.factory-loop/', [System.StringComparison]::Ordinal) -or
             $normalized.StartsWith('scripts/factory-loop/', [System.StringComparison]::Ordinal) -or
-            $normalized.StartsWith('.github/skills/ci/scripts/', [System.StringComparison]::Ordinal))) {
+            $normalized.StartsWith('.github/skills/ci/scripts/', [System.StringComparison]::Ordinal) -or
+            $normalized.StartsWith('docs/factory-loop/evidence/', [System.StringComparison]::Ordinal))) {
         throw "Consumer path is outside factory-loop setup ownership: $RelativePath"
     }
 
@@ -439,9 +440,10 @@ function Merge-FactoryLoopDemoPullRequest {
     )
 
     if (-not $ConfirmMerge) { throw 'A demo pull-request merge requires explicit -ConfirmMerge approval.' }
-    if ($Branch -notmatch '^feature/[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$' -or
-        $Branch -match '\.\.') {
-        throw 'Demo merge accepts only a bounded feature/* branch name.'
+    $isFeatureBranch = $Branch -match '^feature/[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$'
+    $isRepairBranch = $Branch -match '^factory-repair/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/[12]$'
+    if ((-not $isFeatureBranch -and -not $isRepairBranch) -or $Branch -match '\.\.') {
+        throw 'Demo merge accepts only a bounded feature/* or factory-repair/* branch name.'
     }
     $root = [System.IO.Path]::GetFullPath($DemoRoot)
     $currentBranch = (git -C $root branch --show-current).Trim()
@@ -851,6 +853,11 @@ function Invoke-FactoryLoopLoopback {
                         $status = 'blocked'; $data = @{ reason = 'artifact-specific-production-approval-required' }; break
                     }
                 }
+                if ([string]$Payload.sourceSha -cne [string]$pr.sourceSha -or
+                    [string]$Payload.mergeCommit -cne [string]$pr.mergeCommit -or
+                    [string]$Payload.artifactDigest -notmatch '^[0-9a-f]{64}$') {
+                    $status = 'blocked'; $data = @{ reason = 'deployment-source-or-artifact-identity-mismatch' }; break
+                }
                 foreach ($old in @($state.deployments | Where-Object {
                             [string]$_.environment -ceq $environment -and
                             [string]$_.status -ceq 'succeeded'
@@ -937,6 +944,8 @@ function Invoke-FactoryLoopLoopback {
                 environment = [string]$Payload.environment
                 covered = $true
                 cursor = if ($Payload.cursor) { [string]$Payload.cursor } else { '0' }
+                observedFromUtc = [string]$Payload.fromUtc
+                observedThroughUtc = [string]$Payload.throughUtc
                 events = $events
             }
         }

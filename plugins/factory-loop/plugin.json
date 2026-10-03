@@ -49,6 +49,10 @@
       "dest": "skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1"
     },
     {
+      "src": "skills/factory-loop/scripts/Register-FactoryLoopRepairPullRequest.ps1",
+      "dest": "skills/factory-loop/scripts/Register-FactoryLoopRepairPullRequest.ps1"
+    },
+    {
       "src": "skills/ci/scripts/DirectWorkflow.psm1",
       "dest": "skills/factory-loop/dependencies/ci/scripts/DirectWorkflow.psm1"
     },
@@ -101,6 +105,13 @@
       "mode": "parameterized",
       "owner": "Setup-FactoryLoop.ps1",
       "trigger": "explicit setup of a selected consumer",
+      "confine": "Resolve-FactoryLoopConsumerPath"
+    },
+    {
+      "path": "docs/factory-loop/evidence/**",
+      "mode": "parameterized",
+      "owner": "FactoryLoop.Runtime.psm1",
+      "trigger": "explicit sanitized evidence publication",
       "confine": "Resolve-FactoryLoopConsumerPath"
     }
   ],

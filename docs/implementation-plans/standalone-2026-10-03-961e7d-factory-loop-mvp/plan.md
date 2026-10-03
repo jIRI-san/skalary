@@ -84,7 +84,7 @@
 
 ## Phase 3: Deployed acceptance and production gate
 
-- [ ] 3.1 Validate the test artifact and observe its telemetry window (REQ-11, REQ-12, REQ-13, RISK-5) [after: 2.2] `L`
+- [x] 3.1 Validate the test artifact and observe its telemetry window (REQ-11, REQ-12, REQ-13, RISK-5) [after: 2.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** pipeline success, expected immutable artifact and observed running version agree before feature acceptance and bounded telemetry observation can pass.
@@ -98,7 +98,7 @@
   **Stop/escalate when:** environment identity, query coverage or production-safe checks cannot be established.
 
   </details>
-- [ ] 3.2 Gate production promotion and complete bounded repair cycles (REQ-14, REQ-15, REQ-16, RISK-6) [after: 3.1] `L`
+- [x] 3.2 Gate production promotion and complete bounded repair cycles (REQ-14, REQ-15, REQ-16, RISK-6) [after: 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** explicit artifact-specific approval permits production triggering; failed validation creates/deduplicates a bug and follows a fix PR through the same test/prod chain.
@@ -115,7 +115,7 @@
 
 ## Phase 4: Evidence, installed dry runs and evaluation
 
-- [ ] 4.1 Publish sanitized evidence and complete work items (REQ-17, REQ-18, RISK-7) [after: 3.2] `M`
+- [x] 4.1 Publish sanitized evidence and complete work items (REQ-17, REQ-18, RISK-7) [after: 3.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** version-bound evidence commits land on a separate branch/worktree before final issue closure; interruption can resume without duplicate records or closures.
@@ -129,7 +129,7 @@
   **Stop/escalate when:** evidence cannot be safely published or the target pipeline exclusion cannot be verified with the project owner.
 
   </details>
-- [ ] 4.2 Prove deterministic end-to-end and installed-consumer behavior (REQ-19, REQ-20, RISK-8) [after: 4.1] `L`
+- [x] 4.2 Prove deterministic end-to-end and installed-consumer behavior (REQ-19, REQ-20, RISK-8) [after: 4.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** zero-credit replay drives the installed loop through real local artifact checks, Git evidence and fault recovery; both supported installation layouts have closure tests.
@@ -141,7 +141,7 @@
   **Verify:** `test:FactoryLoop.EndToEnd`, `test:FactoryLoop.FaultMatrix`, `test:FactoryLoop.GlobalLayout`; plugin-focused structural eval.
 
   </details>
-- [ ] 4.3 Add opt-in agent evals and operator documentation (REQ-21, REQ-22, RISK-8) [after: 4.2] `S`
+- [x] 4.3 Add opt-in agent evals and operator documentation (REQ-21, REQ-22, RISK-8) [after: 4.2] `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** agent-driven demo and small Waza cases check observable planning/repair behavior; documentation explains scheduler setup, controls, adapters and limits.

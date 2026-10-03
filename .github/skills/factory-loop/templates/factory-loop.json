@@ -4,6 +4,7 @@
   "observationSeconds": 300,
   "consumerRoot": ".",
   "evidenceBranch": "factory-loop-evidence",
+  "evidenceBranchDeploymentExcluded": false,
   "mode": "loopback",
   "allowance": null,
   "authorization": {

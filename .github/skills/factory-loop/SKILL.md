@@ -47,6 +47,19 @@ merge it:
 The demo merge is a real local Git merge. Test and production use the same digest-pinned artifact;
 later working-tree changes cannot replace that artifact.
 
+Factory repair creates a separate `factory-repair/<incident>/<attempt>` branch after an authorized
+repair invocation. Once the fix is committed and its source SHA reviewed, register that successor PR
+and use the same explicit merge command:
+
+```powershell
+.github/skills/factory-loop/scripts/Register-FactoryLoopRepairPullRequest.ps1 `
+  -RepoRoot . -IncidentId <incident-id> -BuildLineageId <stable-lineage-id> `
+  -Branch factory-repair/<incident-id>/<attempt> -SourceSha <reviewed-sha>
+.github/skills/factory-loop/scripts/New-FactoryLoopDemo.ps1 -Action merge `
+  -DemoRoot <demo-directory> -Branch factory-repair/<incident-id>/<attempt> `
+  -ExpectedSourceSha <reviewed-sha> -ConfirmMerge
+```
+
 ## Tick and resume
 
 After selecting a confirmed plan and a feature branch whose exact source SHA you reviewed, initialize
@@ -67,6 +80,8 @@ instead of guessing or retrying a write.
 
 Factory repair uses the existing host-mode `/ci` launcher only after ordinary initial admission and
 explicit repair authorization. Pass `-FactoryRepair -FactoryRepairPhase <phase-number>` for one
-identified failed build. The original criteria baseline is revalidated, repair limits are reserved
-before invocation, and repair cannot edit criteria or checklist state. Human PR merge and
-artifact-specific production approval remain required.
+identified failed build or confirmed deployed defect. The original criteria baseline is revalidated,
+repair limits are reserved before invocation, and repair cannot edit criteria or checklist state.
+Each repair gets a separate successor PR and source SHA; the chain repeats test acceptance and
+production gates for its new artifact. Human PR merge and artifact-specific production approval
+remain required.
