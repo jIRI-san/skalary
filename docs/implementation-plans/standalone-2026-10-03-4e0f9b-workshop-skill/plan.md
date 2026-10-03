@@ -56,7 +56,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   contracts demand a conflicting lifecycle. Ask for host action/scope decision; do not add adapters.
 
   </details>
-- [ ] 1.2 Add explicit draft CIP handoff and focused behavior contracts (REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, RISK-2, RISK-3, RISK-5, RISK-6, RISK-9) [after: 1.1] `M`
+- [x] 1.2 Add explicit draft CIP handoff and focused behavior contracts (REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, RISK-2, RISK-3, RISK-5, RISK-6, RISK-9) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** CIP recognizes selected prototype input without treating it as confirmed criteria;

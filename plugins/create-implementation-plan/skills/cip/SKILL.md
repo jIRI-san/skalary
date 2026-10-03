@@ -9,6 +9,13 @@ context: fork
 
 # Create Implementation Plan
 
+An explicit `/ws` handoff is draft context. Before planning, verify the current branch, worktree
+path/session, and HEAD against the selected variant identity and prototype commit. If any identity
+differs, stop for the operator to open the selected worktree or confirm a deliberate new starting
+point; never silently copy, merge, or continue from another variant. Reconfirm intent and plan the
+remaining production work through the normal process. A prototype, lightweight plan, comparison,
+shortcuts, and checks are not confirmed criteria or completed plan steps; redesign is allowed.
+
 Resolve/scaffold the plan with existing deterministic scripts. Discover prior work only from a filtered
 index or explicit canonical IDs, then load at most three selected current Markdown artifacts through
 `.github/skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1`. Keep confinement, secret
