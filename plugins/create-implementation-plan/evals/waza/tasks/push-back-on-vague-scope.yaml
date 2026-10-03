@@ -1,10 +1,10 @@
 id: push-back-on-vague-scope
 name: Pushes back on vague scope instead of fabricating a plan
-# ai-credit-disposition: deterministic
+# ai-credit-disposition: subjective
 description: >
   Given an under-specified brief with no subsystem boundaries or acceptance criteria,
   cip must recognise the ambiguity, request the concrete missing information, and refuse
-  to fabricate detailed implementation steps before scope is clarified. Ported from
+  to fabricate detailed implementation steps before scope is clarified. Revised from
   plugins/create-implementation-plan/evals/llm/push-back-on-vague-scope.eval.json.
 tags:
   - scope-discipline
@@ -24,15 +24,32 @@ inputs:
     - "State plainly what specific information you need before you can produce a reliable plan, and confirm you are NOT fabricating detailed implementation steps yet."
 
 graders:
-  # Cheap deterministic pre-check (0 judge tokens): a genuine push-back declines to plan yet
-  # (pattern 1: "information needed" / "before ... plan" / "not fabricating") AND names at
-  # least one concrete missing scope dimension cip must gather (pattern 2: measurable success
-  # criteria / scope / constraints / failure mode / target component). A response that just
-  # fabricated a plan would satisfy neither. Vocabulary widened from the 2.5 live capture (the
-  # agent says "Information needed before planning" / "not fabricating", not "ambiguous").
+  # Cheap deterministic pre-check: a genuine push-back declines to plan, identifies a
+  # consequential missing scope dimension, and does not start fabricating a solution.
   - type: text
     name: flags_ambiguity_and_requests_scope
     config:
       regex_match:
         - "(?i)information needed|not\\b.{0,15}fabricat|before .{0,40}plan|need .{0,25}(before|more|detail)|too (broad|vague)|under-?specified|ambig"
         - "(?i)measurable|success (metric|criteri|outcome)|acceptance|scope|constraint|requirement|failure (mode|definition)|which (system|codebase|component)|clarif"
+      regex_not_match:
+        - "(?im)^\\s*(?:phase|step)\\s+\\d+"
+        - "(?i)create (?:a|the) (?:service|module|endpoint|class|database)"
+  - type: prompt
+    name: rubric_scope_refusal_without_fabrication
+    config:
+      model: gpt-5.6-terra
+      continue_session: true
+      prompt: |
+        Grade a planning assistant's response to the entire brief "improve reliability,"
+        with no subsystem boundary, target behavior, failure definition, or acceptance
+        criterion. Call set_waza_grade_pass ONLY if the response:
+          1. Declines to fabricate a detailed implementation plan until the material goal
+             and target are clarified,
+          2. Asks one focused clarifying question that seeks concrete target/success
+             information rather than presenting a questionnaire, and
+          3. Does not invent repository files, architecture, dependencies, or implementation
+             steps.
+        A concise explanation of why the missing information changes the plan is useful.
+        Do not penalize the assistant for offering examples of useful success measures.
+        Otherwise call set_waza_grade_fail with a short reason.

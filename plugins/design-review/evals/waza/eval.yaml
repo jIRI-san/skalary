@@ -1,5 +1,5 @@
 name: design-review
-description: Tier-2 LLM evals for the dr (design-review) agent — feasibility and trust-boundary review quality.
+description: Tier-2 LLM evals for the dr (design-review) agent — feasibility, intent alignment, local-fit, and trust-boundary review quality.
 skill: dr
 schemaVersion: "1.2"
 version: "1.0"
@@ -7,6 +7,7 @@ version: "1.0"
 config:
   executor: copilot-sdk
   model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
   trials_per_task: 2
   timeout_seconds: 300
   parallel: false
@@ -37,6 +38,6 @@ graders:
       expect_tools:
         - tool: view
 
-# No adversarial block: both ported dr cases are functional design-review scenarios, not
+# No adversarial block: dr's cases are functional design-review scenarios, not
 # prompt-injection cases (contrast cr's treat-injection-as-data). An adversarial pack is
 # added only when a plugin has an injection/adversarial-diff case to route through it.

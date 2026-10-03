@@ -2,6 +2,7 @@
 description: Active direct review, Git criteria, evidence, standards, history, compaction, and learning primitives.
 globs:
   - scripts/skalary/{DirectWorkflow.psm1,Get-DirectPlanArtifactConsumerContext.ps1,Get-DesignNoteCompactionContext.ps1,Write-RecentLearning.ps1}
+  - scripts/skalary/Get-PlanIndex.ps1
   - tests/skalary/DirectWorkflow*.Tests.ps1
 ---
 
@@ -10,7 +11,7 @@ globs:
 `DirectWorkflow.psm1` is shared by CR, DR, CI, and autopilot. The historical adapter serves CR, DR,
 CEP, and CIP. Manifests install the canonical closure; `Sync-PluginScripts.ps1` owns generated copies.
 The adapter imports only `PlanState.psm1`, `SecretGuard.psm1`, and `DirectWorkflow.psm1`, reads at most
-three confined Markdown artifacts, screens secrets, and frames accepted content once. It has no retired
+three confined Markdown artifacts (plan or selected epic intent), screens secrets, and frames accepted content once. It has no retired
 receipt, review-run, ledger, or harvest path.
 
 Plan inventory includes only folders containing `plan.md`; retained transcript-only directories from an
@@ -18,6 +19,7 @@ archive move are artifacts, not duplicate plan identities.
 
 | Primitive | Contract |
 |---|---|
+| `Get-PlanIndex.ps1` | Keeps requirement/risk/decision discovery and adds case-insensitive filtered active/archived plan/epic intent candidates with provenance and at most three 240-character snippets per artifact. |
 | `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker across active and archived plan paths, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions by Git-filtered blob identity. |
 | `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
 | `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. |

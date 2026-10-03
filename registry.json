@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-12T15:55:27.6226987Z",
+  "generatedAt": "2026-10-03T15:03:26.8555145Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -130,7 +130,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "b4bcea81f13b06023d564e601c910deecdec8766353d3e5a9abcf17f04c950f3",
+          "sha256": "eed1d73624272c7f871d79fd0db9cff6221548698e6641a91f0cb609a87f1b78",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -145,7 +145,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "af27aef8d6a40bda5f9d66af0dcd9a5eae09a9d7db35328025a75c10a97c011f",
+          "sha256": "a0de56df5781bce18fc1cf96351ede47fea4e21771c1c0282e3764a59566fbfb",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -235,7 +235,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/New-Epic.ps1",
-          "sha256": "54b65572e3145f51b61005a4c117313626ef287c90724231a61af421d9200214",
+          "sha256": "459a502eefd860902fe70107b797adb19be3f50e6ce455dc16238ae47cc8379f",
           "src": "skills/autopilot/scripts/New-Epic.ps1"
         },
         {
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.25"
+      "version": "1.3.27"
     },
     {
       "author": "jIRI-san",
@@ -373,7 +373,7 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "6295617f677c4c2b0cb94ec0e422ae6373d86553cb40ab14274efc70ca070068",
+          "sha256": "0d08a5f2b23ff23fc702e0bc756f618584de442bc7e6d0eb3e326cafe052b024",
           "src": "skills/cr/SKILL.md"
         },
         {
@@ -388,7 +388,7 @@
         },
         {
           "dest": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "sha256": "ecc8bae5d617aa39b8c0ce95f7e2081f38532af16d5d9f92ac778e7739a40d91",
           "src": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -410,7 +410,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.84"
+      "version": "1.0.85"
     },
     {
       "author": "jIRI-san",
@@ -426,7 +426,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "2322b11bd001209e4882795ef8170b2595e095f0bb5cd2a2b4e7518320a5f84e",
+          "sha256": "9a4bbb09331131c077d4ae6c3210d0990a6aaba388a1c074c2337ea5e3ad5fc7",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -478,7 +478,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.121"
+      "version": "1.0.123"
     },
     {
       "author": "jIRI-san",
@@ -492,12 +492,12 @@
       "files": [
         {
           "dest": "skills/cep/SKILL.md",
-          "sha256": "d2f2a8584f84b60883c5568ebc45b1ee78251735b48b313037dbda214cf00a25",
+          "sha256": "f5e61968ecd8da3b682cb3de29e7149b29a2864133c4f463e2cdb22d462c5853",
           "src": "skills/cep/SKILL.md"
         },
         {
           "dest": "skills/cep/assets/decision-protocol.md",
-          "sha256": "c4c520876a640db77a3408be880a8a78eaaddab1c07ef83699f66f1290d5845a",
+          "sha256": "702c7a8fcab579cacbf3f868dc1fec94d44c9d7f0a413a973d9dab747c8e4e1d",
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
@@ -522,22 +522,22 @@
         },
         {
           "dest": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "sha256": "ecc8bae5d617aa39b8c0ce95f7e2081f38532af16d5d9f92ac778e7739a40d91",
           "src": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
           "dest": "skills/cep/scripts/Get-PlanIndex.ps1",
-          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "sha256": "affae7909debf8e755eb62329f6fe830d59390fabe71ff320f1991a8c4a506bb",
           "src": "skills/cep/scripts/Get-PlanIndex.ps1"
         },
         {
           "dest": "skills/cep/scripts/New-Epic.ps1",
-          "sha256": "54b65572e3145f51b61005a4c117313626ef287c90724231a61af421d9200214",
+          "sha256": "459a502eefd860902fe70107b797adb19be3f50e6ce455dc16238ae47cc8379f",
           "src": "skills/cep/scripts/New-Epic.ps1"
         },
         {
           "dest": "skills/cep/scripts/New-Plan.ps1",
-          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
+          "sha256": "4a0eb90765c274f98cb43986203e000b58438e5a1c8aded76c8192033efc6d5c",
           "src": "skills/cep/scripts/New-Plan.ps1"
         },
         {
@@ -562,12 +562,12 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "2d591074c1c9edad7fe74f51ba748387c2d306ad91406044e8c41dd3c3e784ee",
+          "sha256": "b3cabd57a9d65be29e0f98c124c6e0ddae675c916266195047adfb61a9a5a476",
           "src": "skills/cip/SKILL.md"
         },
         {
           "dest": "skills/cip/assets/decision-protocol.md",
-          "sha256": "c4c520876a640db77a3408be880a8a78eaaddab1c07ef83699f66f1290d5845a",
+          "sha256": "702c7a8fcab579cacbf3f868dc1fec94d44c9d7f0a413a973d9dab747c8e4e1d",
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
@@ -582,7 +582,7 @@
         },
         {
           "dest": "skills/cip/assets/pre-confirmation-review.md",
-          "sha256": "fee6e7c576e2594e968ccaff52eae495fce3ab1011dce3370b2eebb9a4804d2f",
+          "sha256": "484e270d3e341bc2c21fa2de712db2a264ad08eb95cb60c4d0b1b741bc4a7187",
           "src": "skills/cip/assets/pre-confirmation-review.md"
         },
         {
@@ -597,17 +597,17 @@
         },
         {
           "dest": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "sha256": "ecc8bae5d617aa39b8c0ce95f7e2081f38532af16d5d9f92ac778e7739a40d91",
           "src": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
           "dest": "skills/cip/scripts/Get-PlanIndex.ps1",
-          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "sha256": "affae7909debf8e755eb62329f6fe830d59390fabe71ff320f1991a8c4a506bb",
           "src": "skills/cip/scripts/Get-PlanIndex.ps1"
         },
         {
           "dest": "skills/cip/scripts/New-Plan.ps1",
-          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
+          "sha256": "4a0eb90765c274f98cb43986203e000b58438e5a1c8aded76c8192033efc6d5c",
           "src": "skills/cip/scripts/New-Plan.ps1"
         },
         {
@@ -654,7 +654,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.106"
+      "version": "1.0.111"
     },
     {
       "author": "jIRI-san",
@@ -751,7 +751,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "7211b47de6d6cbb98f9ec36bd046f01583733e9db71c83839a9159d78dd5769d",
+          "sha256": "8b175c9afc36df7ab0dbf675a7ad15d83f96e4fc486629af81e7f0409fb059b0",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -766,7 +766,7 @@
         },
         {
           "dest": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
-          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "sha256": "ecc8bae5d617aa39b8c0ce95f7e2081f38532af16d5d9f92ac778e7739a40d91",
           "src": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
         },
         {
@@ -788,7 +788,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.85"
+      "version": "1.0.87"
     },
     {
       "author": "jIRI-san",

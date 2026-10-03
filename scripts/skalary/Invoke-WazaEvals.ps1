@@ -7,15 +7,16 @@
     package scripts, and ordinary workflows never invoke this premium path.
 .DESCRIPTION
     Orchestration order:
-      1. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
-      2. Resolve-EvalToken — source a Copilot token into the process env for the waza child.
-      3. Validate one explicit -Plugin, then discover its evals/waza/eval.yaml. For each
+      1. Validate one explicit -Plugin and any exact -Case selector without side effects.
+      2. Ensure-EvalTools — provision/verify the pinned toolchain; prepend resolved dirs to PATH.
+      3. Resolve-EvalToken — source a Copilot token into the process env for the waza child.
+      4. Discover its evals/waza/eval.yaml. For each
          spec, run every applicable MODE: a functional `waza run`
          when the spec declares `tasks:`, AND a safety `waza adversarial --spec ... --skill
          <name> --model <model> --on-unsafe-outcome fail` when it declares an `adversarial:`
          block. A spec with both runs BOTH (they are separate signals and must not share a
-         results column).
-      4. Aggregate exit codes and print a summary + rough token/wall-clock estimate.
+         results column) unless one exact functional `-Case` was selected.
+      5. Aggregate exit codes and print a summary + rough token/wall-clock estimate.
 
     Durable-token exclusion (REQ-22): the ADVERSARIAL mode runs only with a provably short-lived
     token (the `gh` OAuth source). Any other source — an ambient env PAT or a durable
@@ -33,9 +34,10 @@
 .PARAMETER Plugin
     Only run specs for this plugin (directory name under plugins/).
 .PARAMETER Case
-    Only run this task/case id within each spec (passed to `waza run --task`).
+    Exact declared task id. Rejects missing or ambiguous ids before provisioning, authentication,
+    or output creation; selecting a case runs only its functional spec mode.
 .PARAMETER Quick
-    Force a single trial per task (`--trials 1`) for fast iteration.
+    Force a single trial per task (`--trials 1`). With -Case, runs exactly one functional case and one trial.
 .PARAMETER Approve
     Non-interactive approval for any tool installs Ensure-EvalTools needs.
 .OUTPUTS
@@ -183,6 +185,160 @@ function Test-WazaSpecHasTasks {
     return $false
 }
 
+function Get-WazaTaskPaths {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SpecPath
+    )
+
+    if (-not (Test-Path -LiteralPath $SpecPath -PathType Leaf)) {
+        throw "Selected Waza spec does not exist: '$SpecPath'."
+    }
+
+    $taskPatterns = [System.Collections.Generic.List[string]]::new()
+    $inTasks = $false
+    $foundTasks = $false
+    foreach ($line in Get-Content -LiteralPath $SpecPath) {
+        if ($line -match '^tasks_from:') {
+            throw "Exact -Case selection requires explicit task-file paths in '$SpecPath'; tasks_from is unsupported."
+        }
+        if ($line -match '^tasks:\s*(?<inline>.*)$') {
+            if ($foundTasks) {
+                throw "Selected Waza spec declares tasks more than once: '$SpecPath'."
+            }
+            $foundTasks = $true
+            $inline = [string]$Matches.inline
+            if (-not [string]::IsNullOrWhiteSpace($inline)) {
+                if ($inline.Trim() -eq '[]') { return @() }
+                throw "Exact -Case selection requires a block of explicit task-file paths in '$SpecPath'."
+            }
+            $inTasks = $true
+            continue
+        }
+        if (-not $inTasks) { continue }
+        if ([string]::IsNullOrWhiteSpace($line) -or $line -match '^\s*#') { continue }
+        if ($line -match '^\S') {
+            $inTasks = $false
+            continue
+        }
+        if ($line -notmatch '^\s+-\s*(?<path>[^#]+?)\s*(?:#.*)?$') {
+            throw "Exact -Case selection found an unsupported task declaration in '$SpecPath'."
+        }
+        $taskPatterns.Add([string]$Matches.path.Trim().Trim('"', "'"))
+    }
+
+    if (-not $foundTasks) {
+        throw "Exact -Case selection requires an explicit tasks block in '$SpecPath'."
+    }
+
+    $specDirectory = [System.IO.Path]::GetFullPath((Split-Path -Parent $SpecPath))
+    $pathComparer = if ($IsWindows) {
+        [System.StringComparer]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparer]::Ordinal
+    }
+    $resolvedPaths = [System.Collections.Generic.HashSet[string]]::new($pathComparer)
+    foreach ($pattern in $taskPatterns) {
+        if ([string]::IsNullOrWhiteSpace($pattern) -or [System.IO.Path]::IsPathRooted($pattern)) {
+            throw "Waza task path must be relative to its spec: '$pattern'."
+        }
+        $segments = @($pattern.Replace('\', '/').Split(
+            [char[]]@('/'),
+            [System.StringSplitOptions]::RemoveEmptyEntries
+        ))
+        if ($segments.Count -eq 0 -or @($segments | Where-Object { $_ -eq '..' }).Count -gt 0) {
+            throw "Waza task path must stay inside its spec directory: '$pattern'."
+        }
+        $directorySegments = @($segments | Select-Object -SkipLast 1)
+        $filePattern = [string]$segments[-1]
+        if (@($directorySegments | Where-Object { $_ -match '[*?\[]' }).Count -gt 0) {
+            throw "Waza task wildcards are only supported in the file name: '$pattern'."
+        }
+
+        $taskDirectory = $specDirectory
+        foreach ($segment in $directorySegments) {
+            $taskDirectory = Join-Path $taskDirectory $segment
+            $directory = Get-Item -LiteralPath $taskDirectory -Force -ErrorAction SilentlyContinue
+            if ($null -eq $directory -or $directory -isnot [System.IO.DirectoryInfo]) {
+                throw "Waza task directory does not exist: '$taskDirectory'."
+            }
+            if (($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Waza task path must not traverse a link or reparse point: '$taskDirectory'."
+            }
+        }
+
+        $wildcard = [System.Management.Automation.WildcardPattern]::new(
+            $filePattern, [System.Management.Automation.WildcardOptions]::CultureInvariant
+        )
+        $matches = @(Get-ChildItem -LiteralPath $taskDirectory -File -Force |
+            Where-Object { $wildcard.IsMatch($_.Name) })
+        foreach ($file in $matches) {
+            if (($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Waza task file must not be a link or reparse point: '$($file.FullName)'."
+            }
+            [void]$resolvedPaths.Add([System.IO.Path]::GetFullPath($file.FullName))
+        }
+    }
+    return @($resolvedPaths | Sort-Object -Culture ([cultureinfo]::InvariantCulture))
+}
+
+function Get-WazaTaskId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TaskPath
+    )
+
+    $ids = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in Get-Content -LiteralPath $TaskPath) {
+        if ($line -match '^id:\s*(?<id>[^#]+?)\s*(?:#.*)?$') {
+            $ids.Add([string]$Matches.id.Trim().Trim('"', "'"))
+        }
+    }
+    if ($ids.Count -ne 1 -or $ids[0] -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$') {
+        throw "Waza task must declare exactly one valid top-level id: '$TaskPath'."
+    }
+    return $ids[0]
+}
+
+function Resolve-WazaTaskSelection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory)]
+        [string]$Plugin,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Case
+    )
+
+    if ($Case -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]*$') {
+        throw 'Waza -Case must be one exact task id token.'
+    }
+    $specs = @(Get-WazaEvalSpec -PluginsRoot (Join-Path $RepoRoot 'plugins') -Plugin $Plugin)
+    if ($specs.Count -ne 1) {
+        throw "Exact -Case selection requires exactly one Waza spec for plugin '$Plugin'."
+    }
+
+    $taskFiles = @(Get-WazaTaskPaths -SpecPath $specs[0])
+    $matches = [System.Collections.Generic.List[object]]::new()
+    foreach ($taskFile in $taskFiles) {
+        $id = Get-WazaTaskId -TaskPath $taskFile
+        if ($id -ceq $Case) {
+            $matches.Add([pscustomobject]@{ Id = $id; Path = $taskFile })
+        }
+    }
+    if ($matches.Count -ne 1) {
+        throw "Waza -Case '$Case' must match exactly one declared task; found $($matches.Count)."
+    }
+    return $matches[0]
+}
+
 function Get-WazaSpecExecutionPlan {
     [CmdletBinding()]
     param(
@@ -190,8 +346,17 @@ function Get-WazaSpecExecutionPlan {
         [bool]$HasTasks,
 
         [Parameter(Mandatory)]
-        [bool]$HasAdversarial
+        [bool]$HasAdversarial,
+
+        [switch]$CaseSelected
     )
+
+    if ($CaseSelected) {
+        if (-not $HasTasks) {
+            throw 'An exact -Case selector requires functional tasks; adversarial-only specs cannot satisfy it.'
+        }
+        return @('run')
+    }
 
     # Functional and adversarial are distinct signals; a spec declaring both runs both.
     $modes = [System.Collections.Generic.List[string]]::new()
@@ -397,7 +562,11 @@ function Invoke-WazaEvals {
         [switch]$Approve
     )
 
+    $caseSelected = $PSBoundParameters.ContainsKey('Case')
     [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
+    if ($caseSelected) {
+        [void](Resolve-WazaTaskSelection -RepoRoot $RepoRoot -Plugin $Plugin -Case $Case)
+    }
 
     $priorCopilotToken = [System.Environment]::GetEnvironmentVariable('COPILOT_GITHUB_TOKEN', 'Process')
     $priorGhToken = [System.Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
@@ -427,7 +596,8 @@ function Invoke-WazaEvals {
             $pluginName = Get-PluginFromSpecPath -Path $spec
             $hasTasks = Test-WazaSpecHasTasks -Path $spec
             $hasAdversarial = Test-WazaSpecIsAdversarial -Path $spec
-            $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks -HasAdversarial $hasAdversarial
+            $modes = Get-WazaSpecExecutionPlan -HasTasks $hasTasks `
+                -HasAdversarial $hasAdversarial -CaseSelected:$caseSelected
 
             if (@($modes).Count -eq 0) {
                 $skipped++
@@ -502,11 +672,22 @@ function Invoke-WazaEvals {
 if ($MyInvocation.InvocationName -ne '.') {
     try {
         [void](Assert-WazaFocusedScope -RepoRoot $RepoRoot -Plugin $Plugin -ChangedOnly:$ChangedOnly)
+        if ($PSBoundParameters.ContainsKey('Case')) {
+            [void](Resolve-WazaTaskSelection -RepoRoot $RepoRoot -Plugin $Plugin -Case $Case)
+        }
     }
     catch {
         Write-Host "FocusedScopeRequired: $($_.Exception.Message)" -ForegroundColor Red
         exit 12
     }
-    $result = Invoke-WazaEvals -RepoRoot $RepoRoot -Plugin $Plugin -Case $Case -ChangedOnly:$ChangedOnly -Quick:$Quick -Approve:$Approve
+    $invokeParams = @{
+        RepoRoot = $RepoRoot
+        Plugin = $Plugin
+        ChangedOnly = $ChangedOnly
+        Quick = $Quick
+        Approve = $Approve
+    }
+    if ($PSBoundParameters.ContainsKey('Case')) { $invokeParams.Case = $Case }
+    $result = Invoke-WazaEvals @invokeParams
     exit $result.ExitCode
 }
