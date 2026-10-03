@@ -1,10 +1,10 @@
 # Recent learning
 
-Source plan: `7ce29c script-surface-cleanup-and-simplification`
-Source commit: `a6dd95654019b606f036e2c2765a738ceeda8aa3`
+Source plan: `d5ca36 repository-maintenance-service`
+Source commit: `8ff6785b151ede124914e961639f7186799b8b4c`
 
 ## Lessons
 
-- Replace historical implementation snapshots with bounded current-state absence tests when Git already preserves the retired bytes. — `tests/skalary/ArchitectureRetirement.Tests.ps1`
-- Generated dogfood sync is copy-only, so retiring mapped payloads requires explicit deletion before regeneration. — `scripts/skalary/Sync-Dogfood.ps1`
-- Structural simplification evidence should bind exact exports to parser-derived private-function and token-bearing-line reductions. — `tests/skalary/ScriptSurfaceCleanup.Tests.ps1`
+- Gate every related side effect behind the same ShouldProcess check; verify WhatIf preserves source files byte-for-byte. — `tests/skalary/ArchiveEpic.Tests.ps1`
+- Recheck current planning-context confirmation immediately before recording a successful corrective-plan handoff. — `tests/skalary/RepositoryMaintenance.Tests.ps1`
+- Regenerate consumer-owned plugin closures from canonical scripts and verify the installed foreign-consumer path. — `tests/skalary/RepositoryMaintenance.Tests.ps1`
