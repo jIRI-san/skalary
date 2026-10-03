@@ -25,7 +25,7 @@
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
 ## Phase 1: Workshop workflow and integration comparison
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: jiri-san-implement-workshop-skill -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit).
      Nontrivial AI steps carry a compact details block with Outcome, Likely touchpoints, Constraints,
@@ -33,7 +33,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Author and register the workshop with its consumer-smoke case (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-7, RISK-8) `M`
+- [x] 1.1 Author and register the workshop with its consumer-smoke case (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-7, RISK-8) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** standalone source plugin covers interview, approved alternatives, isolated runnable
@@ -76,7 +76,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   </details>
 
 ## Phase 2: Distribution, documentation, and host verification
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: jiri-san-implement-workshop-skill -->
 
 - [ ] 2.1 Generate install surfaces and document the workshop boundary (REQ-1, REQ-8, RISK-7) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
