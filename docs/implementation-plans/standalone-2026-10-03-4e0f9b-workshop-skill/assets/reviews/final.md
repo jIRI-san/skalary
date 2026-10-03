@@ -1,18 +1,19 @@
 ## Source
 
-f0d5b8cd360db890a4395e0c873ae69b28817ed6
+8542d0e75bd0a6e88c765d8ab9b7a86e147e72b8
 
 ## Scope
 
-- Workshop plugin source and host/worktree instructions
-- CIP draft identity boundary, consumer smoke case, and focused contracts
-- Generated install surfaces, operator guides, and design-note changes
+- Workshop plugin workflow, isolation rules, and CIP handoff
+- Distribution, consumer tests, generated surfaces, and design documentation
+- Live terminal CLI discovery and proposal-stage approval gate
 
 ## Completed tasks
 
-- [x] Review plugin workflow, handoff boundary, consumer smoke, and source contracts — complete
-- [x] Review generated distribution, operator documentation, and design boundary — complete
-- [ ] Exercise live Copilot app, VS Code, and terminal CLI walkthroughs — stuck
+- [x] Review workflow source, handoff boundary, smoke case, and contracts — complete
+- [x] Review generated distribution, operator guidance, and design boundary — complete
+- [x] Exercise terminal CLI through the full-set proposal gate without approval — complete
+- [ ] Verify live runnable-slice flow in app, VS Code, and post-approval CLI — stuck
 
 ## Findings
 
