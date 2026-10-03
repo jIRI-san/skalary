@@ -284,6 +284,12 @@ Describe 'Repository maintenance record and discovery' {
                 -Json ($decision | ConvertTo-Json -Compress)
         } | Should -Throw '*does not resolve to the required current repository state*'
         $decision.ActionResult = 'created: docs/implementation-plans/standalone-2026-10-03-aabbcc-remove-helper/plan.md'
+        {
+            Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
+                -Json ($decision | ConvertTo-Json -Compress)
+        } | Should -Throw '*does not resolve to a confirmed active plan*'
+        [System.IO.File]::AppendAllText((Join-Path $planFolder 'plan.md'),
+            '<!-- planning-confirmed: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->' + "`n")
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `
                 -Json ($decision | ConvertTo-Json -Compress)).status | Should -BeExactly 'written'
         (Invoke-RecordWriter -Root $root -Operation 'RecordDisposition' `

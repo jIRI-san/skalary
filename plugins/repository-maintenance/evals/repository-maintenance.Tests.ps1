@@ -129,6 +129,7 @@ Describe 'repository-maintenance structural evals' {
         $helper | Should -Match '\[StringComparer\]::Ordinal'
         $helper | Should -Match 'Get-FindingNotes'
         $helper | Should -Match 'Assert-VerifiedHandoff'
+        $helper | Should -Match 'PlanningConfirmed'
         $helper | Should -Match 'no content was changed'
         $helper | Should -Match 'RecordDisposition'
         $script:decisions | Should -Match 'older rationale'
