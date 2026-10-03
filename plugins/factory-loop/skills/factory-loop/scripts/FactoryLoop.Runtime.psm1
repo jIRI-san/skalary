@@ -219,6 +219,10 @@ function Initialize-FactoryLoopChain {
         pullRequestId = $null
         pullRequestProviderId = $null
         mergeCommit = $null
+        repairIncidentId = [string]$WorkItemId
+        repairPullRequestsReserved = 0
+        repairBuildLineages = @()
+        repairBuildLineageId = $null
         pendingOperation = $null
         pollCount = 0
         pollSeconds = [int]$config.pollSeconds
@@ -393,9 +397,26 @@ function Invoke-FactoryLoopTick {
                     $checkpoint.reason = 'pull-request-head-changed'
                 }
                 elseif ([string]$checks.status -ceq 'failed') {
-                    $checkpoint.stage = 'build-failed'
-                    $checkpoint.outcome = 'build-failed'
-                    $checkpoint.reason = 'checks-failed'
+                    $lineageId = [string]$checks.buildLineageId
+                    if ($lineageId -notmatch '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$') {
+                        $checkpoint.status = 'blocked'
+                        $checkpoint.stage = 'blocked'
+                        $checkpoint.outcome = 'blocked'
+                        $checkpoint.reason = 'build-lineage-identity-missing'
+                    }
+                    else {
+                        $lineages = @($checkpoint.repairBuildLineages)
+                        $lineage = @($lineages | Where-Object { [string]$_.id -ceq $lineageId } |
+                            Select-Object -First 1)
+                        if ($lineage.Count -eq 0) {
+                            $lineages += [ordered]@{ id = $lineageId; correctiveCalls = 0 }
+                            $checkpoint.repairBuildLineages = $lineages
+                        }
+                        $checkpoint.repairBuildLineageId = $lineageId
+                        $checkpoint.stage = 'build-failed'
+                        $checkpoint.outcome = 'build-failed'
+                        $checkpoint.reason = 'checks-failed'
+                    }
                 }
                 elseif ([string]$checks.status -cin @('cancelled', 'canceled', 'superseded')) {
                     $checkpoint.status = 'blocked'
@@ -424,6 +445,8 @@ function Invoke-FactoryLoopTick {
                     status = [string]$checks.status
                     stage = [string]$checkpoint.stage
                     reason = [string]$checkpoint.reason
+                    incidentId = [string]$checkpoint.repairIncidentId
+                    buildLineageId = [string]$checkpoint.repairBuildLineageId
                     artifactDigest = if ($null -ne $checks.PSObject.Properties['artifactDigest']) {
                         [string]$checks.artifactDigest
                     } else { $null }
@@ -512,7 +535,117 @@ function Invoke-FactoryLoopTick {
     }
 }
 
+function Start-FactoryLoopRepairInvocationCore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$PlanReference
+    )
+
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $checkpoint = Read-FactoryLoopCheckpoint -RepoRoot $root
+    if ([string]$checkpoint.status -cne 'active' -or
+        [string]$checkpoint.stage -cne 'build-failed' -or
+        [string]::IsNullOrWhiteSpace([string]$checkpoint.repairIncidentId) -or
+        [string]::IsNullOrWhiteSpace([string]$checkpoint.repairBuildLineageId)) {
+        throw 'Factory repair is allowed only for an active chain stopped on an identified failed build.'
+    }
+
+    $ciScripts = Join-Path $root '.github/skills/ci/scripts'
+    Import-Module (Join-Path $ciScripts 'DirectWorkflow.psm1') -Force -DisableNameChecking
+    Import-Module (Join-Path $ciScripts 'PlanState.psm1') -Force -DisableNameChecking
+    $requestedPlan = Resolve-Plan -RepoRoot $root -Reference $PlanReference
+    $chainPlan = Resolve-Plan -RepoRoot $root -Reference ([string]$checkpoint.planReference)
+    if ([string]$requestedPlan.Id -cne [string]$chainPlan.Id) {
+        throw 'Factory repair plan does not match the active chain.'
+    }
+    $baseline = Test-PlanCriteriaBaseline -RepoRoot $root -PlanReference ([string]$checkpoint.planReference)
+    if ([string]$baseline.Status -cne 'ready' -or
+        [string]$baseline.BaselineCommit -cne [string]$checkpoint.criteriaBaselineCommit -or
+        [string]$baseline.Marker -cne [string]$checkpoint.criteriaMarker) {
+        throw 'Factory repair is blocked because the confirmed criteria baseline is not unchanged.'
+    }
+
+    $lineages = @($checkpoint.repairBuildLineages)
+    $lineage = @($lineages | Where-Object {
+            [string]$_.id -ceq [string]$checkpoint.repairBuildLineageId
+        } | Select-Object -First 1)
+    if ($lineage.Count -ne 1) {
+        throw 'Factory repair checkpoint has no unique record for the failed build lineage.'
+    }
+    if ([int]$checkpoint.repairPullRequestsReserved -ge 2 -or
+        [int]$lineage[0].correctiveCalls -ge 2) {
+        throw 'Factory repair budget exhausted: at most two repair PRs per incident and two corrective calls per build lineage.'
+    }
+
+    $branch = [string]$checkpoint.branch
+    if ($branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $branch.Contains('..') -or $branch.Contains('//') -or $branch.EndsWith('/') -or
+        $branch.EndsWith('.') -or $branch.EndsWith('.lock', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $branch.Contains('@{')) {
+        throw 'Factory repair checkpoint contains an invalid branch name.'
+    }
+    $branchHead = (git -C $root rev-parse $branch).Trim()
+    if ($LASTEXITCODE -ne 0 -or $branchHead -cne [string]$checkpoint.expectedSourceSha) {
+        throw 'Factory repair branch no longer matches the failed PR source SHA.'
+    }
+
+    $attempt = [int]$lineage[0].correctiveCalls + 1
+    $lineage[0].correctiveCalls = $attempt
+    $checkpoint.repairBuildLineages = $lineages
+    $checkpoint.repairPullRequestsReserved = [int]$checkpoint.repairPullRequestsReserved + 1
+    $checkpoint.lastRepairAttemptId = "$($checkpoint.repairIncidentId):$($checkpoint.repairBuildLineageId):$attempt"
+    $checkpoint.updatedAtUtc = [datetime]::UtcNow.ToString('o')
+    Write-FactoryLoopCheckpoint -RepoRoot $root -Checkpoint $checkpoint
+
+    return [pscustomobject]@{
+        incidentId = [string]$checkpoint.repairIncidentId
+        buildLineageId = [string]$checkpoint.repairBuildLineageId
+        attempt = $attempt
+        branch = $branch
+        sourceSha = [string]$checkpoint.expectedSourceSha
+        planReference = [string]$checkpoint.planReference
+    }
+}
+
+function Start-FactoryLoopRepairInvocation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$PlanReference
+    )
+
+    $root = [System.IO.Path]::GetFullPath($RepoRoot)
+    $lockPath = Resolve-FactoryLoopConsumerPath -RepoRoot $root -RelativePath '.factory-loop/loop.lock'
+    $lockStream = $null
+    try {
+        $lockStream = [System.IO.File]::Open(
+            $lockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+    }
+    catch [System.IO.IOException] {
+        throw 'Factory-loop chain is currently locked by another process.'
+    }
+
+    try {
+        $lockStream.SetLength(0)
+        $lockBytes = [System.Text.Encoding]::UTF8.GetBytes(
+            "pid=$PID`nstarted=$([datetime]::UtcNow.ToString('o'))"
+        )
+        $lockStream.Write($lockBytes, 0, $lockBytes.Length)
+        $lockStream.Flush($true)
+        return Start-FactoryLoopRepairInvocationCore -RepoRoot $root -PlanReference $PlanReference
+    }
+    finally {
+        $lockStream.Dispose()
+    }
+}
+
 Export-ModuleMember -Function @(
     'Initialize-FactoryLoopChain',
-    'Invoke-FactoryLoopTick'
+    'Invoke-FactoryLoopTick',
+    'Start-FactoryLoopRepairInvocation'
 )

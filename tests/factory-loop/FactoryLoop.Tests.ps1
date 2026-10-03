@@ -580,6 +580,95 @@ Describe 'factory-loop plugin' {
         $mergedTick.aiCalls | Should -Be 0
     }
 
+    It 'test:FactoryLoop.PlanAdmission revalidates the confirmed baseline before factory repair' {
+        $fixture = New-FactoryLoopRuntimeFixture -LeaveDefect
+        [void](Invoke-FactoryLoopTick -RepoRoot $fixture.Root)
+        [void](Invoke-FactoryLoopTick -RepoRoot $fixture.Root)
+        $requirements = Join-Path $fixture.Root `
+            'docs/implementation-plans/standalone-2026-10-03-961e7d-factory-loop-mvp/assets/requirements.md'
+        Add-Content -LiteralPath $requirements -Value "`nUnconfirmed repair scope." -Encoding utf8NoBOM
+
+        {
+            Start-FactoryLoopRepairInvocation -RepoRoot $fixture.Root -PlanReference '961e7d'
+        } | Should -Throw '*Confirmed requirements differs from Git-filtered baseline commit*'
+
+        $checkpoint = Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $fixture.Root
+        $checkpoint.repairPullRequestsReserved | Should -Be 0
+        $checkpoint.repairBuildLineages[0].correctiveCalls | Should -Be 0
+    }
+
+    It 'test:FactoryLoop.AgentHandoff routes only explicit repair mode through the existing launcher' {
+        $launcher = Get-Content -LiteralPath (Join-Path $script:repoRoot `
+            'plugins/autopilot/scripts/launch.ps1') -Raw
+        $hostLauncher = Get-Content -LiteralPath (Join-Path $script:repoRoot `
+            'plugins/autopilot/scripts/launch-host.ps1') -Raw
+        $agent = Get-Content -LiteralPath (Join-Path $script:repoRoot `
+            'plugins/autopilot/agents/autopilot.agent.md') -Raw
+
+        $launcher | Should -Match '\[switch\]\s*\$FactoryRepair'
+        $launcher | Should -Match 'Start-FactoryLoopRepairInvocation'
+        $launcher.Contains("requires -Mode 'next-phase'") | Should -BeTrue
+        $hostLauncher | Should -Match 'FACTORY_LOOP_REPAIR_MODE'
+        $hostLauncher | Should -Match 'without closing or finalizing the plan'
+        $agent | Should -Match 'Never edit plan assets, `plan\.md`'
+        $agent | Should -Match 'FACTORY_LOOP_REPAIR_MODE=true'
+    }
+
+    It 'test:FactoryLoop.RepairBounds reserves no more than two PRs and corrective calls per lineage' {
+        $failure = New-FactoryLoopRuntimeFixture -LeaveDefect
+        [void](Invoke-FactoryLoopTick -RepoRoot $failure.Root)
+        $failed = Invoke-FactoryLoopTick -RepoRoot $failure.Root
+        $failed.outcome | Should -BeExactly 'build-failed'
+        $failed.buildLineageId | Should -Match '^loopback:'
+
+        $first = Start-FactoryLoopRepairInvocation -RepoRoot $failure.Root -PlanReference '961e7d'
+        $second = Start-FactoryLoopRepairInvocation -RepoRoot $failure.Root -PlanReference '961e7d'
+        $first.attempt | Should -Be 1
+        $second.attempt | Should -Be 2
+        {
+            Start-FactoryLoopRepairInvocation -RepoRoot $failure.Root -PlanReference '961e7d'
+        } | Should -Throw '*Factory repair budget exhausted*'
+
+        $checkpoint = Read-FactoryLoopRuntimeFixtureCheckpoint -RepoRoot $failure.Root
+        $checkpoint.repairPullRequestsReserved | Should -Be 2
+        $checkpoint.repairBuildLineages[0].correctiveCalls | Should -Be 2
+        $first.buildLineageId | Should -BeExactly $second.buildLineageId
+    }
+
+    It 'test:FactoryLoop.Credits records repair calls idempotently by execution identity' {
+        $planFolder = Join-Path $TestDrive 'factory-repair-plan'
+        [void](New-Item -ItemType Directory -Path (Join-Path $planFolder 'assets') -Force)
+        @'
+# Factory repair credit fixture
+<!-- plan-id: 961e7d -->
+'@ | Set-Content -LiteralPath (Join-Path $planFolder 'plan.md') -Encoding utf8NoBOM
+        $usagePath = Join-Path $TestDrive 'factory-repair-usage.json'
+        @{
+            totalNanoAiu = 500000000
+            tokenDetails = @{
+                input = @{ tokenCount = 10 }
+                cache_read = @{ tokenCount = 0 }
+                cache_write = @{ tokenCount = 0 }
+                output = @{ tokenCount = 5 }
+            }
+            sessionStartTime = '2026-09-05T17:28:57.320Z'
+            modelMetrics = @{ 'gpt-5.6-luna' = @{ totalNanoAiu = 500000000 } }
+        } | ConvertTo-Json -Depth 10 |
+            Set-Content -LiteralPath $usagePath -Encoding utf8NoBOM
+
+        $recorder = Join-Path $script:repoRoot 'plugins/autopilot/scripts/Record-AiCreditUsage.ps1'
+        1..2 | ForEach-Object {
+            & $recorder -PlanFolder $planFolder -UsagePath $usagePath `
+                -Target factory-repair-call-1 -Runtime host `
+                -ModelAlias primary-model-low -ContextTier default | Out-Null
+        }
+        $ledger = Get-Content -LiteralPath (Join-Path $planFolder 'assets/ai-credits.json') -Raw |
+            ConvertFrom-Json -Depth 20
+        @($ledger.executions) | Should -HaveCount 1
+        $ledger.executions[0].target | Should -BeExactly 'factory-repair-call-1'
+        $ledger.totalNanoAiu | Should -Be 500000000
+    }
+
     It 'test:FactoryLoop.ChainLimit rejects a second active chain in the project' {
         $fixture = New-FactoryLoopRuntimeFixture
         {

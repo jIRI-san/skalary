@@ -1,6 +1,6 @@
 {
   "name": "factory-loop",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -19,6 +19,10 @@
     {
       "src": "skills/factory-loop/assets/operator-guide.md",
       "dest": "skills/factory-loop/assets/operator-guide.md"
+    },
+    {
+      "src": "skills/factory-loop/assets/acceptance-authoring.md",
+      "dest": "skills/factory-loop/assets/acceptance-authoring.md"
     },
     {
       "src": "skills/factory-loop/scripts/FactoryLoop.psm1",

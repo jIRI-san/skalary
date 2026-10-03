@@ -613,7 +613,8 @@ function Invoke-FactoryLoopDemoBuildCheck {
     param(
         [Parameter(Mandatory)][string]$DemoRoot,
         [Parameter(Mandatory)][string]$Branch,
-        [Parameter(Mandatory)][string]$SourceSha
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$BuildLineageId
     )
 
     $root = [System.IO.Path]::GetFullPath($DemoRoot)
@@ -637,6 +638,7 @@ function Invoke-FactoryLoopDemoBuildCheck {
         return [pscustomobject]@{
             status = [string]$acceptance.status
             headSha = $SourceSha
+            buildLineageId = $BuildLineageId
             artifactDigest = $digest
             scenario = [string]$acceptance.scenario
             expected = [string]$acceptance.expected
@@ -776,6 +778,7 @@ function Invoke-FactoryLoopLoopback {
                 $record = [ordered]@{
                     id = 'PR-{0:d4}' -f [int]$state.counters.pullRequest
                     itemId = [string]$Payload.itemId
+                    buildLineageId = "loopback:$($Payload.itemId)"
                     branch = [string]$Payload.branch
                     sourceSha = $sourceSha
                     mergeCommit = $null
@@ -795,7 +798,8 @@ function Invoke-FactoryLoopLoopback {
                 if ($Action -eq 'merge') {
                     if ($Payload.confirmMerge -ne $true) { $status = 'blocked'; $data = @{ reason = 'human-merge-required' }; break }
                     $check = Invoke-FactoryLoopDemoBuildCheck -DemoRoot ([string]$Payload.demoRoot) `
-                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha)
+                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha) `
+                        -BuildLineageId ([string]$record.buildLineageId)
                     if ([string]$record.status -cne 'open' -or
                         [string]$check.status -cne 'passed' -or
                         [string]$Payload.expectedSourceSha -cne [string]$record.sourceSha) {
@@ -815,7 +819,8 @@ function Invoke-FactoryLoopLoopback {
                         break
                     }
                     $check = Invoke-FactoryLoopDemoBuildCheck -DemoRoot ([string]$Payload.demoRoot) `
-                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha)
+                        -Branch ([string]$record.branch) -SourceSha ([string]$record.sourceSha) `
+                        -BuildLineageId ([string]$record.buildLineageId)
                     $status = if ($check.status -eq 'blocked') { 'blocked' } else { 'ok' }
                     $data = @{ checks = $check; pullRequestId = [string]$record.id }
                     break

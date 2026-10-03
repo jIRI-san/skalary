@@ -11,15 +11,23 @@ works from either the repository plugin directory or Copilot CLI's global plugin
 pass `-RepoRoot` explicitly; setup and run state belong to that consumer, never to the global plugin
 payload.
 
-Install the existing `create-implementation-plan` and `continue-implementation` plugins through the
-normal plugin manager when using idea intake, plan admission, or agent implementation. This is an
-explicit local dependency bootstrap; do not copy dependencies into the global plugin directory or
-change other plugins' path rules. Initial work uses ordinary `/ci`.
+Install the existing `create-implementation-plan` plugin through the normal plugin manager for idea
+intake. Factory-loop setup explicitly bootstraps the existing CI plan-baseline modules into the
+selected consumer; do not copy dependencies into the global plugin directory or change other
+plugins' path rules. Initial work uses ordinary `/ci`.
 
 Preview then apply setup using the digest returned by preview. Setup creates only missing paths below
 `.factory-loop/` and `scripts/factory-loop/`, and bootstraps the existing plan-baseline scripts under
-`.github/skills/ci/scripts/`. It preserves consumer edits on rerun and stores no credentials. It does
-not claim live readiness until project-owned commands are configured and their access checks pass.
+`.github/skills/ci/scripts/`. It preserves consumer edits on rerun and stores no credentials. It does not claim live readiness until project-owned commands are configured and their access checks
+pass.
+
+For a failed build with a stable adapter-provided build lineage ID, an operator may invoke the
+existing `/ci` launcher in host mode with `-FactoryRepair -FactoryRepairPhase <phase-number>`.
+Admission revalidates the linked plan's original criteria and confirms the branch still matches the
+failed PR source SHA. The launcher reserves one repair PR and one corrective call before starting;
+limits are two repair PRs per incident and two corrective calls per stable build lineage. Each
+call is a separate operator boundary. It does not merge, advance the chain, or run when identity,
+access, or criteria are inconclusive. Repair may not change criteria or checklist state.
 
 ## Live command contract
 
@@ -43,7 +51,9 @@ must include the requested domain, action, and operation ID. Mutation results mu
 provider object. `ok`, `waiting`, `blocked`, `not-found`, and `failed` are the only valid states.
 Errors, malformed output, unknown operation outcomes, and missing access remain visible stops.
 Mutation commands must query by the same operation ID before a retry and return the same provider
-identity. Never put credential values in configuration or adapter output.
+identity. A failed pull-request check must also provide a stable `data.checks.buildLineageId` that
+survives successor heads and PRs; without it, bounded repair is blocked. Never put credential
+values in configuration or adapter output.
 
 The bundled loopback adapter is local-only. To use live commands, set each command path in the
 project-owned configuration and have the command use the operator's existing authenticated CLI or

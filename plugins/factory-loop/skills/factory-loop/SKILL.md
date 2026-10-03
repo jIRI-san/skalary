@@ -10,8 +10,10 @@ context: fork
 # Factory loop
 
 Use the [operator guide](./assets/operator-guide.md) for setup, live adapter contracts, scheduler
-examples, recovery, and safety limits. Run every command against one explicitly selected repository;
-never infer the consumer from the plugin installation directory.
+examples, recovery, and safety limits. When `/cip` creates a plan for this loop, use the
+[acceptance-authoring guidance](./assets/acceptance-authoring.md) as an optional project-owned
+acceptance contract. Run every command against one explicitly selected repository; never infer the
+consumer from the plugin installation directory.
 
 ## Setup
 
@@ -57,12 +59,14 @@ one chain and invoke one tick:
 .github/skills/factory-loop/scripts/Invoke-FactoryLoopTick.ps1 -RepoRoot .
 ```
 
-The chain start re-runs `Test-PlanCriteriaBaseline`; install `continue-implementation` locally if the
-validator is missing. `Invoke-FactoryLoopTick.ps1` performs one finite deterministic poll. It never
-invokes an agent while waiting. Invoke it again from a personal scheduler or after restart. One active
-chain per project is allowed; a missing, malformed, changed-head, or unidentifiable adapter result
-pauses the chain instead of guessing or retrying a write.
+The chain start re-runs `Test-PlanCriteriaBaseline`; setup bootstraps its local CI dependencies.
+`Invoke-FactoryLoopTick.ps1` performs one finite deterministic poll. It never invokes an agent while
+waiting. Invoke it again from a personal scheduler or after restart. One active chain per project is
+allowed; a missing, malformed, changed-head, or unidentifiable adapter result pauses the chain
+instead of guessing or retrying a write.
 
-Factory repair uses the existing `/ci` launcher only after ordinary initial admission and explicit
-repair authorization. The original criteria baseline is revalidated and cannot be edited by repair.
-Human PR merge and artifact-specific production approval remain required.
+Factory repair uses the existing host-mode `/ci` launcher only after ordinary initial admission and
+explicit repair authorization. Pass `-FactoryRepair -FactoryRepairPhase <phase-number>` for one
+identified failed build. The original criteria baseline is revalidated, repair limits are reserved
+before invocation, and repair cannot edit criteria or checklist state. Human PR merge and
+artifact-specific production approval remain required.

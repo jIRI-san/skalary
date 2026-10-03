@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-03T19:41:13.5694374Z",
+  "generatedAt": "2026-10-03T19:53:32.3691588Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -130,7 +130,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "b4bcea81f13b06023d564e601c910deecdec8766353d3e5a9abcf17f04c950f3",
+          "sha256": "4a528711236fa6d02e92e53ca62381265997cd7cc6bfd0aea4cd4e869af42613",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -295,7 +295,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-host.ps1",
-          "sha256": "9d8437ae64269d50a0c97b830338d3ea729e4ee972388a4bc4e04a678d984d14",
+          "sha256": "4c583ac1b13edb70345fb5838da2f3f94fd8bf5b553826141ae048411859024d",
           "src": "scripts/launch-host.ps1"
         },
         {
@@ -305,7 +305,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "6773fdad72c4501a0b5ad2a87c3e5c778759ce824196875464f49245ffe41da0",
+          "sha256": "975d622b48740bad53822de344eb7cdf558573583f48409c437462f627cddac5",
           "src": "scripts/launch.ps1"
         },
         {
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.25"
+      "version": "1.3.26"
     },
     {
       "author": "jIRI-san",
@@ -800,12 +800,17 @@
       "files": [
         {
           "dest": "skills/factory-loop/SKILL.md",
-          "sha256": "e014d458e102cbb033f599eada64fb606e094896aa2e05ee4637c27d9fe35083",
+          "sha256": "365a5aa5accf0a68b5c6c00f20bddbf453ecff4952e03b1eabc1aff9a0672ba6",
           "src": "skills/factory-loop/SKILL.md"
         },
         {
+          "dest": "skills/factory-loop/assets/acceptance-authoring.md",
+          "sha256": "d326a54fee83333cfe11ac609bbbda6eaccef5f384d03555dbebaccab8f84bb2",
+          "src": "skills/factory-loop/assets/acceptance-authoring.md"
+        },
+        {
           "dest": "skills/factory-loop/assets/operator-guide.md",
-          "sha256": "079a34fe127370b31cb9a378a0029850b86cb218d9690eff91be70846cb0dea7",
+          "sha256": "61468bac5475a158ef9263ae9a3a99ea8b83809c317a24aaf390f639ce92cc27",
           "src": "skills/factory-loop/assets/operator-guide.md"
         },
         {
@@ -825,12 +830,12 @@
         },
         {
           "dest": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1",
-          "sha256": "3228e0eb9f125d4ef1c78b60960edb36d9e5c9614c0d161fc91b4ab40e6c3487",
+          "sha256": "3bf617f32f9275fe80e434f447e3e075f3d196238dfb819ddbac4db218e3c79d",
           "src": "skills/factory-loop/scripts/FactoryLoop.Runtime.psm1"
         },
         {
           "dest": "skills/factory-loop/scripts/FactoryLoop.psm1",
-          "sha256": "4b4b3b7448d8af958e48c18d1c032bdb6dcf45a2145a0aab30bd7c6e3d3e32de",
+          "sha256": "0b05bd46ee613f751bbd9efdcfb80490420d342f733c2781a5f5d06236e27ec1",
           "src": "skills/factory-loop/scripts/FactoryLoop.psm1"
         },
         {
@@ -910,7 +915,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.6"
+      "version": "0.1.7"
     },
     {
       "author": "jIRI-san",

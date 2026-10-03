@@ -67,7 +67,7 @@
   **Stop/escalate when:** an adapter cannot identify/reconcile a mutation; pause unknown outcome instead of retrying blindly.
 
   </details>
-- [ ] 2.2 Connect initial plan confirmation, implementation and build repair (REQ-8, REQ-9, REQ-10, RISK-4) [after: 2.1] `L`
+- [x] 2.2 Connect initial plan confirmation, implementation and build repair (REQ-8, REQ-9, REQ-10, RISK-4) [after: 2.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** an idea routes to /cip, a linked plan is validated, and confirmed work routes to /ci; actual implementation commits and a PR progress through build repair to human merge.
