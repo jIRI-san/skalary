@@ -647,6 +647,16 @@ $script:secret
                 -RequestedScope @('sample.txt'))
         @($results.Status | Select-Object -Unique) | Should -Be @('passed')
 
+        $namespaced = @(Invoke-DirectEvidence -RepoRoot $fixture.Root `
+                -Marker @('test:eval:RCS.AlignmentContract') -TestResult @{
+                    'eval:RCS.AlignmentContract' = [pscustomobject]@{ Status = 'passed' }
+                })
+        $namespaced[0].Success | Should -BeTrue
+        {
+            Invoke-DirectEvidence -RepoRoot $fixture.Root `
+                -Marker @('test:eval::RCS.AlignmentContract')
+        } | Should -Throw '*Unsupported direct evidence marker*'
+
         $failed = @(Invoke-DirectEvidence -RepoRoot $fixture.Root -Marker @(
                     'test:Direct.Fail', 'file:missing.txt#exists', 'review:dr'
                 ) -TestResult @{ 'Direct.Fail' = $false } -ActiveReviewResult $review `

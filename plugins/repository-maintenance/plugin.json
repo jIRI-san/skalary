@@ -1,0 +1,42 @@
+{
+  "name": "repository-maintenance",
+  "version": "1.0.3",
+  "description": "Operator-controlled repository survey, drift, dead-code, and improvement proposals.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "repository-maintenance",
+    "review",
+    "skill"
+  ],
+  "dependencies": [],
+  "status": "stable",
+  "files": [
+    { "src": "skills/rcs/SKILL.md", "dest": "skills/rcs/SKILL.md" },
+    { "src": "skills/rcs/assets/audit-guide.md", "dest": "skills/rcs/assets/audit-guide.md" },
+    { "src": "skills/rcs/assets/decision-guide.md", "dest": "skills/rcs/assets/decision-guide.md" },
+    { "src": "skills/rcs/assets/record-template.md", "dest": "skills/rcs/assets/record-template.md" },
+    { "src": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1", "dest": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1" },
+    { "src": "skills/rcs/scripts/Get-PlanIndex.ps1", "dest": "skills/rcs/scripts/Get-PlanIndex.ps1" },
+    { "src": "skills/rcs/scripts/Get-PlanState.ps1", "dest": "skills/rcs/scripts/Get-PlanState.ps1" },
+    { "src": "skills/rcs/scripts/Get-DirectPlanArtifactConsumerContext.ps1", "dest": "skills/rcs/scripts/Get-DirectPlanArtifactConsumerContext.ps1" },
+    { "src": "skills/rcs/scripts/Archive-Epic.ps1", "dest": "skills/rcs/scripts/Archive-Epic.ps1" },
+    { "src": "skills/rcs/scripts/New-Epic.ps1", "dest": "skills/rcs/scripts/New-Epic.ps1" },
+    { "src": "skills/rcs/scripts/PlanState.psm1", "dest": "skills/rcs/scripts/PlanState.psm1" },
+    { "src": "skills/rcs/scripts/DirectWorkflow.psm1", "dest": "skills/rcs/scripts/DirectWorkflow.psm1" },
+    { "src": "skills/rcs/scripts/SecretGuard.psm1", "dest": "skills/rcs/scripts/SecretGuard.psm1" }
+  ],
+  "scaffolds": [
+    {
+      "path": "docs/repository-maintenance.md",
+      "mode": "literal",
+      "owner": "repository-maintenance",
+      "trigger": "First successful findings publication"
+    }
+  ],
+  "evals": {
+    "path": "evals/",
+    "status": "none",
+    "lastRun": null
+  }
+}

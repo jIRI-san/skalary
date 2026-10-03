@@ -84,6 +84,15 @@ $repoOwnedOptionalInputs = @{
         [string[]]@('docs/review-standards.md', 'docs/operator-guide'),
         [System.StringComparer]::OrdinalIgnoreCase
     )
+    'repository-maintenance' = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@(
+            'docs/design-notes/.design-notes.md',
+            'docs/architecture-notes/.architecture-notes.md',
+            'docs/implementation-plans',
+            'docs/review-standards.md'
+        ),
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
 }
 
 function Test-RepoOwnedOptionalInput {

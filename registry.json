@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-12T15:55:27.6226987Z",
+  "generatedAt": "2026-10-03T19:23:19.3359839Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -205,7 +205,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
         },
         {
@@ -346,7 +346,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.25"
+      "version": "1.3.26"
     },
     {
       "author": "jIRI-san",
@@ -383,7 +383,7 @@
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/cr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -410,7 +410,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.84"
+      "version": "1.0.85"
     },
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -478,7 +478,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.121"
+      "version": "1.0.122"
     },
     {
       "author": "jIRI-san",
@@ -517,7 +517,7 @@
         },
         {
           "dest": "skills/cep/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/cep/scripts/DirectWorkflow.psm1"
         },
         {
@@ -592,7 +592,7 @@
         },
         {
           "dest": "skills/cip/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/cip/scripts/DirectWorkflow.psm1"
         },
         {
@@ -654,7 +654,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.106"
+      "version": "1.0.107"
     },
     {
       "author": "jIRI-san",
@@ -761,7 +761,7 @@
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
-          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
           "src": "skills/dr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -788,7 +788,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.85"
+      "version": "1.0.86"
     },
     {
       "author": "jIRI-san",
@@ -913,6 +913,98 @@
         "skill"
       ],
       "version": "1.0.2"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Operator-controlled repository survey, drift, dead-code, and improvement proposals.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/rcs/SKILL.md",
+          "sha256": "be91487f95ab9cc94a8f23936060434fc4b1a4b8fb7886bad421b3586a69d8ff",
+          "src": "skills/rcs/SKILL.md"
+        },
+        {
+          "dest": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1",
+          "sha256": "35b805e68f0b9884f125bbd3ca7d2a35360a12253670ca8c754c4b48b0f42d2f",
+          "src": "skills/rcs/Write-RepositoryMaintenanceRecord.ps1"
+        },
+        {
+          "dest": "skills/rcs/assets/audit-guide.md",
+          "sha256": "caa9178b1ea446c6fd6b63a13250f225056e4cc9af41c6f95cc75aa0b1dafe77",
+          "src": "skills/rcs/assets/audit-guide.md"
+        },
+        {
+          "dest": "skills/rcs/assets/decision-guide.md",
+          "sha256": "16449e703b562751ddebc53ff0abbb64e0fa261c79b7d233012079ef93f72d78",
+          "src": "skills/rcs/assets/decision-guide.md"
+        },
+        {
+          "dest": "skills/rcs/assets/record-template.md",
+          "sha256": "b5dcd1395416cc1a7a681a7aea35f072e6b47aaaee70d94b85a83b1de57986e2",
+          "src": "skills/rcs/assets/record-template.md"
+        },
+        {
+          "dest": "skills/rcs/scripts/Archive-Epic.ps1",
+          "sha256": "380e3f8359bd73845420e59f26277b4cd8df25cd6c754c9f62830d0838d44b52",
+          "src": "skills/rcs/scripts/Archive-Epic.ps1"
+        },
+        {
+          "dest": "skills/rcs/scripts/DirectWorkflow.psm1",
+          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "src": "skills/rcs/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/rcs/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
+          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "src": "skills/rcs/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
+        },
+        {
+          "dest": "skills/rcs/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/rcs/scripts/Get-PlanIndex.ps1"
+        },
+        {
+          "dest": "skills/rcs/scripts/Get-PlanState.ps1",
+          "sha256": "139b36bf0e37bc41654fca513cd27bb9badb7bc01284ebc5125c17386583a499",
+          "src": "skills/rcs/scripts/Get-PlanState.ps1"
+        },
+        {
+          "dest": "skills/rcs/scripts/New-Epic.ps1",
+          "sha256": "54b65572e3145f51b61005a4c117313626ef287c90724231a61af421d9200214",
+          "src": "skills/rcs/scripts/New-Epic.ps1"
+        },
+        {
+          "dest": "skills/rcs/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/rcs/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/rcs/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/rcs/scripts/SecretGuard.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "repository-maintenance",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "repository-maintenance",
+          "path": "docs/repository-maintenance.md",
+          "trigger": "First successful findings publication"
+        }
+      ],
+      "status": "stable",
+      "tags": [
+        "repository-maintenance",
+        "review",
+        "skill"
+      ],
+      "version": "1.0.3"
     },
     {
       "author": "jIRI-san",

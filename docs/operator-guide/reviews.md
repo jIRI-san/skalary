@@ -5,6 +5,21 @@ active contracts are the [`CR skill`](../../plugins/code-review/skills/cr/SKILL.
 [`DR skill`](../../plugins/design-review/skills/dr/SKILL.md), and
 [review-reporting design](../design-notes/architecture/review-reporting.design.md).
 
+## Repository maintenance
+
+Use `/rcs` for a repository-wide structural survey with risk-selected deep traces. It compares
+relevant human expectations and current code, proposes architecture/design and coding-standard
+improvements, and investigates dead-code candidates through supported entry points. It records
+citations, uncertainty, coverage gaps, and explicit scoped operator decisions in
+[`docs/repository-maintenance.md`](../repository-maintenance.md). The record is advisory; it is not
+an architecture standard, completion gate, or current review proof.
+
+`/rcs` does not fix or delete code. Corrective work goes through `/cip` and its normal confirmation
+gates. Plan archival is a separate explicit action after the existing completion checks. No-reference
+alone does not prove dead code; manual tools, exported APIs, indirect registrations, generated copies,
+and possible external callers matter. The full docs/reference sweep, dependency/security audit, broad
+suite, and premium eval remain separate requests.
+
 ## Entry points and cadence
 
 | Entry | Scope | Output |

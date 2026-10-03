@@ -14,6 +14,7 @@ sources of truth; links below point to them.
 | Create or repair one confirmed plan | `/cip` | [Planning](planning.md) |
 | Continue a plan interactively or choose autonomous execution | `/ci` | [Implementation](implementation.md) |
 | Review code or a design | `/cr` or `/dr` | [Reviews](reviews.md) |
+| Survey repository quality and preserve scoped maintenance decisions | `/rcs` | [Reviews](reviews.md#repository-maintenance) |
 | Discover configuration sources and safe change previews | `/skalary-config` | [Configuration](configuration.md) |
 
 ## Artifact catalog
@@ -36,6 +37,7 @@ what wins when prose and executable state disagree.
 | AI design notes | Implementer/design-note flow | [`docs/design-notes/`](../design-notes/) | Updated with implementation; conditionally compacted at whole-plan finalization | [Design-note index](../design-notes/.design-notes.md) | Agents working in matching scope |
 | Local review standards | Repository operator | `docs/review-standards.md`, when present | Optional bounded Markdown; editable local policy | Base review guards plus [`Resolve-DirectReviewStandards`](../../scripts/skalary/DirectWorkflow.psm1) | CR and DR |
 | Phase/final review report | CR or DR orchestrator | `assets/reviews/phase-<N>.md` or `assets/reviews/final.md` | Replaced only after changed-scope correction; advisory history | Active in-memory review result for evidence; report for history | Operator and historical-context adapter |
+| Repository maintenance record | `/rcs` | [`docs/repository-maintenance.md`](../repository-maintenance.md) | Fixed advisory record; preserves cited findings and explicit scoped decisions | Current source, confirmed criteria, architecture contracts, and existing completion gates | Operator and later `/rcs` |
 | Current evidence | `/ci` or autopilot | Current command result, current file, active in-memory review | Exists only for the active crosscheck | [`Invoke-DirectEvidence`](../../scripts/skalary/DirectWorkflow.psm1) inputs | Phase/plan close |
 | Recent-learning handoff | `/ci` or autopilot | [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) | Atomically replaced after successful whole-plan source commit; never appended | [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1) validation | `/si` |
 | Autonomous configuration | Operator and `/ci` | `.autopilot.json`; optional `.autopilot.host.json` | Host-local, validated before launch; not plan criteria | [Autopilot schemas](../../plugins/autopilot/schemas/) and launcher | Autopilot launcher |

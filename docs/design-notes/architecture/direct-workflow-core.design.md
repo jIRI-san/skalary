@@ -20,7 +20,7 @@ archive move are artifacts, not duplicate plan identities.
 |---|---|
 | `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker across active and archived plan paths, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions by Git-filtered blob identity. |
 | `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
-| `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. |
+| `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. Test IDs may include colon-delimited namespaces (for example `test:eval:RCS.AlignmentContract`); the full ID after `test:` must match a live supplied result. |
 | `Resolve-DirectReviewStandards` | Parses optional bounded local Markdown against caller-supplied base rules. |
 | `ConvertTo-UntrustedReviewBlock` | Redacts high-confidence secrets and applies collision-safe framing. |
 | `Get-DesignNoteCompactionContext.ps1` | Requires the canonical repository root, then uses Git paths and the active index to trigger finalization and batch candidates at five maximum. |

@@ -22,7 +22,7 @@
 ## Phase 1: Usable repository survey and drift report
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 1.1 Resolve review integration and wire installed discovery (REQ-1, REQ-2, REQ-11, RISK-1, RISK-2) `M`
+- [x] 1.1 Resolve review integration and wire installed discovery (REQ-1, REQ-2, REQ-11, RISK-1, RISK-2) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the new `repository-maintenance` plugin exposes `/rcs` and can discover plan/epic state, relevant human sources, repository subsystems, standards, and the existing maintenance record in a foreign consumer repository.
@@ -36,7 +36,7 @@
   **Stop/escalate when:** current inventory/intake helpers are absent or incompatible, or needed historical context cannot be established within the bounded intake. Missing enhanced snippets alone are a coverage limitation, not an integration blocker; do not merge another session's branch or invent a replacement index.
 
   </details>
-- [ ] 1.2 Deliver the survey-to-evidence-to-record MVP (REQ-1, REQ-2, REQ-3, REQ-7, REQ-8, REQ-11, RISK-2, RISK-3, RISK-6) [after: 1.1] `L`
+- [x] 1.2 Deliver the survey-to-evidence-to-record MVP (REQ-1, REQ-2, REQ-3, REQ-7, REQ-8, REQ-11, RISK-2, RISK-3, RISK-6) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `/rcs` produces a repository-wide structural survey, selects concrete drift traces, and saves cited findings and explicit coverage to `docs/repository-maintenance.md` without editing implementation or source criteria.
@@ -54,7 +54,7 @@
 ## Phase 2: Full quality recommendations and operator actions
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Add codebase design/architecture, coding-standard, and dead-code proposals (REQ-4, REQ-5, REQ-7, REQ-11, RISK-3, RISK-4) [after: 1.2] `L`
+- [x] 2.1 Add codebase design/architecture, coding-standard, and dead-code proposals (REQ-4, REQ-5, REQ-7, REQ-11, RISK-3, RISK-4) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the same survey includes architecture/design improvement opportunities and coding-standard drift beyond individual plans, plus evidence-led dead-code removal candidates.
@@ -68,7 +68,7 @@
   **Stop/escalate when:** removal could affect a supported entry point or external contract whose use cannot be established; report an uncertain candidate rather than recommend unconditional deletion.
 
   </details>
-- [ ] 2.2 Wire dispositions, plan reuse, and approval-gated archive handoffs (REQ-6, REQ-8, REQ-9, REQ-10, REQ-11, RISK-4, RISK-5, RISK-7) [after: 2.1] `L`
+- [x] 2.2 Wire dispositions, plan reuse, and approval-gated archive handoffs (REQ-6, REQ-8, REQ-9, REQ-10, REQ-11, RISK-4, RISK-5, RISK-7) [after: 2.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the operator can accept scoped intentional drift, record "won't fix," or choose a corrective implementation plan for any applicable finding, including dead code and architecture/design proposals; implemented plans receive separate archival choices.
@@ -86,7 +86,7 @@
 ## Phase 3: Shippable consumer experience
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 3.1 Document the complete workflow and add focused behavioral coverage (REQ-1, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-12, RISK-6, RISK-8) [after: 2.2] `M`
+- [x] 3.1 Document the complete workflow and add focused behavioral coverage (REQ-1, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-12, RISK-6, RISK-8) [after: 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** operator documentation explains audit coverage, report limits, decisions, corrective planning, archival, dead-code uncertainty, and the separate docs/reference sweep; focused tests cover the delivered helper and installed instructions.

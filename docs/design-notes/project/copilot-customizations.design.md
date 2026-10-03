@@ -19,6 +19,7 @@ and excluded from design-note compaction.
 | `/cip` | Decision-ready planning, mandatory pre-confirmation two-model review, operator-selected current-plan edits, criteria confirmation |
 | `/ci`, autopilot | Git criteria baseline, direct evidence, bounded native roles, one terminal review |
 | `/cr`, `/dr` | Risk-selected read-only review and advisory Markdown |
+| `/rcs` | Repository-wide survey, risk-selected drift/dead-code/design traces, advisory record, and explicit handoffs |
 | `/pfb`, `/si` | Optional feedback and bounded recent-learning intake |
 | `/can`, `/uan` | Architecture-note creation and maintenance |
 
