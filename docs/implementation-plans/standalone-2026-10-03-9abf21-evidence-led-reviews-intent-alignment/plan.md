@@ -1,7 +1,7 @@
 # 9abf21: Evidence-led reviews and intent alignment
 <!-- plan-id: 9abf21 -->
 <!-- cip-stage: drafted -->
-<!-- planning-confirmed: sha256:748a9162a453076f2b1f26fb565a5840381ec6c2a945b5d1e3a6bac18ab4d29f -->
+<!-- planning-confirmed: sha256:5833a7328d3cacfc6f4a733e2daeb1da123a0c3b777dc0cd327726de4418e168 -->
 <!-- execution-mode: manual -->
 <!-- scope: plan -->
 <!-- evidence: required -->
@@ -25,13 +25,13 @@
 - [x] 1.1 Capture meaningful intent and bounded historical conflicts before drafting (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2) `L`
   <details><summary>Implementation contract</summary>
 
-  **Outcome:** `/cep` and `/cip` expose consequential ambiguity before decomposition/design, preserve selected OP wording and confirmed interpretations, and reconcile relevant prior intent. Existing `intent.md` and `design.md` provide the capture and lightweight RFC.
+  **Outcome:** `/cep` and `/cip` expose consequential ambiguity before decomposition/design, preserve selected operator wording and confirmed interpretations, and reconcile relevant prior intent. Existing `intent.md` and `design.md` provide the capture and lightweight RFC.
 
   **Likely touchpoints:** planning skills and shared decision protocol; canonical `New-Plan.ps1`, existing epic scaffold/inventory, `Get-PlanIndex.ps1` and bounded historical reader; `PlanIndex.Tests.ps1`, `PlanIntent.Tests.ps1`, `PlanningContext.Tests.ps1`; planning/operator notes.
 
   **Constraints:** preserve five intent sections for child/standalone plans. CEP uses existing epic.md Goal/Decomposition notes, not new assets; child CIP carries only relevant inherited intent with provenance. Discover active/archived plan and epic intent through existing inventory. Candidate records identify kind, ID, path, archive status, matched section and at most three 240-character snippets per artifact; missing context stays explicit. Extend the bounded reader locally for selected epic intent, retaining confinement, secret screening and three-artifact total. No persistent index, interview engine or reviewer call.
 
-  **Verify:** named `test:IntentAlignment.Planning`, `test:IntentAlignment.History` cases, focused scaffold/context regressions and selected planning structural cases. Fixtures include ambiguity, bounded discretion, changed OP intent, irrelevant old preference and intent-only historical match.
+  **Verify:** named `test:IntentAlignment.Planning`, `test:IntentAlignment.History` cases, focused scaffold/context regressions and selected planning structural cases. Fixtures include ambiguity, bounded discretion, changed operator intent, irrelevant old preference and intent-only historical match.
 
   **Stop/escalate when:** resolving history would change an active contract or another plan's dependency, or provenance needs a new storage authority.
 
@@ -40,13 +40,13 @@
 - [x] 1.2 Carry alignment into existing draft review and implementation stops (REQ-4, REQ-5, REQ-10, RISK-1, RISK-3) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
-  **Outcome:** existing pre-confirmation review checks OP-to-draft drift; `/ci` and autopilot distinguish authorized choices from newly exposed intent decisions. A material unresolved choice preserves progress and uses operator-action stop 42. CIP corrects the affected existing criteria and uses existing reconfirmation/baseline handling before CI resumes; no full redraft.
+  **Outcome:** existing pre-confirmation review checks operator-to-draft drift; `/ci` and autopilot distinguish authorized choices from newly exposed intent decisions. A material unresolved choice preserves progress and uses operator-action stop 42. CIP corrects the affected existing criteria and uses existing reconfirmation/baseline handling before CI resumes; no full redraft.
 
   **Likely touchpoints:** `pre-confirmation-review.md`, DR caller role, CI/autopilot instructions and agent, baseline/context tests, direct-workflow contract, planning/review/autopilot notes and operator guides.
 
   **Constraints:** retain two pre-confirmation calls, standalone routing and three-call ceiling. Alignment questions are distinct from technical defects. Do not reopen resolved decisions without new evidence or bypass the Git baseline.
 
-  **Verify:** `test:IntentAlignment.Handoff` and selected consumer/baseline tests cover OP wording versus agent summary, draft scope inflation, authorized discretion and runtime uncertainty. Publish this usable slice through canonical script sync, registry/marketplace generation and dogfood sync; verify installed consumers.
+  **Verify:** `test:IntentAlignment.Handoff` and selected consumer/baseline tests cover operator wording versus agent summary, draft scope inflation, authorized discretion and runtime uncertainty. Publish this usable slice through canonical script sync, registry/marketplace generation and dogfood sync; verify installed consumers.
 
   **Stop/escalate when:** the change needs another marker, lifecycle, mandatory call or blanket re-confirmation.
 
@@ -63,7 +63,7 @@
 
   **Constraints:** valid static traces remain evidence; reproduction is preferred where cheap, not universally required. Group duplicate root causes. Keep defects, alignment questions and optional advice distinct without changing verdict vocabulary. Retain read-only/security guards, aliases, risk selection and budgets.
 
-  **Verify:** `test:ReviewQuality.Evidence` covers trigger/path/impact, a guard invalidating a candidate, valid static evidence, incomplete review and an OP-authorized exception. Reuse report-contract tests; no automatic full rerun.
+  **Verify:** `test:ReviewQuality.Evidence` covers trigger/path/impact, a guard invalidating a candidate, valid static evidence, incomplete review and an operator-authorized exception. Reuse report-contract tests; no automatic full rerun.
 
   </details>
 
@@ -117,7 +117,7 @@
 
   **Likely touchpoints:** affected Waza tasks/fixtures, per-plugin convention tests, `WazaCreditPolicy.Tests.ps1`; existing reports.
 
-  **Constraints:** map every task ID and required topic in the existing plugin-evals note; revise/replace weak existing cases before adding more, with no uncatalogued extras in the five suites. Keep unrelated plugin/global policy counts separate. Deterministic semantic checks where possible; keywords alone cannot prove diagnosis. Use established subjective graders only where needed, with rubrics calibrated against reviewed expected answers. Mock web/OP interaction where supported; no live-page dependence or new harness.
+  **Constraints:** map every task ID and required topic in the existing plugin-evals note; revise/replace weak existing cases before adding more, with no uncatalogued extras in the five suites. Keep unrelated plugin/global policy counts separate. Deterministic semantic checks where possible; keywords alone cannot prove diagnosis. Use established subjective graders only where needed, with rubrics calibrated against reviewed expected answers. Mock web/operator interaction where supported; no live-page dependence or new harness.
 
   **Verify:** `test:ReviewQuality.EvalCoverage` checks count, positive/negative balance, grader shape and outcome assertions. Cover ambiguity, intentional openness, history conflict/false conflict, draft drift, runtime escalation, cross-file defect, guarded non-defect, local exception, version mismatch, injection and missing context.
 
@@ -127,21 +127,27 @@
 
 ## Phase 4: Operator-controlled evaluation and finalization
 
-- [~] 4.1 Select a bounded paid comparison or explicitly defer it (REQ-9, RISK-8) [after: 3.2] @human `S`
+- [x] 4.1 Select a bounded paid comparison or explicitly defer it (REQ-9, RISK-8) [after: 3.2] @human `S`
   <details><summary>Paid-eval decision</summary>
 
-  **Steps:**
-  1. Inspect selected deterministic results and proposed exact plugin/case/trial selections, baseline/candidate revisions, estimated cost and latency.
-  2. Approve a bounded comparison, approve one broader local final run if justified, or defer. This step does not pre-authorize spending.
-  3. If approved, execute direct local Waza commands with existing auth/isolation. Compare valid findings, known defects missed, false findings, question quality, available costs/credits and latency in existing reports. Identify unavailable metrics.
+  **Operator decision:** The operator explicitly approved the bounded four-trial baseline/candidate
+  comparison on 2026-10-03. Approval covers only the exact revisions, cases, and invocations
+  below; no retries, broader catalog run, or adversarial pack is authorized.
 
-  **Verify:** record the OP decision in this step's progress details. Executed comparisons identify exact cases/revisions and observed results. Deferral completes this decision, not proof of improved quality.
+  **Steps:**
+  1. Baseline `85d744ef` versus candidate `fce72c6d`; run `cip/push-back-on-vague-scope` and `cr/classify-legitimate-policy` on each revision using `-Case <id> -Quick`, four invocations total.
+  2. Estimated cost: about seven premium requests; latency up to about 20 minutes at configured task timeouts, plus startup. No local dollar-per-request rate is available.
+  3. Execute only these direct local Waza commands with existing auth/isolation. Compare rubric outcomes, false findings, question quality, available credits/cost and latency; identify unavailable metrics.
+
+  **Verify:** record the operator decision in this step's progress details. Executed comparisons identify exact cases/revisions and observed results. Deferral completes this decision, not proof of improved quality.
+
+  **Observed comparison (2026-10-03):** all four authorized single-trial invocations completed, with no retries or adversarial runs. Baseline `85d744ef`: CIP `push-back-on-vague-scope` passed (1.00; 13.973 s), CR `classify-legitimate-policy` passed (1.00; 21.467 s). Candidate `fce72c6d`: CIP failed (0.50; 27.160 s); its rubric reported a multi-option questionnaire instead of one focused clarifying question. CR passed (1.00; 20.804 s). This narrow sample does not establish an overall quality gain. The runner estimated about three premium requests per invocation (~12 total), versus the ~7 pre-run estimate; result JSON contains no actual dollar/credit cost. The four recorded task durations sum to 83.404 s; wall-clock execution including starts was longer.
 
   **Rollback:** cancel an unstarted run or stop its specific launched process if required; incurred credits cannot be recovered. Retain reports and expose partial execution.
 
   </details>
 
-- [ ] 4.2 Finalize with scoped evidence and one whole-plan review (REQ-3, REQ-9, REQ-10, RISK-7) [after: 4.1] `M`
+- [~] 4.2 Finalize with scoped evidence and one whole-plan review (REQ-3, REQ-9, REQ-10, RISK-7) [after: 4.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** shipped skills, focused commands, scenarios and guidance form one understandable workflow. Compare delivery with original confirmed intent; explain deviations without rewriting it.
@@ -151,5 +157,7 @@
   **Constraints:** no automatic broad/premium run or GitHub CI. Update notes alongside each slice. Existing conditional compaction and terminal review run once, then normal completion/learning/archive flow. No measured-improvement claim when comparison is deferred.
 
   **Verify:** named deterministic cases pass in selected runs; installed output matches canonical payloads; `review:cr` covers implementation scope. Pending required alignment or technical work cannot be clean.
+
+  **Finalization notes:** the approved comparison's candidate CIP failure remains visible and was not retried because approval covered exactly four trials. It exposed a real questionnaire behavior: for broad, under-specified requests, CIP now asks the single highest-leverage missing question first instead of presenting a scope menu/checklist; after canonical synchronization, PlanIntent (6), CIP structural evals (4), consumer-install (6), Waza catalog coverage (4), registry and plan validation pass, and plugin/marketplace/dogfood/model-binding drift checks are clean. The bounded 12-file CR-associated test run reported 120 passed and 18 failures in existing Epic tests/setup outside the changed behavior; the new Epic-intent test and directly affected tests passed. The post-fix behavior was not measured by another paid trial, and no improvement claim is made from the four-trial sample. The five changed active design notes were reviewed as one batch; no cross-note merge or deletion was warranted. The read-only design-note inventory helper was inadvertently invoked four times rather than once; repeated invocations made no repository edits. **Operator disposition (exact selection):** “Replace non-quoted OP with operator and reconfirm the terminology-only change (Recommended).” The terminology-only wording has been updated across mutable progress, confirmed plan prose, implementation surfaces, and directly coupled fixtures/tests; cited quotations and captured source evidence remain verbatim, and intent, requirements, decisions, risks, scope, and budgets are unchanged. The existing planning-confirmed marker will be refreshed by the confirmation writer; no new marker or full redraft is needed. The terminal whole-plan `review:cr` report must be replaced after this corrective source change.
 
   </details>

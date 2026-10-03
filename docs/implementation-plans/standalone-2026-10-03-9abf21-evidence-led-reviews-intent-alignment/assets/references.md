@@ -2,7 +2,7 @@
 
 ## Current authority and implementation
 
-- OP conversation, 2026-10-03, this planning session: research, alignment, historical comparison and explicit focused/local-only validation decisions. Selected wording is in intent.md.
+- Operator conversation, 2026-10-03, this planning session: research, alignment, historical comparison and explicit focused/local-only validation decisions. Selected wording is in intent.md.
 - `docs/design-notes/project/simplicity-first.design.md`
 - `docs/architecture-notes/arch-direct-workflow.md` and `arch-eval-gate-separation.md`
 - `docs/design-notes/architecture/{plan-workflow,review-reporting,plugin-evals,plugin-registry}.design.md`
