@@ -13,6 +13,11 @@ and is excluded from design-note compaction.
 
 ## Planning
 
+`/ws` may provide one selected prototype as draft input. CIP verifies the selected branch, worktree,
+and commit, stops on mismatch for an operator decision, reconfirms intent, and plans remaining
+production work. A workshop's sketches and checks never become confirmed criteria or completed
+steps; see [workshop.design.md](workshop.design.md).
+
 `/cep` keeps epics as indexes of sibling plans. `/cip` confirms intent, requirements, risks, and
 decisions before writing `planning-confirmed`. After the complete draft, it performs one mandatory
 `secondary-model-high`/high read-only design review and one `primary-model-high`/high applicability pass

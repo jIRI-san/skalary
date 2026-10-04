@@ -1,0 +1,20 @@
+name: factory-loop
+description: Tier-2 opt-in evals for confirmed-plan admission and bounded repair behavior.
+skill: factory-loop
+schemaVersion: "1.2"
+version: "1.0"
+
+config:
+  executor: copilot-sdk
+  model: gpt-5.6-luna
+  judge_model: gpt-5.6-terra
+  trials_per_task: 1
+  timeout_seconds: 300
+  parallel: false
+  skill_directories:
+    - ../../skills
+
+tasks:
+  - tasks/*.yaml
+
+# Describe-only cases. They never run project scripts, adapters, deployments, or work-item writes.

@@ -1,0 +1,24 @@
+id: require-confirmed-plan
+name: Requires initial plan confirmation before implementation admission
+# ai-credit-disposition: deterministic
+description: >
+  Check that the agent preserves the initial human confirmation boundary, routes new ideas through
+  /cip, and only admits implementation through ordinary /ci after confirmation.
+tags:
+  - functional
+inputs:
+  prompt: |
+    A project asks you to start a factory-loop chain from a newly drafted plan. The plan has not
+    been confirmed by a human. Describe the next actions you would take. Do not run tools, invoke
+    scripts, edit files, or start implementation.
+  follow_up_prompts:
+    - "State the exact initial confirmation gate and which workflow owns planning versus implementation."
+graders:
+  - type: text
+    name: states_confirmation_and_workflow_boundary
+    config:
+      regex_match:
+        - "(?i)confirm|confirmation"
+        - "(?i)(/cip|create-implementation-plan)"
+        - "(?i)(/ci|continue-implementation)"
+        - "(?i)(before|after).{0,60}(implementation|admission)"

@@ -106,6 +106,10 @@ dogfood directly. CI/autopilot bundle `Write-RecentLearning.ps1` and scaffold it
 depending on SI; SI owns the bounded reader and interactive source-edit workflow. npm aliases are
 dogfood-only.
 
+The workshop is an instruction-first plugin with no runtime scripts or plugin dependencies. Its skill
+and host-specific worktree guidance are explicit `files[]` payloads; the installer does not create
+prototype worktrees or carry workshop state.
+
 After a payload or manifest change, run in order:
 `Sync-PluginScripts.ps1`, `Build-Registry.ps1`, `Build-Marketplace.ps1`, then `Sync-Dogfood.ps1`.
 `Test-Registry.ps1` plus detect-only bundle, marketplace, and dogfood modes verify manifest mappings,

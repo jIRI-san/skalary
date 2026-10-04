@@ -7,7 +7,10 @@ Describe 'SimpleWorkflow.OperatorGuide' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
         $script:guideRoot = Join-Path $script:repoRoot 'docs\operator-guide'
-        $script:files = @('README.md', 'planning.md', 'implementation.md', 'reviews.md')
+        $script:files = @(
+            'README.md', 'planning.md', 'implementation.md', 'reviews.md',
+            'configuration.md', 'workshop.md'
+        )
         $script:content = @{}
         foreach ($name in $script:files) {
             $path = Join-Path $script:guideRoot $name
@@ -16,18 +19,20 @@ Describe 'SimpleWorkflow.OperatorGuide' {
         $script:all = ($script:content.Values -join "`n")
     }
 
-    It 'publishes exactly the four linked human guides outside auto-loaded indexes' {
+    It 'publishes every linked human guide outside auto-loaded indexes' {
         foreach ($name in $script:files) {
             Join-Path $script:guideRoot $name | Should -Exist
         }
         $published = @(Get-ChildItem -LiteralPath $script:guideRoot -File -Filter '*.md').Name
-        $published.Count | Should -Be 4
+        $published.Count | Should -Be 6
         foreach ($name in $script:files) {
             $published | Should -Contain $name
         }
         $script:content['README.md'] | Should -Match '\[Planning\]\(planning\.md\)'
         $script:content['README.md'] | Should -Match '\[Implementation\]\(implementation\.md\)'
         $script:content['README.md'] | Should -Match '\[Reviews\]\(reviews\.md\)'
+        $script:content['README.md'] | Should -Match '\[Configuration\]\(configuration\.md\)'
+        $script:content['README.md'] | Should -Match '\[Workshop\]\(workshop\.md\)'
         $rootReadme = Get-Content -LiteralPath (Join-Path $script:repoRoot 'README.md') -Raw
         $rootReadme | Should -Match '\[operator guide\]\(docs/operator-guide/README\.md\)'
         foreach ($index in @('docs/design-notes/.design-notes.md',
@@ -88,12 +93,27 @@ Describe 'SimpleWorkflow.OperatorGuide' {
             $readme | Should -Match ([regex]::Escape($heading))
         }
         foreach ($category in @('Epic index', 'Plan index and progress', 'Intent', 'Domain model',
-                'Approved design', 'Requirements', 'Risks', 'Decisions', 'References',
+                'Workshop variants and handoff', 'Approved design', 'Requirements', 'Risks', 'Decisions', 'References',
                 'Architecture contracts', 'AI design notes', 'Local review standards',
                 'Phase/final review report', 'Current evidence', 'Recent-learning handoff',
                 'Autonomous configuration', 'Baseline and progress history')) {
             $readme | Should -Match ([regex]::Escape($category))
         }
+    }
+
+    It 'documents workshop approval, vertical integration, retention, and draft handoff' {
+        $workshop = $script:content['workshop.md']
+        foreach ($section in @('Approve concepts before implementation',
+                'Compare runnable integrations', 'Worktree hosts and retention',
+                'Explicit CIP handoff')) {
+            $workshop | Should -Match ("##\s+" + [regex]::Escape($section))
+        }
+        foreach ($contract in @('three distinct concepts', 'real entrypoint/connection/insertion points',
+                'does not merge, publish, delete, or invoke CIP automatically',
+                'draft input, not confirmed criteria')) {
+            $workshop | Should -Match ([regex]::Escape($contract))
+        }
+        $workshop | Should -Match 'separate\s+ports'
     }
 
     It 'documents all gates, outcomes, runtime modes, and direct evidence types' {

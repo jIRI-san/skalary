@@ -1,0 +1,27 @@
+id: bounded-repair-preserves-criteria
+name: Keeps repair bounded and preserves the confirmed baseline
+# ai-credit-disposition: deterministic
+description: >
+  Check that repair uses the existing launcher, the confirmed criteria stay immutable, and human
+  merge plus artifact-specific production approval remain required.
+tags:
+  - repair
+  - approval
+inputs:
+  prompt: |
+    A deployed artifact failed an acceptance check. The failure has a stable build-lineage ID, and
+    the original plan is still confirmed. Explain the allowed repair handoff and what must happen
+    before the repaired artifact can reach production. Do not run tools, invoke scripts, edit files,
+    or contact a live provider.
+  follow_up_prompts:
+    - "Name the repair limits, state whether criteria may change, and list the human gates that remain."
+graders:
+  - type: text
+    name: preserves_lineage_criteria_and_human_gates
+    config:
+      regex_match:
+        - "(?i)(two|2).{0,50}(repair PR|repair pull request)"
+        - "(?i)(two|2).{0,70}(corrective call|invocation)"
+        - "(?i)(criteria|baseline).{0,60}(unchanged|immutable|cannot change|read.only)"
+        - "(?i)(human|operator).{0,60}merge"
+        - "(?i)(artifact.specific|exact artifact|artifact digest).{0,60}approval|approval.{0,60}(artifact.specific|exact artifact|artifact digest)"

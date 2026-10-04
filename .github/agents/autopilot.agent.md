@@ -9,6 +9,14 @@ Resolve the selected plan and run installed sibling `DirectWorkflow.psm1`
 `Test-PlanCriteriaBaseline` before every mutation and completion resume. Refuse changed, uncommitted, or
 ambiguous intent, requirements, risks, or decisions with exit `42`; progress markers remain mutable.
 
+When `FACTORY_LOOP_REPAIR_MODE=true`, the existing launcher has admitted one corrective call for
+the supplied incident and stable build lineage. Revalidate `Test-PlanCriteriaBaseline`, then repair
+only the confirmed implementation scope for the selected phase. Never edit plan assets, `plan.md`,
+planning-confirmed markers, or checklist state. Create at most one repair PR in this call; the
+launcher reserves the PR and corrective-call budgets before dispatch. Stop with exit `42` if the
+failure cannot be repaired without broadening confirmed scope. These exceptions do not apply to
+ordinary `/ci` admission or execution.
+
 Implement confirmed outcomes and only the discretion explicitly bounded by the operator. If a new material intent
 choice is unresolved, preserve progress and stop with exit `42`. State two plausible readings, the
 practical consequence, and the exact affected criterion; do not decide silently or edit confirmed
