@@ -670,7 +670,7 @@ Describe 'Repository maintenance record and discovery' {
         $content | Should -Match 'docs/legacy-api-contract.md:2'
         (Get-Content -LiteralPath (Join-Path $root 'config/events.psd1') -Raw) |
             Should -Match 'Invoke-CacheRefresh'
-        (Select-String -Path $codePath -Pattern 'Get-ObsoleteFormatter').Count |
+        @(Select-String -Path $codePath -Pattern 'Get-ObsoleteFormatter').Count |
             Should -Be 1
         [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($codePath)) |
             Should -BeExactly $codeBefore

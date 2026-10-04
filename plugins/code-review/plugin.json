@@ -1,6 +1,6 @@
 {
   "name": "code-review",
-  "version": "1.0.85",
+  "version": "1.0.86",
   "description": "Risk-selected code review with direct advisory Markdown.",
   "author": "jIRI-san",
   "license": "MIT",

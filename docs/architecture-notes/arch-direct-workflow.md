@@ -20,6 +20,10 @@ globs:
   filters before mutation. Archive moves preserve that baseline by plan identity and relative asset path.
   Staged marker changes are refused, mutable progress remains allowed, and checkout-only line-ending
   conversion is ignored.
+- Execution follows confirmed outcomes and explicitly bounded discretion. A newly exposed material
+  intent choice outside confirmed criteria preserves progress and stops with operator action `42`;
+  `/cip` corrects only affected criteria through the existing confirmation flow, and execution resumes
+  only after the Git baseline passes.
 - After a complete `/cip` draft and before final confirmation, one mandatory planning-owned,
   read-only `secondary-model-high`/high design review runs, followed by one
   `primary-model-high`/high applicability pass. Epic children add bounded coherency to that same review:
@@ -55,13 +59,18 @@ globs:
 - Finalization runs one design-note compaction pass only when implementation changed
   `docs/design-notes/**`. Candidate reads are index-led and bounded to five full notes; cross-note
   merge/delete requires explicit operator approval, and headless execution stops with visible changes.
-- Historical context is at most three confined, secret-screened Markdown artifacts, framed once as
-  untrusted input with accepted-path provenance.
+- Historical context is at most three confined, secret-screened Markdown artifacts, including selected
+  epic intent, framed once as untrusted input with accepted-path provenance. The filtered plan index may
+  expose at most three 240-character intent snippets per candidate artifact with kind, ID, repository-
+  relative path, archive status, and matched section; it never substitutes for selected full context.
 - Successful whole-plan completion safely replaces one strict `docs/feedback/recent-learning.md`
   handoff: canonical source plan id/slug, full completed source commit, explicit `## Lessons`, at most
   10 cited items, and at most 16 KiB UTF-8. `/si` rejects malformed, oversized, secret-containing, bad
   citation, and stale input before collision-safe untrusted framing; missing and explicit-empty remain
   distinct no-candidate states.
+- After that committed handoff, successful whole-plan finalization archives standalone and epic-child
+  plans with all assets unchanged and commits the move. Phase targets and non-clean finalization never
+  archive; the deterministic helper checks completion/confinement, not persisted-review authority.
 - The learning writer physically confines and rejects links in every existing repository, parent,
   target, and temporary-path component before replacement.
 - If a planning, review, CI, or autopilot surface needs a complex predefined operator choice, both hosts
