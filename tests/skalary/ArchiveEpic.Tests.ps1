@@ -52,7 +52,7 @@ Describe 'Archive-Epic' {
         }
     }
 
-    It 'archives a complete epic beside archived plans and remains resolvable' {
+    It 'test:ArchiveEpic archives a complete epic beside archived plans and remains resolvable' {
         $fixture = & $newArchiveFixture
         try {
             [System.IO.File]::ReadAllText($fixture.Epic.EpicFile) |
@@ -86,7 +86,7 @@ Describe 'Archive-Epic' {
         }
     }
 
-    It 'WhatIf skips the generated-table refresh and does not report an archive' {
+    It 'test:ArchiveEpic WhatIf skips the generated-table refresh and does not report an archive' {
         $fixture = & $newArchiveFixture
         try {
             $before = [System.IO.File]::ReadAllText($fixture.Epic.EpicFile)
@@ -106,7 +106,7 @@ Describe 'Archive-Epic' {
         }
     }
 
-    It 'refuses incomplete epics and complete epics with active child folders' {
+    It 'test:ArchiveEpic refuses incomplete epics and complete epics with active child folders' {
         foreach ($case in @(
                 @{ Incomplete = $true; KeepActive = $true; Match = '*is incomplete*' },
                 @{ Incomplete = $false; KeepActive = $true; Match = '*every child plan is archived*' }
@@ -124,7 +124,7 @@ Describe 'Archive-Epic' {
         }
     }
 
-    It 'refuses an existing archive destination without moving the active epic' {
+    It 'test:ArchiveEpic refuses an existing archive destination without moving the active epic' {
         $fixture = & $newArchiveFixture
         try {
             $destination = Join-Path $fixture.Root (
@@ -139,6 +139,45 @@ Describe 'Archive-Epic' {
         }
         finally {
             Remove-Item -LiteralPath $fixture.Root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'test:ArchiveEpic.LinkedEpicFile refuses a linked epic.md without refreshing or moving it' {
+        $fixture = & $newArchiveFixture
+        $external = $fixture.Root + '-external'
+        $link = $fixture.Epic.EpicFile
+        try {
+            [void](New-Item -ItemType Directory -Path $external)
+            $target = Join-Path $external 'epic.md'
+            [System.IO.File]::Copy($link, $target)
+            $before = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($target))
+            Remove-Item -LiteralPath $link -Force
+            [void](New-Item -ItemType SymbolicLink -Path $link -Target $target -ErrorAction Stop)
+            (Get-Item -LiteralPath $link -Force).Attributes -band
+                [System.IO.FileAttributes]::ReparsePoint | Should -Not -Be 0
+
+            $destination = Join-Path $fixture.Root (
+                'docs/implementation-plans/archived/epics/' +
+                '2026-08-01-abc123-archive-fixture'
+            )
+            { & $archiveEpic abc123 -RepoRoot $fixture.Root } |
+                Should -Throw "*link or reparse point '$link'*"
+
+            [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($target)) |
+                Should -BeExactly $before
+            [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($link)) |
+                Should -BeExactly $before
+            Test-Path -LiteralPath $fixture.Epic.Path | Should -BeTrue
+            (Get-Item -LiteralPath $link -Force).Attributes -band
+                [System.IO.FileAttributes]::ReparsePoint | Should -Not -Be 0
+            Test-Path -LiteralPath $destination | Should -BeFalse
+        }
+        finally {
+            if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Force }
+            if (Test-Path -LiteralPath $external) {
+                Remove-Item -LiteralPath $external -Recurse -Force
+            }
+            Remove-Item -LiteralPath $fixture.Root -Recurse -Force
         }
     }
 }

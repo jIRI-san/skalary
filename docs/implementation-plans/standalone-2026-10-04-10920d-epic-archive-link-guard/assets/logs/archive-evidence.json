@@ -1,0 +1,30 @@
+{
+  "schema": "skalary/evidence-test-results@1",
+  "selectedCount": 2,
+  "executedCount": 5.0,
+  "results": [
+    {
+      "marker": "test:ArchiveEpic",
+      "status": "passed",
+      "selectedCount": 4,
+      "executedCount": 4,
+      "outcomes": [
+        "Passed",
+        "Passed",
+        "Passed",
+        "Passed"
+      ],
+      "message": ""
+    },
+    {
+      "marker": "test:ArchiveEpic.LinkedEpicFile",
+      "status": "passed",
+      "selectedCount": 1,
+      "executedCount": 1,
+      "outcomes": [
+        "Passed"
+      ],
+      "message": ""
+    }
+  ]
+}

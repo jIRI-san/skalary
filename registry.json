@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-04T10:45:53.4237170Z",
+  "generatedAt": "2026-10-04T17:47:50.9045370Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -195,7 +195,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Archive-Epic.ps1",
-          "sha256": "68b26933cae78f377f73d19db5d0e20b3682f54cd29398bfd1fd546c25b63690",
+          "sha256": "ade7903956ffe0c0a1532904ae635c643a06e81df41d412f6cdffc0fcab79e90",
           "src": "skills/autopilot/scripts/Archive-Epic.ps1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.31"
+      "version": "1.3.32"
     },
     {
       "author": "jIRI-san",
@@ -1098,7 +1098,7 @@
         },
         {
           "dest": "skills/rcs/scripts/Archive-Epic.ps1",
-          "sha256": "68b26933cae78f377f73d19db5d0e20b3682f54cd29398bfd1fd546c25b63690",
+          "sha256": "ade7903956ffe0c0a1532904ae635c643a06e81df41d412f6cdffc0fcab79e90",
           "src": "skills/rcs/scripts/Archive-Epic.ps1"
         },
         {
@@ -1153,7 +1153,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "author": "jIRI-san",

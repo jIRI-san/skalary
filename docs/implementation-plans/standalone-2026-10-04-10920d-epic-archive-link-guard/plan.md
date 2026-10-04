@@ -37,7 +37,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Add the linked epic.md regression (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Add the linked epic.md regression (REQ-1, REQ-2, RISK-1) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** one isolated real file-symlink fixture proves a linked `epic.md` causes an
@@ -57,7 +57,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   Do not elevate the coding app or change host-wide settings.
 
   </details>
-- [ ] 1.2 Guard epic.md before confirmation and refresh (REQ-1, REQ-2, RISK-2) [after: 1.1] `M`
+- [x] 1.2 Guard epic.md before confirmation and refresh (REQ-1, REQ-2, RISK-2) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `Archive-Epic.ps1` refuses a linked/reparse `epic.md` before `ShouldProcess` and

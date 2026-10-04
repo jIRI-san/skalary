@@ -36,8 +36,13 @@ findings. Bounded discretion and intentional openness are not drift; the alignme
 
 Completed epic indexes move under `docs/implementation-plans/archived/epics/` after their generated
 child table is refreshed. `Archive-Epic.ps1` refuses incomplete epics, unarchived children, linked
-sources, and destination collisions; repeating it for an archived epic is a no-op. Archived indexes
-remain resolvable human-readable history and are never execution targets.
+source directories or `epic.md`, and destination collisions; repeating it for an archived epic is a
+no-op. Archived indexes remain resolvable human-readable history and are never execution targets.
+
+The local `epic.md` reparse-attribute check runs before `ShouldProcess` and the `New-Epic.ps1`
+refresh, retaining inventory reads and existing completion/collision precedence. Nested links and
+concurrent replacement are outside this point-in-time write guard; no recursive scan or lock is used.
+The real file-symlink regression requires a capable non-elevated host and never silently skips.
 
 Completed standalone and epic-child plans use `Archive-Plan.ps1` to move their entire unchanged
 directory into `docs/implementation-plans/archived/`. It reuses plan resolution, checklist completion,

@@ -85,3 +85,15 @@ No operator decisions recorded.
 **Revisit when:** If new evidence changes the archived state or the unresolved historical checklist item needs separate follow-up.
 **Evidence:** docs/repository-maintenance.md#RCS-Epic-33b1f9-Archive; docs/implementation-plans/archived/epics/2026-08-02-33b1f9-workflow-machinery-hardening/epic.md:1; docs/implementation-plans/archived/2026-08-08-ca8ba8-review-corroboration-truth/plan.md:1
 **Successful handoff:** archived: docs/implementation-plans/archived/epics/2026-08-02-33b1f9-workflow-machinery-hardening/epic.md
+
+<!-- rcs-decision: RCS-D-0003 -->
+### RCS-Epic-Archive-Link-Guard - 2026-10-04 - verified epic.md correction
+**Finding:** RCS-Epic-Archive-Link-Guard
+**Disposition:** verified scoped correction
+**Date:** 2026-10-04
+**Rationale:** After operator-reconfirmed scope reduction in plan 10920d, the local epic.md reparse-attribute guard refuses the archive before confirmation and refresh. The earlier corrective-plan entry remains a planning handoff, not retrospective fix evidence.
+**Affected scope:** Archive-Epic.ps1 epic.md write path and canonical bundled/installed copies.
+**Assumptions:** Existing inventory reads, directory guards, completion/collision precedence, and New-Epic.ps1 child-table ownership remain unchanged. Nested links and concurrent replacement are explicit non-goals.
+**Revisit when:** A broader link boundary or concurrent local replacement requires separate operator-selected work.
+**Evidence:** scripts/skalary/Archive-Epic.ps1; tests/skalary/ArchiveEpic.Tests.ps1 (`test:ArchiveEpic.LinkedEpicFile`, `test:ArchiveEpic`). Non-root Linux PowerShell 7.6.5/Pester 5.6.1 focused run passed all five cases, with zero skipped; the real file symlink was created and target bytes, active source, and absent destination were verified. Before the guard, the same fixture failed because no refusal occurred.
+**Successful handoff:** verified scoped implementation of plan 10920d; finalization/archive tracked by the plan workflow.
