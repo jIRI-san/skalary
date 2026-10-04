@@ -4,5 +4,5 @@
 
 | ID | Risk | Likelihood | Impact | Mitigation | Steps |
 |----|------|------------|--------|------------|-------|
-| RISK-1 | The test host cannot create a file symlink, leaving the external-target write regression unproven. | Medium | High | Require the test to fail visibly if its required link cannot be created; run on a link-capable host before claiming REQ-1 verified. | 1.1, 1.2 |
-| RISK-2 | A recursive preflight descends through a linked directory before detecting it. | Low | High | Check each entry for link/reparse attributes before adding any directory to the traversal; include a junction/symlink fixture whose external target remains unchanged. | 1.1, 1.2 |
+| RISK-1 | The test host cannot create a file symlink, leaving the external-target write regression unproven. | Medium | High | Use an available capable non-elevated host; report capability failure explicitly and stop if none is available. Never count an unsupported fixture as a pass, elevate the coding app, or change host-wide settings for this test. | 1.1, 1.2 |
+| RISK-2 | Attribute validation and later refresh are separate operations; a concurrent replacement could bypass the check. | Low | High | Retain the trusted single-operator point-in-time model without a lock. Revisit only if concurrent/untrusted mutation becomes part of the workflow. | 1.2 |
