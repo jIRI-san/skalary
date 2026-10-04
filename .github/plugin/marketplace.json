@@ -151,7 +151,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "description": "Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff.",

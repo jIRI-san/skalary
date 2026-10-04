@@ -1,6 +1,6 @@
 {
   "name": "repository-maintenance",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Operator-controlled repository survey, drift, dead-code, and improvement proposals.",
   "author": "jIRI-san",
   "license": "MIT",
