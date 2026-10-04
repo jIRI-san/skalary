@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 # Fail-closed guards for the shipped dr waza convention. waza fails OPEN — a misplaced or
 # misspelled field is warned-and-ignored, so a silently-dropped grader would read as a false
 # PASS. These tests assert EXACT field placement offline (no premium requests), so the spec
-# cannot rot into a shape waza quietly ignores. dr's two cases are functional (no adversarial
+# cannot rot into a shape waza quietly ignores. dr's cases are functional (no adversarial
 # block), so this mirrors WazaCrConvention.Tests.ps1 minus the injection-pack guard.
 
 Describe 'dr waza convention' {
@@ -24,11 +24,19 @@ Describe 'dr waza convention' {
             $script:evalYaml | Should -Match '(?m)^schemaVersion:\s*"1\.2"'
         }
 
-        It 'test:waza-spec-shape targets the dr agent via copilot-sdk with pinned model + judge_model' {
+        It 'test:waza-spec-shape targets the dr agent via copilot-sdk with pinned models' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*dr\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
             $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
-            $script:evalYaml | Should -Not -Match '(?m)^\s+judge_model:'
+            $subjectiveTasks = @($script:taskFiles | Where-Object {
+                    (Get-Content -LiteralPath $_.FullName -Raw) -match '(?m)^# ai-credit-disposition: subjective\r?$'
+                })
+            if ($subjectiveTasks.Count -gt 0) {
+                $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra'
+            }
+            else {
+                $script:evalYaml | Should -Not -Match '(?m)^\s+judge_model:'
+            }
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
@@ -40,12 +48,12 @@ Describe 'dr waza convention' {
             $script:evalYaml | Should -Match '(?m)^\s+-\s*tool:\s*view\s*$'
         }
 
-        It 'test:waza-spec-shape declares NO adversarial block (both dr cases are functional)' {
+        It 'test:waza-spec-shape declares NO adversarial block (all dr cases are functional)' {
             $script:evalYaml | Should -Not -Match '(?m)^adversarial:'
         }
     }
 
-    Context 'test:waza-spec-shape — every task uses a resume-session judge fed a forced text turn' {
+    Context 'test:waza-spec-shape — every task uses a forced text turn; subjective cases use a resume-session judge' {
         # Fail-open defence: split each task at the col-0 `inputs:`/`graders:` keys and assert the
         # forced-turn/fixture live in the inputs block and the graders live in the graders block.
         # Anchoring only nested content (as an earlier revision did) would pass green even if a
@@ -74,13 +82,20 @@ Describe 'dr waza convention' {
             }
         }
 
-        It 'test:waza-spec-shape keeps both deterministic tasks free of prompt graders' {
+        It 'test:waza-spec-shape uses prompt graders only for subjective tasks' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic$'
-                $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
-                $graders | Should -Not -Match '(?m)^\s+model:'
+                if ($raw -match '(?m)^# ai-credit-disposition: subjective\r?$') {
+                    $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
+                    $graders | Should -Match '(?m)^\s+continue_session:\s*true'
+                    $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
+                }
+                else {
+                    $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic\r?$'
+                    $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'
+                    $graders | Should -Not -Match '(?m)^\s+model:'
+                }
             }
         }
 

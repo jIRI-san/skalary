@@ -74,7 +74,7 @@ Describe 'cr waza convention' {
             foreach ($f in $script:taskFiles) {
                 $raw = Get-Content -LiteralPath $f.FullName -Raw
                 $graders = [regex]::Match($raw, '(?ms)^graders:\s*\n(?<graders>.*)$').Groups['graders'].Value
-                if ($raw -match '(?m)^# ai-credit-disposition: subjective$') {
+                if ($raw -match '(?m)^# ai-credit-disposition: subjective\r?$') {
                     $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
                     $graders | Should -Match '(?m)^\s+continue_session:\s*true'
                     $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'

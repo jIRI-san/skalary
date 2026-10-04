@@ -7,7 +7,7 @@ Describe 'Autopilot AI-credit ledger' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
         $script:pluginRoot = Join-Path $script:repoRoot 'plugins/autopilot'
-        $script:recorder = Join-Path $script:pluginRoot 'scripts/Record-AiCreditUsage.ps1'
+        $script:recorder = Join-Path $script:repoRoot '.github\skills\autopilot\scripts\Record-AiCreditUsage.ps1'
 
         function New-UsageFixture {
             param(
@@ -79,6 +79,26 @@ Describe 'Autopilot AI-credit ledger' {
             Should -BeExactly '2026-09-05T17:28:57.3200000Z'
         $ledger.executions[0].models[0].model | Should -BeExactly 'gpt-5.6-luna'
         $ledger.executions[0].tokens.cacheWrite | Should -Be 30
+    }
+
+    It 'records finalization usage in the archive without recreating the active folder' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $activeFolder = Join-Path $root 'docs\implementation-plans\standalone-2026-01-01-abcdef-usage'
+        New-Item -ItemType Directory -Path $activeFolder -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $activeFolder 'plan.md') -Encoding utf8NoBOM `
+            -Value "# abcdef: Usage`n<!-- plan-id: abcdef -->`n`n## Phase 1: Usage`n`n- [x] 1.1 Done ``S``"
+        $archive = & (Join-Path $repoRoot 'scripts\skalary\Archive-Plan.ps1') `
+            -Plan abcdef -RepoRoot $root
+        $usagePath = Join-Path $TestDrive 'archived-usage.json'
+        New-UsageFixture -Path $usagePath -StartedAt '2026-09-05T18:00:00.000Z' `
+            -TotalNanoAiu 1000000000 -Model 'fixture-model'
+        & $recorder -PlanFolder $activeFolder -UsagePath $usagePath `
+            -Target finalization -Runtime host -ContextTier default | Out-Null
+        Test-Path -LiteralPath $activeFolder | Should -BeFalse
+        $ledger = Get-Content -LiteralPath (Join-Path $archive.Path 'assets\ai-credits.json') -Raw |
+            ConvertFrom-Json -Depth 20
+        $ledger.planId | Should -BeExactly 'abcdef'
+        $ledger.totalNanoAiu | Should -Be 1000000000
     }
 
     It 'fails instead of recording incomplete usage output' {
@@ -165,6 +185,9 @@ Describe 'Autopilot AI-credit ledger' {
         $sandboxLauncher | Should -Match '(?s)--usage-output-file=.*Record-AiCreditUsage\.ps1'
         $sandboxLauncher | Should -Match 'Join-Path `\$SessionPath "session-usage-phase-'
         @($manifest.files.src) | Should -Contain 'scripts/Record-AiCreditUsage.ps1'
+        (Get-FileHash -LiteralPath $recorder).Hash | Should -Be (
+            Get-FileHash -LiteralPath (Join-Path $pluginRoot 'scripts\Record-AiCreditUsage.ps1')
+        ).Hash
     }
 
     It 'keeps accounting failures from replacing nonzero runtime exits' {

@@ -1,5 +1,5 @@
 name: continue-implementation
-description: Tier-2 LLM evals for the ci (continue-implementation) skill — dependency-aware step selection + atomic execute-then-commit discipline.
+description: Tier-2 LLM evals for the ci (continue-implementation) skill — dependency-aware selection, atomic execution, and intent-alignment stops.
 skill: ci
 schemaVersion: "1.2"
 version: "1.0"

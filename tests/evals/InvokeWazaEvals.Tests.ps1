@@ -204,6 +204,90 @@ Describe 'Invoke-WazaEvals' {
         }
     }
 
+    Context 'test:ReviewQuality.FocusedEval — exact named cases fail closed before paid side effects' {
+        It 'test:ReviewQuality.FocusedEval runs one exact functional task/trial and rejects bad selectors before tools' {
+            $fixtureRoot = Join-Path $TestDrive 'exact-case-runner'
+            $specDirectory = Join-Path $fixtureRoot 'plugins/selected/evals/waza'
+            $tasksDirectory = Join-Path $specDirectory 'tasks'
+            $scriptDirectory = Join-Path $fixtureRoot 'scripts/skalary'
+            [void](New-Item -ItemType Directory -Path $tasksDirectory -Force)
+            [void](New-Item -ItemType Directory -Path $scriptDirectory -Force)
+            @(
+                'skill: fixture'
+                'tasks:'
+                '  - tasks/*.yaml'
+                'adversarial:'
+                '  packs:'
+                '    - prompt-injection'
+                '  on_unsafe_outcome: fail'
+            ) -join "`n" | Set-Content -LiteralPath (Join-Path $specDirectory 'eval.yaml') -Encoding utf8NoBOM
+            @(
+                'id: selected-case'
+                'name: Selected fixture'
+                'inputs:'
+                '  prompt: Verify exact selection.'
+            ) -join "`n" | Set-Content -LiteralPath (Join-Path $tasksDirectory 'selected.yaml') -Encoding utf8NoBOM
+            @(
+                'id: other-case'
+                'name: Unselected fixture'
+                'inputs:'
+                '  prompt: Must not run.'
+            ) -join "`n" | Set-Content -LiteralPath (Join-Path $tasksDirectory 'other.yaml') -Encoding utf8NoBOM
+
+            $selection = Resolve-WazaTaskSelection -RepoRoot $fixtureRoot `
+                -Plugin selected -Case 'selected-case'
+            $selection.Id | Should -BeExactly 'selected-case'
+            (Split-Path -Leaf $selection.Path) | Should -BeExactly 'selected.yaml'
+            @(Get-WazaSpecExecutionPlan -HasTasks $true -HasAdversarial $true -CaseSelected) |
+                Should -Be @('run')
+            {
+                Get-WazaSpecExecutionPlan -HasTasks $false -HasAdversarial $true -CaseSelected
+            } | Should -Throw '*requires functional tasks*'
+
+            $arguments = @(New-WazaRunArgument -SpecPath 'eval.yaml' -OutputDir 'out' `
+                    -Quick -Case 'selected-case')
+            $arguments | Should -Contain '--task'
+            $arguments | Should -Contain 'selected-case'
+            $arguments | Should -Contain '--trials'
+            $arguments | Should -Contain '1'
+            (@($arguments | Where-Object { $_ -eq '--task' })).Count | Should -Be 1
+            (@($arguments | Where-Object { $_ -eq '--trials' })).Count | Should -Be 1
+            $arguments[0] | Should -BeExactly 'run'
+
+            { Resolve-WazaTaskSelection -RepoRoot $fixtureRoot -Plugin selected -Case 'missing-case' } |
+                Should -Throw '*found 0*'
+            { Resolve-WazaTaskSelection -RepoRoot $fixtureRoot -Plugin selected -Case 'Selected-case' } |
+                Should -Throw '*found 0*'
+            { Resolve-WazaTaskSelection -RepoRoot $fixtureRoot -Plugin selected -Case '../selected-case' } |
+                Should -Throw '*exact task id token*'
+
+            @(
+                'id: selected-case'
+                'name: Duplicate fixture'
+                'inputs:'
+                '  prompt: Ambiguous id.'
+            ) -join "`n" | Set-Content -LiteralPath (Join-Path $tasksDirectory 'duplicate.yaml') -Encoding utf8NoBOM
+            { Resolve-WazaTaskSelection -RepoRoot $fixtureRoot -Plugin selected -Case 'selected-case' } |
+                Should -Throw '*found 2*'
+
+            $ensure = Join-Path $scriptDirectory 'Ensure-EvalTools.ps1'
+            $token = Join-Path $scriptDirectory 'Resolve-EvalToken.ps1'
+            Set-Content -LiteralPath $ensure -Encoding utf8NoBOM `
+                -Value "function Invoke-EnsureEvalTools { throw 'PROVISION_REACHED' }"
+            Set-Content -LiteralPath $token -Encoding utf8NoBOM `
+                -Value "function Resolve-EvalToken { throw 'AUTH_REACHED' }"
+            Copy-Item -LiteralPath $scriptFile -Destination (Join-Path $scriptDirectory 'Invoke-WazaEvals.ps1')
+            $invalidRun = & pwsh -NoProfile -File (Join-Path $scriptDirectory 'Invoke-WazaEvals.ps1') `
+                -RepoRoot $fixtureRoot -Plugin selected -Case missing-case -Quick 2>&1
+            $invalidRunExitCode = $LASTEXITCODE
+            $invalidRunText = ($invalidRun | Out-String)
+            $invalidRunExitCode | Should -Be 12 -Because $invalidRunText
+            $invalidRunText | Should -Match 'must match exactly one declared task'
+            $invalidRunText | Should -Not -Match 'PROVISION_REACHED|AUTH_REACHED'
+            Test-Path -LiteralPath (Join-Path $fixtureRoot 'tests/evals/output') | Should -BeFalse
+        }
+    }
+
     Context 'test:gate-isolation — the waza runner is never wired into always-on gates' {
         BeforeAll {
             $script:pkg = Get-Content -LiteralPath (Join-Path $script:repoDir 'package.json') -Raw | ConvertFrom-Json

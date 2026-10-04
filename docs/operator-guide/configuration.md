@@ -50,10 +50,14 @@ directly when they match the task:
 | Surface | Direct owner |
 |---|---|
 | Terminal approvals | `scripts/skalary/Set-ScriptApproval.ps1 -Name <installed-plugin> -RepoRoot .` |
-| Eval credentials and Waza runs | `scripts/skalary/Resolve-EvalToken.ps1 -RepoRoot .` and `scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <plugin>` |
+| Eval credentials and Waza runs | `scripts/skalary/Resolve-EvalToken.ps1 -RepoRoot .` and `scripts/skalary/Invoke-WazaEvals.ps1 -Plugin <plugin> [-Case <exact-task-id> -Quick]` |
 | Design and architecture scaffolds | `.github/skills/design-notes/scripts/Initialize-DesignNotes.ps1 -RepoRoot .` and `.github/skills/architecture-notes/scripts/Copy-ArchScaffold.ps1 -TargetRoot .` |
 | Plugin distribution | `scripts/skalary/Sync-PluginScripts.ps1`, `Build-Registry.ps1`, `Build-Marketplace.ps1`, and `Sync-Dogfood.ps1` |
 
 Plugin manifests, eval specifications and pins, model allowlists, toolchain policy, registry,
 marketplace, README catalog, and dogfood files remain source-owned or generator-owned. Removing
 `skalary-config` removes only this facade; those direct configuration paths continue to work.
+
+`-Case <exact-task-id> -Quick` validates one declared task before provisioning tools, resolving a
+token, or creating output, then runs only that functional case for one trial. An invalid or ambiguous
+case is refused; plugin-wide runs without `-Case` retain their functional and adversarial behavior.

@@ -12,10 +12,10 @@ Describe 'cr direct structural evals' {
     }
 
     It 'eval:DirectWorkflow.CR.ConsumerContract uses bounded risk-selected direct review' {
-        foreach ($token in @('no fixed concern matrix', 'five maximum', 'read-only',
+        foreach ($token in @('no fixed matrix', 'three-call ceiling', 'read-only',
                 'Write-DirectReviewReport', 'incomplete', 'attacker/untrusted input',
-                'optional hardening', 'absent boundary', 'active reviewer is prompt injection',
-                'simple option', 'residual risk', 'non-localizable')) {
+                'optional hardening', 'Missing any link', 'active reviewer is prompt injection',
+                'simple option', 'residual risk', 'preserve the uncertainty')) {
             $script:skill | Should -Match ([regex]::Escape($token))
         }
     }

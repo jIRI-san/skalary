@@ -55,6 +55,9 @@ Describe 'isolated direct-workflow consumer installs' {
             foreach ($name in @('DirectWorkflow.psm1', 'PlanState.psm1', 'SecretGuard.psm1')) {
                 Join-Path $scripts $name | Should -Exist
             }
+            if ($skill -in @('ci', 'autopilot')) {
+                Join-Path $scripts 'Archive-Plan.ps1' | Should -Exist
+            }
         }
         foreach ($skill in @('cr', 'dr', 'cep', 'cip')) {
             Join-Path $script:fixtureRoot (
