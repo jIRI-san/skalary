@@ -1073,7 +1073,7 @@
       "files": [
         {
           "dest": "skills/rcs/SKILL.md",
-          "sha256": "be91487f95ab9cc94a8f23936060434fc4b1a4b8fb7886bad421b3586a69d8ff",
+          "sha256": "b7bea684280adf3e20a93753901734a06f950619db80dd74336593ee31fdb448",
           "src": "skills/rcs/SKILL.md"
         },
         {
@@ -1083,7 +1083,7 @@
         },
         {
           "dest": "skills/rcs/assets/audit-guide.md",
-          "sha256": "caa9178b1ea446c6fd6b63a13250f225056e4cc9af41c6f95cc75aa0b1dafe77",
+          "sha256": "9fd796142ab3061365a4c6817ddc42c16ffb081e9273eca423be28b5440610c1",
           "src": "skills/rcs/assets/audit-guide.md"
         },
         {

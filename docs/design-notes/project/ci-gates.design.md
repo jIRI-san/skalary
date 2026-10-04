@@ -59,6 +59,12 @@ discovered tests `3`, a selected file that never loaded `4`, and focused timeout
 tiers, runtime baselines, coverage inventories, or budget clocks. Keep routine selection below the
 30-second target and report slowness rather than introducing measurement state.
 
+When a selected test file exceeds the target or deadline, reduce repeated work or split independent
+behaviors into smaller, directly selectable files/cases. Preserve assertions and fresh fixture state;
+run only selections relevant to the change. Do not recombine slow files into one focused invocation,
+raise the deadline, or use the broad route to evade supervision. Repository maintenance documents its
+concern-to-file selections in its owning design note.
+
 ## Direct operator routes
 
 `-FullRepository` is the sole broad selector for `Run-UnitTests.ps1`, `Test-Evals.ps1`, and

@@ -94,6 +94,35 @@ Describe 'repository-maintenance structural evals' {
         $script:skill | Should -Match 'unread sources'
     }
 
+    It 'test:RCS.ScanOwnership scopes discovery and every trace before content searches' {
+        $script:skill | Should -Match 'Before content searches or subsystem discovery'
+        $script:skill | Should -Match 'Scan ownership boundary'
+        $script:skill.IndexOf('Scan ownership boundary', [StringComparison]::Ordinal) |
+            Should -BeLessThan $script:skill.IndexOf('2. Import', [StringComparison]::Ordinal)
+        $script:skill | Should -Match 'every search, trace, delegated task, finding, and corrective recommendation'
+        $script:audit | Should -Match 'explicit repository-owned path set'
+        $script:audit | Should -Match 'Do not run an unfiltered recursive repository search'
+        $script:audit | Should -Match 'Stop a trace at an installed-plugin boundary'
+        $script:audit | Should -Match 'outside\s+the corrected scope is preserved as unreviewed history'
+    }
+
+    It 'test:RCS.ScanOwnership excludes installed payloads without hiding customer customizations' {
+        foreach ($term in @(
+                '.github/.skalary/receipts', 'files[].dest', "receipt's installed ref",
+                "host's", 'locally modified installed copies', 'bootstrap/lifecycle tooling',
+                'Do not blanket-exclude', 'additional customer files beside installed payloads',
+                'scaffolds[]', 'canonical plugin sources and tooling',
+                'exclude generated dogfood destinations', 'leave them unscanned',
+                'Record excluded payload paths/roots and ownership gaps'
+            )) {
+            $script:audit | Should -Match ([regex]::Escape($term))
+        }
+        $script:audit | Should -Match 'names identify plugins, not per-file\s+ownership'
+        $script:audit | Should -Match 'a newer catalog\s+alone does not establish'
+        $script:audit | Should -Match 'Do not fetch a remote checkout'
+        $script:audit | Should -Match 'Git tracking'
+    }
+
     It 'test:RCS.ArchiveHandoff uses existing gates and distinguishes standalone and epic routes' {
         $script:skill | Should -Match '(?s)installed.*Archive-Epic\.ps1|Archive-Epic\.ps1.*installed'
         $script:skill | Should -Match 'no standalone archive\s+script'

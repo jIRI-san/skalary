@@ -7,7 +7,11 @@ active contracts are the [`CR skill`](../../plugins/code-review/skills/cr/SKILL.
 
 ## Repository maintenance
 
-Use `/rcs` for a repository-wide structural survey with risk-selected deep traces. It compares
+Use `/rcs` for a repository-owned structural survey with risk-selected deep traces. Installed Skalary
+plugin payloads and distribution tooling are excluded, even when tracked or locally modified.
+Customer-owned `.github` customizations and project-specific scaffold content remain in scope.
+Unknown ownership is reported as an unscanned coverage gap. In Skalary itself, canonical plugin
+sources remain in scope; generated dogfood copies do not. It compares
 relevant human expectations and current code, proposes architecture/design and coding-standard
 improvements, and investigates dead-code candidates through supported entry points. It records
 citations, uncertainty, coverage gaps, and explicit scoped operator decisions in
