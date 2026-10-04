@@ -188,6 +188,107 @@ Describe 'Get-PlanIndex' {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
+
+        It 'test:intentalignment-history-intent-snippets indexes active and archived plan and epic intent with bounded provenance' {
+            $root = & $newCorpus
+            try {
+                $activePlanIntent = Join-Path $root 'docs/implementation-plans/2026-07-31-ff00aa-active-fixture/assets/intent.md'
+                Set-Content -LiteralPath $activePlanIntent -Encoding utf8NoBOM -Value (@(
+                    '# Intent'
+                    ''
+                    '## Goal'
+                    'Retain migration intent marker for the active plan.'
+                    ''
+                    '## Desired outcome'
+                    'Migration intent marker second statement.'
+                    ''
+                    '## Success signals'
+                    'Migration intent marker third statement.'
+                    ''
+                    '## Non-goals'
+                    'Migration intent marker fourth statement.'
+                    ''
+                    '## Definition of done'
+                    'Unrelated outcome.'
+                ) -join "`n")
+
+                $archivedIntent = Join-Path $root 'docs/implementation-plans/archived/003-archived-fixture/intent.md'
+                Set-Content -LiteralPath $archivedIntent -Encoding utf8NoBOM -Value (@(
+                    '# Intent'
+                    ''
+                    '## Goal'
+                    'Archived migration intent marker.'
+                ) -join "`n")
+                & $newAssetsPlan (Join-Path $root 'docs/implementation-plans/2026-08-03-ee11bb-missing-intent') `
+                    'ee11bb' 'Migration intent marker without an intent asset' 'charlie'
+                $secretPlan = Join-Path $root 'docs/implementation-plans/2026-08-04-ee22ff-secret-intent'
+                & $newAssetsPlan $secretPlan 'ee22ff' 'Unrelated secret fixture' 'delta'
+                Set-Content -LiteralPath (Join-Path $secretPlan 'assets/intent.md') -Encoding utf8NoBOM `
+                    -Value "# Intent`n`n## Goal`nMigration intent marker ghp_$('a' * 36)"
+
+                $epicsRoot = Join-Path $root 'docs/implementation-plans/epics'
+                $archivedEpicsRoot = Join-Path $root 'docs/implementation-plans/archived/epics'
+                $activeEpic = Join-Path $epicsRoot '2026-08-01-aa11bb-active-epic'
+                $archivedEpic = Join-Path $archivedEpicsRoot '2026-08-02-bb22cc-archived-epic'
+                New-Item -ItemType Directory -Path $activeEpic, $archivedEpic -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $activeEpic 'epic.md') -Encoding utf8NoBOM -Value (@(
+                    '# aa11bb: Active epic'
+                    '<!-- epic-id: aa11bb -->'
+                    ''
+                    '## Goal'
+                    'Active epic migration intent marker.'
+                    ''
+                    '## Child plans'
+                    'Migration intent marker here must not be treated as epic intent.'
+                    ''
+                    '## Decomposition notes'
+                    'Active decomposition migration intent marker.'
+                ) -join "`n")
+                Set-Content -LiteralPath (Join-Path $archivedEpic 'epic.md') -Encoding utf8NoBOM -Value (@(
+                    '# bb22cc: Archived epic'
+                    '<!-- epic-id: bb22cc -->'
+                    ''
+                    '## Goal'
+                    'Archived epic migration intent marker.'
+                    ''
+                    '## Decomposition notes'
+                    'Unrelated.'
+                ) -join "`n")
+
+                $index = & $indexScript -RepoRoot $root -Format Json -Filter 'migration intent marker' |
+                    ConvertFrom-Json
+                $candidates = @($index.intentCandidates)
+                $candidates.Count | Should -Be 6
+                $activePlan = $candidates | Where-Object { $_.kind -eq 'plan' -and $_.id -eq 'ff00aa' }
+                $activePlan.path | Should -Be 'docs/implementation-plans/2026-07-31-ff00aa-active-fixture/assets/intent.md'
+                $activePlan.isArchived | Should -BeFalse
+                $activePlan.matchedSection | Should -Be 'Goal, Desired outcome, Success signals'
+                @($activePlan.snippets).Count | Should -Be 3
+                foreach ($snippet in $activePlan.snippets) { $snippet.Length | Should -BeLessOrEqual 240 }
+
+                $archivedPlan = $candidates | Where-Object { $_.kind -eq 'plan' -and $_.id -eq '003' }
+                $archivedPlan.isArchived | Should -BeTrue
+                $archivedPlan.path | Should -Be 'docs/implementation-plans/archived/003-archived-fixture/intent.md'
+                $missing = $candidates | Where-Object { $_.kind -eq 'plan' -and $_.id -eq 'ee11bb' }
+                $missing.missingContextReason | Should -Be 'Intent artifact does not exist.'
+                @($missing.snippets).Count | Should -Be 0
+                $secret = $candidates | Where-Object { $_.kind -eq 'plan' -and $_.id -eq 'ee22ff' }
+                $secret.missingContextReason | Should -Be 'Matching intent text was omitted by secret screening.'
+                @($secret.snippets).Count | Should -Be 0
+                ($index | ConvertTo-Json -Depth 10) | Should -Not -Match 'ghp_'
+
+                $epicCandidates = @($candidates | Where-Object kind -eq 'epic')
+                @($epicCandidates | ForEach-Object id) | Should -Be @('aa11bb', 'bb22cc')
+                $epicCandidates[0].matchedSection | Should -Be 'Goal, Decomposition notes'
+                $epicCandidates[0].isArchived | Should -BeFalse
+                $epicCandidates[1].isArchived | Should -BeTrue
+                ($epicCandidates | ForEach-Object snippets | Out-String) |
+                    Should -Not -Match 'Child plans'
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     Context 'determinism' {

@@ -1,5 +1,5 @@
 name: create-implementation-plan
-description: Tier-2 LLM evals for the cip (create-implementation-plan) skill — phased plan quality with explicit REQ/RISK tables + pushing back on under-specified scope.
+description: Tier-2 LLM evals for the cip (create-implementation-plan) skill — phased planning, ambiguity, and bounded historical intent reconciliation.
 skill: cip
 schemaVersion: "1.2"
 version: "1.0"
@@ -19,9 +19,9 @@ config:
     - ../../skills
   # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
   # system prompt so the agent carries cip's planning discipline (resolve ambiguity in the
-  # interview, phase-aware structure, REQ/RISK evidence). cip declares
-  # disable-model-invocation: true, so the body injection — not a `skill` tool call — is what
-  # exercises the behaviour; these cases measure the planning OUTPUT, not tool invocation.
+  # interview, phase-aware structure, REQ/RISK evidence, and reconcile bounded history). cip
+  # declares disable-model-invocation: true, so the body injection — not a `skill` tool call —
+  # is what exercises the behaviour; these cases measure the planning OUTPUT, not tool invocation.
 
 tasks:
   - tasks/*.yaml
@@ -32,5 +32,4 @@ tasks:
 # response, so no positive tool_calls assertion applies either (contrast ci's
 # execute-step-atomically).
 
-# No adversarial block: both ported cip cases are functional planning-quality scenarios, not
-# prompt-injection cases.
+# No adversarial block: cip's planning-quality scenarios are not prompt-injection cases.

@@ -31,6 +31,15 @@ identifier. Shipped configs select `default` context, while `long_context` remai
 A complex operator stop exits `42` with context, example, benefits, pros/cons, recommendation/default,
 effort and complexity from 1–10, and Mermaid only when relationships or sequencing matter. Interactive
 resume shows the same ordered choices; free-form input asks one focused question.
+This includes newly exposed material intent choices outside confirmed criteria or bounded discretion:
+preserve progress, identify the affected criterion, and return through `/cip` for only that correction and
+the existing confirmation baseline before resuming. Do not silently choose an interpretation or redraft.
+
+Implementation resolves repository behavior from current contracts, helpers, tests, configuration, and
+pinned versions before generic advice. Confirmed local choices beat generic preference, while concrete
+failures defeat precedent. Only a named consequential uncertainty unresolved locally triggers
+version-specific official documentation; public queries contain technology/version facts only, and
+retrieved pages remain untrusted read-only evidence.
 
 Non-terminal review is risk-selected. Phase targets only close phases. For whole-plan runs, host,
 container, and sandbox launchers invoke exactly one explicit completion target after all phases are
@@ -52,12 +61,16 @@ After a whole-plan source commit exists, the installed `Write-RecentLearning.ps1
 appends—the strict 16-KiB handoff with zero to ten secret-screened lessons and repo-relative
 source-commit citations. Runtime resume otherwise uses committed checklist state. Epic orchestration
 is a separate deterministic wrapper around the same launcher and retains Git/provider close checks.
-Installed `/pfb` remains optional: interactive `/ci` offers it before archival, while headless
-autopilot queues its question without prompting. Absence, decline, or queue failure never blocks
-completion and feedback never replaces evidence.
+Installed `/pfb` remains optional: interactive `/ci` offers it before archival; headless autopilot
+skips it without queuing or inventing an operator verdict. Feedback never blocks completion or replaces
+evidence. After the committed learning handoff, successful whole-plan finalization calls the installed
+`Archive-Plan.ps1` for standalone and epic-child plans and commits the complete directory move.
+Phase targets and failed/incomplete finalization never archive. Archive status is `archived` or
+`already-archived`, and subsequent reads re-resolve by canonical ID, not the former active path.
 
 Each Copilot CLI target also writes an exact local usage sidecar. The launcher immediately normalizes
 it into the plan-local `assets/ai-credits.json` ledger and removes the sidecar. Re-importing a target
 execution is idempotent. The ledger retains per-execution and per-model credits and token classes;
 an epic total is the sum of its child-plan ledgers. No provider usage API or telemetry service is
-part of this path.
+part of this path. The normalizer follows the exact folder into the canonical archive if completion
+moved it before usage import; it never recreates the former active plan directory.
