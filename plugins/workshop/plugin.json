@@ -1,0 +1,18 @@
+{
+  "name": "workshop",
+  "version": "1.0.2",
+  "description": "Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip.",
+  "author": "jIRI-san",
+  "license": "MIT",
+  "tags": [
+    "skill",
+    "planning",
+    "prototyping"
+  ],
+  "dependencies": [],
+  "status": "stable",
+  "files": [
+    { "src": "skills/ws/SKILL.md", "dest": "skills/ws/SKILL.md" },
+    { "src": "skills/ws/assets/worktrees.md", "dest": "skills/ws/assets/worktrees.md" }
+  ]
+}

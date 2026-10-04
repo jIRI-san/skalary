@@ -765,6 +765,17 @@ function Invoke-ConsumerInstalledSmokeMatrix {
                         "'__consumer_smoke_missing_base__' in '$($Fixture.Root)'."
                     )
                 }
+                'workshop' {
+                    $probe = 'prototype-handoff-contract'
+                    $skillPath = Get-InstalledPath -Destination 'skills/ws/SKILL.md'
+                    $guidePath = Get-InstalledPath -Destination 'skills/ws/assets/worktrees.md'
+                    $process = Invoke-InstalledProcess -ArgumentList @(
+                        '-NoProfile', '-CommandWithArgs',
+                        '$skill = [IO.File]::ReadAllText($args[0]); $guide = [IO.File]::ReadAllText($args[1]); if ($skill -notmatch ''lifetime cap of three'' -or $skill -notmatch ''central vertical slice'' -or $skill -notmatch ''Selected-variant handoff'' -or $guide -notmatch ''approved variant starts from that SHA'') { throw ''installed workshop contract is incomplete'' }; ''workshop:handoff''',
+                        $skillPath, $guidePath
+                    )
+                    $expectedOutput = 'workshop:handoff'
+                }
                 'work-hierarchy-sync' {
                     $probe = 'provider-contract'
                     $modulePath = Get-InstalledPath -Destination (
