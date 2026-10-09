@@ -19,8 +19,8 @@ config:
   # discovered by the `skill:` name above.
   skill_directories:
     - ../../skills
-  # inject_skill_body defaults to true: install-plugin declares disable-model-invocation: true,
-  # so body injection — not a `skill` tool call — is what exercises the behaviour. These cases
+  # inject_skill_body defaults to true, so body injection — not a `skill` tool call —
+  # exercises the behaviour. These cases
   # measure the described OUTPUT (which script, how invoked, what approval), not tool invocation.
 
 tasks:

@@ -19,9 +19,9 @@ config:
     - ../../skills
   # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
   # system prompt so the agent carries the design-notes discipline (Init/Create/Update
-  # dispatch, governance-file reading, no-overwrite bootstrap). design-notes declares
-  # disable-model-invocation: true, so body injection — not a `skill` tool call — is what
-  # exercises the behaviour; these cases measure the described OUTPUT, not tool invocation.
+  # dispatch, governance-file reading, no-overwrite bootstrap). Body injection — not a
+  # `skill` tool call — exercises the behaviour; these cases measure the described OUTPUT,
+  # not tool invocation.
 
 tasks:
   - tasks/*.yaml

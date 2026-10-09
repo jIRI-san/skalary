@@ -19,9 +19,9 @@ config:
     - ../../skills
   # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
   # system prompt so the agent carries cip's planning discipline (resolve ambiguity in the
-  # interview, phase-aware structure, REQ/RISK evidence, and reconcile bounded history). cip
-  # declares disable-model-invocation: true, so the body injection — not a `skill` tool call —
-  # is what exercises the behaviour; these cases measure the planning OUTPUT, not tool invocation.
+  # interview, phase-aware structure, REQ/RISK evidence, and reconcile bounded history).
+  # Body injection — not a `skill` tool call — exercises the behaviour; these cases measure
+  # the planning OUTPUT, not tool invocation.
 
 tasks:
   - tasks/*.yaml

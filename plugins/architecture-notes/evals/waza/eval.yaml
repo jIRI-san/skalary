@@ -19,8 +19,7 @@ config:
     - ../../skills
   # inject_skill_body defaults to true (gate e): the SKILL.md body is injected into the system
   # prompt so the agent carries the tier discipline (maturity model, human-only lock promotion,
-  # review drift/coverage, untrusted-text-as-data). architecture-notes declares
-  # disable-model-invocation: true, so body injection — not a `skill` tool call — is what
+  # review drift/coverage, untrusted-text-as-data). Body injection — not a `skill` tool call —
   # exercises the behaviour; these cases measure the described OUTPUT, not tool invocation.
 
 tasks:

@@ -20,8 +20,7 @@ config:
   # inject_skill_body defaults to true (1.0 gate e): the SKILL.md body is injected into the
   # system prompt so the agent carries the pprc discipline — the interactive-only guard, the
   # untrusted-reviewer-text trust boundary, the classify-before-act ordering, and the push /
-  # reply approval gates. process-pr-comments declares disable-model-invocation: true, so
-  # body injection — not a `skill` tool call — is what exercises the behaviour.
+  # reply approval gates. Body injection — not a `skill` tool call — exercises the behaviour.
 
 tasks:
   - tasks/*.yaml

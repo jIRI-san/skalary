@@ -99,7 +99,7 @@ function Test-RequiredFrontmatter {
     $requiredKeysByType = @{
         agent  = @('name', 'description')
         prompt = @('name', 'description', 'agent')
-        skill  = @('name', 'description', 'user-invocable', 'disable-model-invocation')
+        skill  = @('name', 'description', 'user-invocable')
     }
 
     foreach ($key in $requiredKeysByType[$ArtifactType]) {

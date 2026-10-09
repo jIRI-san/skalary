@@ -43,4 +43,7 @@ Distribution completion order, catalogs, dogfood, versioning, and drift authorit
 - `/ws` is instruction-first and standalone; planning/review plugins are needed only at the requested CIP transition.
 - Declare every payload; declare first-use non-`.github/` paths as scaffolds.
 - Keep `SKILL.md` small and put active on-demand detail in installed assets.
+- Skills omit `disable-model-invocation`, allowing relevance-based model invocation. Existing
+  `user-invocable` values and workflow approval gates remain unchanged; autopilot stays hidden
+  from the slash-command menu.
 - Use terminal Git commands.

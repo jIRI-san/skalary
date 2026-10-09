@@ -1,6 +1,6 @@
 {
   "name": "factory-loop",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
   "author": "jIRI-san",
   "license": "MIT",

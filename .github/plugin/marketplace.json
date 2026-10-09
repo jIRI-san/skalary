@@ -19,7 +19,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.0.11"
+      "version": "1.0.12"
     },
     {
       "description": "Self-contained direct-workflow autonomous plan executor.",
@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.32"
+      "version": "1.3.33"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.86"
+      "version": "1.0.87"
     },
     {
       "description": "Direct plan implementation workflow with Git criteria protection.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.125"
+      "version": "1.0.126"
     },
     {
       "description": "Direct implementation and epic plan creation.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.113"
+      "version": "1.0.114"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -85,7 +85,7 @@
         "prompt",
         "skill"
       ],
-      "version": "1.1.4"
+      "version": "1.1.5"
     },
     {
       "description": "Risk-selected design review with direct advisory Markdown.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.88"
+      "version": "1.0.89"
     },
     {
       "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",
@@ -111,7 +111,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     {
       "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
@@ -124,7 +124,7 @@
         "plugin-management",
         "skill"
       ],
-      "version": "1.0.30"
+      "version": "1.0.31"
     },
     {
       "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",
@@ -138,7 +138,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "description": "Operator-controlled repository survey, drift, dead-code, and improvement proposals.",
@@ -151,7 +151,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.6"
+      "version": "1.0.7"
     },
     {
       "description": "Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff.",
@@ -165,7 +165,7 @@
         "self-improvement",
         "skill"
       ],
-      "version": "1.0.84"
+      "version": "1.0.85"
     },
     {
       "description": "Discover Skalary configuration surfaces and safely preview category-scoped changes.",
@@ -178,7 +178,7 @@
         "skalary",
         "skill"
       ],
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
@@ -193,7 +193,7 @@
         "skill",
         "sync"
       ],
-      "version": "1.0.28"
+      "version": "1.0.29"
     },
     {
       "description": "Explore up to three approved, runnable prototypes in isolated worktrees, compare their integration, and hand the selected draft to /cip.",
@@ -206,7 +206,7 @@
         "prototyping",
         "skill"
       ],
-      "version": "1.0.2"
+      "version": "1.0.3"
     }
   ]
 }

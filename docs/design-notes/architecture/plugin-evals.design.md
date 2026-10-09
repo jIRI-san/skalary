@@ -34,6 +34,10 @@ tool provisioning, token resolution, or output creation. A selected case runs th
 
 ## File Layout and Contracts
 
+Skill frontmatter requires `name`, `description`, and `user-invocable`.
+`disable-model-invocation` is optional; shipped skills omit it to allow model invocation.
+Body-injected Tier-2 cases still measure output, not skill dispatch.
+
 | Surface | Contract |
 |---|---|
 | `plugins/<name>/evals/*.Tests.ps1` | Tier-1 structural assertions per plugin, using shared helpers |

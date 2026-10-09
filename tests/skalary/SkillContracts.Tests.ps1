@@ -2,6 +2,52 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Describe 'Skill invocation metadata' {
+    BeforeAll {
+        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+        Import-Module (Join-Path $script:repoRoot 'tests\evals\EvalCommon.psm1') -Force
+    }
+
+    It 'allows model invocation for every source and installed skill' {
+        $skillCount = 0
+        foreach ($plugin in Get-ChildItem -LiteralPath (Join-Path $script:repoRoot 'plugins') -Directory) {
+            $manifest = Get-Content -LiteralPath (Join-Path $plugin.FullName 'plugin.json') -Raw |
+                ConvertFrom-Json
+            foreach ($file in $manifest.files) {
+                if ([string]$file.dest -notmatch '(?:^|[/\\])SKILL\.md$') {
+                    continue
+                }
+                $skillCount++
+                foreach ($path in @(
+                        (Join-Path $plugin.FullName $file.src),
+                        (Join-Path (Join-Path $script:repoRoot '.github') $file.dest)
+                    )) {
+                    $frontmatter = Get-PluginFrontmatter -Path $path
+                    $frontmatter.Contains('disable-model-invocation') | Should -BeFalse -Because $path
+                    Test-RequiredFrontmatter -ArtifactType skill -Frontmatter $frontmatter -Path $path |
+                        Should -BeTrue
+                }
+            }
+        }
+        $skillCount | Should -BeGreaterThan 0
+    }
+
+    It 'accepts the default invocation behavior without weakening required skill metadata' {
+        $frontmatter = @{
+            name = 'example'
+            description = 'Example skill'
+            'user-invocable' = 'true'
+        }
+        Test-RequiredFrontmatter -ArtifactType skill -Frontmatter $frontmatter | Should -BeTrue
+        foreach ($key in @('name', 'description', 'user-invocable')) {
+            $missing = $frontmatter.Clone()
+            $missing.Remove($key)
+            { Test-RequiredFrontmatter -ArtifactType skill -Frontmatter $missing } |
+                Should -Throw "*missing required frontmatter key '$key'*"
+        }
+    }
+}
+
 Describe 'Direct workflow skill contracts' {
     BeforeAll {
         $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path

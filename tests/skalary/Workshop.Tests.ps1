@@ -30,7 +30,7 @@ Describe 'Workshop skill contracts' {
         }
         $script:skill | Should -Match '(?m)^name: ws\r?$'
         $script:skill | Should -Match '(?m)^user-invocable: true\r?$'
-        $script:skill | Should -Match '(?m)^disable-model-invocation: true\r?$'
+        $script:skill | Should -Not -Match '(?m)^disable-model-invocation:'
         $script:skill | Should -Match '\./assets/worktrees\.md'
         [System.Text.Encoding]::UTF8.GetByteCount($script:skill) | Should -BeLessOrEqual 12000
     }

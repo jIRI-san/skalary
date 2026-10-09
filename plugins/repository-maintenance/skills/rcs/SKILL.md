@@ -3,7 +3,6 @@ name: rcs
 description: 'Repository Cleanup Service — survey repository quality, investigate selected drift, and preserve operator decisions.'
 argument-hint: 'Optional: paths, plan IDs, or subsystem scope to prioritize'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 
