@@ -56,10 +56,17 @@ then stop. Never kill an agent for elapsed time. Retain deterministic build/test
 evidence. Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before
 800.
 
-For a complex predefined operator choice, provide context, an example, benefits, pros/cons,
-recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter. Pass
-the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
-input one focused question at a time.
+Present every operator question as rendered Markdown in the conversation: a short `###` heading,
+the focused question in its own paragraph, and numbered options with bold labels and blank lines
+between options. Put context and examples in separate paragraphs; put complex option details on
+separate lines with bold labels. Do not flatten the brief into one text block or wrap it in a code fence.
+For a complex predefined choice, provide context, an example, benefits, pros/cons,
+recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter.
+Show the Markdown brief before invoking the input tool; pass only the short question and option labels
+to the tool, not the full brief. Use `vscode_askQuestions` in VS Code or `ask_user` in Copilot CLI when
+available, keeping the same ordered labels and context. Without a picker, keep the rendered numbered
+list and accept the number or exact label. Ask free-form input one focused question at a time without
+an option list; trivial yes/no choices need no expanded decision brief.
 
 Run focused validation and call `Invoke-DirectEvidence` for only `test:`, `file:`, and `review:`.
 Supply the active in-memory review result, current source, and requested scope; persisted

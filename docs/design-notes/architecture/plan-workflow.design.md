@@ -30,6 +30,13 @@ planning-confirmed remains the sole execution baseline. Complex choices use host
 benefits, pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure
 matters; free-form input remains one focused question.
 
+Every CIP/CI operator question, including review selections and final confirmation, has a rendered
+Markdown brief in the conversation: heading, separate question paragraph, numbered bold option labels,
+blank lines, and separate labeled complex-choice details. Input tools receive only the short question
+and matching ordered labels, not the full brief, because tool fields may flatten Markdown. Hosts without
+a picker retain the rendered numbered list. CIP's installed decision protocol owns the example; CI
+carries the concise presentation contract.
+
 The existing reviewer also compares captured operator wording/confirmed interpretations with the draft, calling
 out unsupported additions, omissions, scope shifts, and material ambiguity separately from technical
 findings. Bounded discretion and intentional openness are not drift; the alignment lens adds no call.

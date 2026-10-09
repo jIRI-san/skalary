@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-09T15:25:20.3037045Z",
+  "generatedAt": "2026-10-09T16:14:54.8155765Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -431,7 +431,7 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "d834b765831b67bb1f261fba553259000902c80535d4ad5a62d858780930aecd",
+          "sha256": "0fe789fc3037cf3a86b13ac30050a4195e155b9739c923b9034da4e64e3d0f27",
           "src": "skills/ci/SKILL.md"
         },
         {
@@ -488,7 +488,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.126"
+      "version": "1.0.127"
     },
     {
       "author": "jIRI-san",
@@ -507,7 +507,7 @@
         },
         {
           "dest": "skills/cep/assets/decision-protocol.md",
-          "sha256": "702c7a8fcab579cacbf3f868dc1fec94d44c9d7f0a413a973d9dab747c8e4e1d",
+          "sha256": "5cb0320ff85de75017e249ef2fea3f39063e1f11a44ee7dd1db9e0f667dd0110",
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
@@ -572,12 +572,12 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "b1fefce8d5653bf1f4a2be17db3b2199ea0610e011fd9f8cd5d644333304f4f6",
+          "sha256": "ee0421b5b1481e26084b463dda5fb73694e18490eaad45fd5a4a7912ab88d835",
           "src": "skills/cip/SKILL.md"
         },
         {
           "dest": "skills/cip/assets/decision-protocol.md",
-          "sha256": "702c7a8fcab579cacbf3f868dc1fec94d44c9d7f0a413a973d9dab747c8e4e1d",
+          "sha256": "5cb0320ff85de75017e249ef2fea3f39063e1f11a44ee7dd1db9e0f667dd0110",
           "src": "skills/cip/assets/decision-protocol.md"
         },
         {
@@ -592,7 +592,7 @@
         },
         {
           "dest": "skills/cip/assets/pre-confirmation-review.md",
-          "sha256": "484e270d3e341bc2c21fa2de712db2a264ad08eb95cb60c4d0b1b741bc4a7187",
+          "sha256": "aa20895a73ca0d572352126e76b7c3fb50cc8ce103f4a4f32afd6a9a78ac6383",
           "src": "skills/cip/assets/pre-confirmation-review.md"
         },
         {
@@ -664,7 +664,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.114"
+      "version": "1.0.115"
     },
     {
       "author": "jIRI-san",

@@ -83,8 +83,8 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `architecture-notes` | 1.0.12 | partial | — | 13 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `autopilot` | 1.3.33 | partial | code-review, create-implementation-plan | 41 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.87 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
-| `continue-implementation` | 1.0.126 | stable | autopilot, code-review, create-implementation-plan | 10 | Direct plan implementation workflow with Git criteria protection. |
-| `create-implementation-plan` | 1.0.114 | stable | design-review | 28 | Direct implementation and epic plan creation. |
+| `continue-implementation` | 1.0.127 | stable | autopilot, code-review, create-implementation-plan | 10 | Direct plan implementation workflow with Git criteria protection. |
+| `create-implementation-plan` | 1.0.115 | stable | design-review | 28 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.5 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.89 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |
 | `factory-loop` | 0.1.9 | partial | — | 18 | Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates. |

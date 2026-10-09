@@ -36,10 +36,15 @@ When the user says **"update docs"**:
   cons, a recommendation/default, `effort: <1-10>`, and `complexity: <1-10>`. Add Mermaid only when
   relationships or sequencing affect the decision. A trivial yes/no whose consequence is explicit does
   not need this expansion.
-- For a predefined choice, build one ordered option list. In VS Code, pass it to
-  `vscode_askQuestions`. In Copilot CLI, render the same labels and context as a numbered list and accept
-  the number or exact label. If the VS Code picker is unavailable, use the CLI form instead of stopping.
-  For free-form input, ask one focused question at a time.
+- Present every operator question as rendered Markdown in the conversation: a short heading, the
+  focused question in its own paragraph, and numbered options with bold labels and blank lines between
+  options. Put context and examples in separate paragraphs; put complex option details on separate
+  lines with bold labels. Do not flatten the brief into one text block or wrap it in a code fence.
+- Build one ordered option list, keeping the same labels and context across hosts. Show the Markdown
+  brief before invoking the input tool; pass only the short question and option labels to the tool,
+  not the full brief. Use `vscode_askQuestions` in VS Code or `ask_user` in Copilot CLI when available.
+  Without a picker, keep the rendered numbered list and accept the number or exact label.
+  For free-form input, ask one focused question at a time; no option list is needed.
 - Invoke installed scripts directly by stable repo-relative path with bound arguments. Never wrap
   `.github/skills/**` scripts in `pwsh -File` or `powershell -File`. Read-only and focused script paths
   may be pre-approved; mutating scripts remain explicit.

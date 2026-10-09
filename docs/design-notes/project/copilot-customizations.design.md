@@ -30,6 +30,9 @@ concrete threat paths, and external-format checks.
 
 Complex predefined decisions use the same ordered brief in both hosts: context, example, benefits,
 pros/cons, recommendation/default, 1–10 effort/complexity, and Mermaid only when structure matters.
+Questions render as Markdown in the conversation, with separate paragraphs and numbered bold option
+labels; pickers receive only the short question and matching ordered labels so plain-text tool fields
+cannot flatten the decision brief. Without a picker, the rendered numbered list remains the fallback.
 CIP/CEP share one installed protocol; independently installed plugins carry the concise contract.
 
 Canonical reusable PowerShell lives in `scripts/skalary/`; generated closures are manifest-declared.

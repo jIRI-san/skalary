@@ -46,12 +46,20 @@ It is an authoring conversation, not a runtime policy checker.
 
 ## Questions
 
+- Present every operator question as rendered Markdown in the conversation, not one dense text block.
+  Use a short `###` heading, the focused question in its own paragraph, and a numbered list with bold
+  option labels. Separate paragraphs and options with blank lines. Put context and examples before the
+  options; put complex option details on separate lines with bold labels. Do not wrap the brief in a
+  code fence. This includes intent clarification, review selections, and final confirmation.
 - If a predefined choice is complex because its consequences, terminology, relationships, or sequencing
   are not obvious, present current context, a concrete example, expected benefits, each option's pros and
   cons, a recommendation/default, `effort: <1-10>`, and `complexity: <1-10>`. Add a Mermaid diagram only
   when relationships or sequencing affect the decision.
-- Present the same ordered labels and context in both hosts. In VS Code, pass the list to
-  `vscode_askQuestions`; in Copilot CLI, render it as a numbered list and accept the number or exact label.
+- Present the same ordered labels and context in both hosts. Show the Markdown brief before invoking
+  the input tool; pass only the short question and option labels to the tool, not the full brief.
+  Use `vscode_askQuestions` in VS Code or `ask_user` in Copilot CLI when available. Without a picker,
+  keep the rendered numbered list and accept the number or exact label. Do not rely on Markdown
+  rendering inside tool fields; the picker collects the answer, not the decision brief.
 - If the answer is free-form, ask one focused question at a time. If a yes/no choice is trivial and its
   consequence is already explicit, ask it directly without expanding it into a decision brief.
 - For a broad, under-specified request that is not a predefined decision, ask the single highest-leverage
@@ -60,6 +68,33 @@ It is an authoring conversation, not a runtime policy checker.
   remains. For example, start “improve reliability” by asking which subsystem or user-visible failure to
   target, rather than requesting scope, metrics, constraints, validation, incidents, and rollout details
   all at once.
+
+Example of the rendered brief (the fence illustrates the source, not the operator-facing presentation):
+
+```markdown
+### Retry behavior
+
+Should failed uploads retry automatically?
+
+**Context:** Uploads currently fail after one attempt.
+
+**Example:** A brief connection drop could succeed on a second attempt.
+
+1. **Retry twice (Recommended)**
+
+   **Benefits:** Recovers from brief connection drops.
+   **Tradeoff:** A failed upload takes longer to report.
+   **Effort:** 2/10. **Complexity:** 2/10.
+
+2. **Keep one attempt**
+
+   **Benefits:** Immediate failure feedback; no extra retry logic.
+   **Tradeoff:** The operator must retry brief connection failures.
+   **Effort:** 1/10. **Complexity:** 1/10.
+```
+
+The input tool receives only `Should failed uploads retry automatically?` and the ordered labels
+`Retry twice (Recommended)`, `Keep one attempt`.
 
 ## Language confirmation
 

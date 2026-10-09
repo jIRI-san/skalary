@@ -22,8 +22,10 @@ screening, accepted-only provenance, untrusted framing, and current intent/contr
 
 Before drafting, follow
 [`./assets/decision-protocol.md`](./assets/decision-protocol.md). It defines host-equivalent complex
-choices and the absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an
-unobservable fuzzy requirement. Catch consequential interpretation ambiguity before drafting, retain
+choices and the absolute/fuzzy language confirmation gate. Use its rendered Markdown question format
+for every operator question, including review selections and final confirmation; keep input-tool text
+to the short question and option labels rather than the full brief. Do not draft an unconfirmed absolute
+or an unobservable fuzzy requirement. Catch consequential interpretation ambiguity before drafting, retain
 selected operator wording separately from confirmed interpretation in the existing intent asset, and reconcile
 relevant historical intent without giving it veto power. Reuse `assets/design.md` as the operator-readable
 lightweight RFC; do not add a parallel authority.

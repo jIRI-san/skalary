@@ -88,6 +88,40 @@ Describe 'direct plan intent contract' {
         }
     }
 
+    It 'presents operator questions as Markdown briefs outside input-tool fields' {
+        foreach ($path in @(
+                $script:decisionProtocol,
+                $script:ciSkill,
+                (Join-Path $script:repoRoot '.github/copilot-instructions.md')
+            )) {
+            $content = Get-Content -LiteralPath $path -Raw
+            $content | Should -Match 'every operator question as rendered Markdown in the conversation'
+            $content | Should -Match 'question in its own paragraph'
+            $content | Should -Match 'bold\s+option labels|options with bold labels'
+            $content | Should -Match 'blank lines'
+            $content | Should -Match 'before invoking\s+the input tool'
+            $content | Should -Match 'only the short question and option labels'
+            $content | Should -Match 'vscode_askQuestions'
+            $content | Should -Match 'ask_user'
+            $content | Should -Match 'Without a picker'
+        }
+
+        $protocol = Get-Content -LiteralPath $script:decisionProtocol -Raw
+        $protocol | Should -Match '(?m)^### Retry behavior\r?$'
+        $protocol | Should -Match '(?m)^1\. \*\*Retry twice \(Recommended\)\*\*\r?$'
+        $protocol | Should -Match '(?m)^2\. \*\*Keep one attempt\*\*\r?$'
+        $protocol | Should -Match 'Do not rely on Markdown\s+rendering inside tool fields'
+        $protocol | Should -Match 'yes/no choice is trivial'
+
+        $cip = Get-Content -LiteralPath $script:cipSkill -Raw
+        $cip | Should -Match 'for every operator question, including review selections and final confirmation'
+        $preReview = Get-Content -LiteralPath (
+            Join-Path $script:repoRoot 'plugins/create-implementation-plan/skills/cip/assets/pre-confirmation-review.md'
+        ) -Raw
+        $preReview | Should -Match 'rendered\s+Markdown question format'
+        $preReview | Should -Match 'input tool receives only the short question and\s+option labels'
+    }
+
     It 'test:new-plan-scaffolds-intent writes all confirmed intent sections' {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile(
             $script:newPlan,
@@ -118,6 +152,9 @@ Describe 'direct plan intent contract' {
     It 'ships the active intent contract unchanged to dogfood' {
         $pairs = @(
             @{ Source = 'plugins/create-implementation-plan/skills/cip/SKILL.md'; Installed = '.github/skills/cip/SKILL.md' }
+            @{ Source = 'plugins/create-implementation-plan/skills/cip/assets/decision-protocol.md'; Installed = '.github/skills/cip/assets/decision-protocol.md' }
+            @{ Source = 'plugins/create-implementation-plan/skills/cip/assets/decision-protocol.md'; Installed = '.github/skills/cep/assets/decision-protocol.md' }
+            @{ Source = 'plugins/create-implementation-plan/skills/cip/assets/pre-confirmation-review.md'; Installed = '.github/skills/cip/assets/pre-confirmation-review.md' }
             @{ Source = 'plugins/create-implementation-plan/skills/cep/SKILL.md'; Installed = '.github/skills/cep/SKILL.md' }
             @{ Source = 'plugins/design-review/skills/dr/SKILL.md'; Installed = '.github/skills/dr/SKILL.md' }
             @{ Source = 'plugins/continue-implementation/skills/ci/SKILL.md'; Installed = '.github/skills/ci/SKILL.md' }

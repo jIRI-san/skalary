@@ -51,7 +51,10 @@ implementation, epic context when supplied, and Simplicity First. For every find
 of `fix`, `simplify`, `defer`, or `ignore`, with a concise rationale and the smallest useful current-plan
 edit. The evaluator may challenge overengineering but may not hide a reviewer finding.
 
-Show all findings and their recommendations in one consolidated operator selection. Apply only the selected
+Show all findings and their recommendations in one consolidated operator selection, using the rendered
+Markdown question format from [`./assets/decision-protocol.md`](./assets/decision-protocol.md).
+Keep findings and rationale in the conversation; the input tool receives only the short question and
+option labels, not the full review brief. Apply only the selected
 edits directly to the current plan; accepted scope changes that alter the epic cut return to the epic
 planning flow rather than mutating the epic. Then return to normal final confirmation. Recommendations and
 selections are conversational only and are not persisted as review state.
