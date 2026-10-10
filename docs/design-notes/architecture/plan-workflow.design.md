@@ -115,9 +115,11 @@ owned transport checkouts; VS Code's direct/host/epic/config routes remain. New 
 coordination is deferred, not inferred from shared harness.
 
 App readiness uses `Get-PhaseExecutionState.ps1 -AllowIndependentAi`: select only ready AI siblings
-in the first unfinished phase, then reuse canonical phase/dependency/criteria admission. When no AI
-is ready, return `operator-action`, not a closed phase. Calls without the switch retain existing
-first-step semantics. Later phases never bypass earlier human work. App epics use dependency facts
+in the first unfinished phase, retaining all completed steps as prerequisite context for
+`Get-NextStep`, then reuse canonical phase/dependency/criteria admission. Filtering to ready steps
+alone loses completed human/AI dependencies, including earlier-phase prerequisites, and falsely blocks
+admission. When no AI is ready, return `operator-action`, not a closed phase. Calls without the switch
+retain existing first-step semantics. Later phases never bypass earlier human work. App epics use dependency facts
 from the existing rollup but finalize/archive each child locally before dependents; retained VS Code
 keeps its host wrapper/provider proof.
 

@@ -18,6 +18,10 @@ kickoff and integration-branch/full-HEAD binding. The coordinator holds its chec
 verifies current scoped evidence and stateless `Test-AppCiWorkerResult.ps1` Git/checklist checks, then
 fast-forwards serially. No journal, recursive coordinator, worker PR or fabricated usage.
 
+App readiness retains all completed human/AI steps as dependency context when selecting ready
+AI siblings in the first unfinished phase. Only ready siblings are execution candidates; completed
+same-phase and earlier-phase prerequisites remain visible to canonical admission.
+
 App container/Sandbox dispatch uses `app-phase`/`app-finalization` from a distinct owned transport
 checkout, with explicit source/head/work branch. Settings override only the in-memory config.
 The new modes bypass legacy PR-close/whole-plan loops; partial phases retain operator action `42`,

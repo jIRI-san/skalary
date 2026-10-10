@@ -212,7 +212,7 @@ flowchart TD
     It 'test:AppCi.HumanBlockerReadiness admits only an independent AI sibling in the first unfinished phase' {
         $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
         $text = (Get-Content $plan -Raw).Replace('- [ ] 1.1 ', '- [x] 1.1 ')
-        $text = $text.Replace('## Phase 2:', "- [ ] 1.4 Independent AI ``S```n`n## Phase 2:")
+        $text = $text.Replace('## Phase 2:', "- [ ] 1.4 Independent AI [after: 1.1] ``S```n`n## Phase 2:")
         Set-Content $plan $text -NoNewline
         Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
         Invoke-FixtureGit $script:integration @('commit', '-qm', 'prior approved progress') | Out-Null
@@ -233,6 +233,46 @@ flowchart TD
             -PlanPath $plan -Phase 1 -RepoRoot $script:integration -AllowIndependentAi |
             Should -Be 'operator-action'
         (Get-Content $plan -Raw) | Should -Match '\[ \] 1.2 Human'
+        (Get-Content $plan -Raw) | Should -Match '\[ \] 2.1 Later'
+    }
+    It 'test:AppCi.CompletedPrerequisiteReadiness admits completed same-phase human and AI prerequisites via <StateScript>' -ForEach @(
+        @{ StateScript = 'scripts\skalary\Get-PhaseExecutionState.ps1' }
+        @{ StateScript = '.github\skills\autopilot\scripts\Get-PhaseExecutionState.ps1' }
+    ) {
+        $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
+        $text = (Get-Content $plan -Raw).Replace('- [ ] 1.1 ', '- [x] 1.1 ')
+        $text = $text.Replace('- [ ] 1.2 ', '- [x] 1.2 ')
+        $text = $text.Replace('[after: 1.2]', '[after: 1.1, 1.2]')
+        Set-Content $plan $text -NoNewline
+        Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
+        Invoke-FixtureGit $script:integration @('commit', '-qm', 'completed human and AI prerequisites') | Out-Null
+        & (Join-Path $script:repo $StateScript) `
+            -PlanPath $plan -Phase 1 -RepoRoot $script:integration -AllowIndependentAi |
+            Should -Be 'execution-required'
+        & (Join-Path $script:repo $StateScript) `
+            -PlanPath $plan -Phase 1 -RepoRoot $script:integration |
+            Should -Be 'execution-required'
+        (Get-Content $plan -Raw) | Should -Match '\[ \] 1.3 Dependent'
+    }
+    It 'test:AppCi.CompletedPrerequisiteReadiness admits completed earlier-phase prerequisites via <StateScript>' -ForEach @(
+        @{ StateScript = 'scripts\skalary\Get-PhaseExecutionState.ps1' }
+        @{ StateScript = '.github\skills\autopilot\scripts\Get-PhaseExecutionState.ps1' }
+    ) {
+        $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
+        $text = Get-Content $plan -Raw
+        foreach ($id in @('1.1', '1.2', '1.3')) {
+            $text = $text.Replace("- [ ] $id ", "- [x] $id ")
+        }
+        $text = $text.Replace('2.1 Later AI', '2.1 Later AI [after: 1.3]')
+        Set-Content $plan $text -NoNewline
+        Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
+        Invoke-FixtureGit $script:integration @('commit', '-qm', 'completed earlier-phase prerequisites') | Out-Null
+        & (Join-Path $script:repo $StateScript) `
+            -PlanPath $plan -Phase 2 -RepoRoot $script:integration -AllowIndependentAi |
+            Should -Be 'execution-required'
+        & (Join-Path $script:repo $StateScript) `
+            -PlanPath $plan -Phase 2 -RepoRoot $script:integration |
+            Should -Be 'execution-required'
         (Get-Content $plan -Raw) | Should -Match '\[ \] 2.1 Later'
     }
     It 'test:AppCi.CloseRefusal rejects an idle/no-progress result and premature finalization' {

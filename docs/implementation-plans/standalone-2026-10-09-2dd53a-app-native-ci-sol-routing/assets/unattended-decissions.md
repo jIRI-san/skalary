@@ -113,3 +113,23 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
   fixture, human blocker/resume, exact settings/heads, transport/usage/recovery and completion/PR
   boundaries for native app, Docker, Windows Sandbox and named-version VS Code preservation.
   Steps 6.1-6.3 and 7.1 remain pending human evidence. No whole-plan finalization or PR yet.
+
+## 3.1/6.1: Repair completed-prerequisite context exposed by native acceptance
+
+- Operator choice: "Repair readiness and resume smoke (Recommended)".
+- Evidence: disposable fixture 4c8316 accepted independent work and separately committed human
+  approval, but canonical app admission falsely reported completed 1.1/1.2 as unmet prerequisites.
+  Four regressions reproduced the same-phase and earlier-phase failure in canonical and installed
+  helpers before repair.
+- Choice: pass all completed steps alongside ready AI candidates to the existing `Get-NextStep`.
+  Completed steps supply dependency facts, never new execution candidates. Keep canonical admission,
+  first-unfinished-phase ordering and no-ready-work exhaustion unchanged; no fallback or new scheduler.
+- Validation: 10 focused dependency/human-exhaustion/worker-boundary tests pass, including source and
+  installed same-phase/earlier-phase cases and calls without the opt-in switch. Detect-only bundle,
+  registry, marketplace and dogfood convergence passes. Current direct scope review found no findings;
+  this does not replace the pending whole-plan terminal review or live acceptance.
+- Consequence: commit the repair in the implementation branch and apply only that repair to the
+  disposable smoke branch. Retain the pre-repair held worker without release; resume from the
+  explicitly repaired HEAD in a fresh settings-verified worker. Fixture criteria and prior accepted
+  evidence remain intact. Native acceptance 6.1 is still pending; no publication, smoke-to-parent
+  integration or cleanup is authorized.

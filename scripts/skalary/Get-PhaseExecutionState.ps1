@@ -72,14 +72,14 @@ try {
             -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
         $noReadyAi = $false
         if ($AllowIndependentAi -and $next.Step -and $next.Step.Phase -eq $phaseHeading[0]) {
-            $completeIds = @($metadata.Steps | Where-Object { $_.Status -eq 'x' } |
-                    ForEach-Object { $_.Id })
+            $completed = @($metadata.Steps | Where-Object { $_.Status -eq 'x' })
+            $completeIds = @($completed | ForEach-Object { $_.Id })
             $ready = @($steps | Where-Object {
                     $_.Status -ne 'x' -and $_.Role -ne 'human' -and
                     @($_.After | Where-Object { $_ -notin $completeIds }).Count -eq 0
                 })
             if ($ready.Count) {
-                $next = Get-NextStep -Metadata ([pscustomobject]@{ Steps = $ready }) `
+                $next = Get-NextStep -Metadata ([pscustomobject]@{ Steps = $completed + $ready }) `
                     -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
             }
             else {
