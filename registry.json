@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-10T08:13:09.4174827Z",
+  "generatedAt": "2026-10-10T08:49:43.1609146Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -130,7 +130,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "08e1128eab44a6f178d933985cfc3e4f6a2150811ea54ec81b57be821cb22883",
+          "sha256": "6382716d3a726688abe67e7b3480501fc9569f1b59d1eed64972d7a083cfcc15",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -145,7 +145,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "fa63c95a91fa95640cf5e793f8fd8876630d503691ae00ccccd4526a3a093ad3",
+          "sha256": "245be2763d38da8feb606b63e33b2443c578abf488e562e2fefe799fc041f77e",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -280,7 +280,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "a7739e9e4a3e889314a314e24078f1a5ca5dd0d447c4b7cd38a38843b4317e7c",
+          "sha256": "6915bba3d3514c1a4e7cc55a0ff744e7f87c4098e4d22d70aef2ac2432847a07",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -295,7 +295,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "e574c968ec231700015d2c504a7a91db314020507e7a5f2da0b0306afab1d91f",
+          "sha256": "6983be09c136139fe6e1ba541b1bec1e1f7821a0f831e073e31f62b53cbde3e7",
           "src": "scripts/launch-container.ps1"
         },
         {
@@ -305,12 +305,12 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "b6ee1f58ee4b235655568c99e3d55d39c3ce37e049e047787e1daecf48956570",
+          "sha256": "0c408f0a47fbde5fbcd07035353ac7c6b04fda2b97b867c5ddb9b0e3cf7f289e",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
           "dest": "skills/autopilot/scripts/launch.ps1",
-          "sha256": "975d622b48740bad53822de344eb7cdf558573583f48409c437462f627cddac5",
+          "sha256": "556850735ab470f83ac2cd0802d6d88e4465eefd510a234574af1728d6275eba",
           "src": "scripts/launch.ps1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.34"
+      "version": "1.3.35"
     },
     {
       "author": "jIRI-san",
@@ -431,8 +431,13 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "643f81470ba9c33efa97a606a2ab796e52c03a5ed14cff585877a3e78c513d21",
+          "sha256": "94fac5a764a0d026ed6ab6fa28fb275827edea4968bb4726fa941188c615a1b5",
           "src": "skills/ci/SKILL.md"
+        },
+        {
+          "dest": "skills/ci/assets/app-coordinator.md",
+          "sha256": "b7812fc6ec0757a4a9ea3c396ee02b2262e8132ce9c5addfd097f0fc3be9aa79",
+          "src": "skills/ci/assets/app-coordinator.md"
         },
         {
           "dest": "skills/ci/assets/model-aliases.psd1",
@@ -470,6 +475,11 @@
           "src": "skills/ci/scripts/SecretGuard.psm1"
         },
         {
+          "dest": "skills/ci/scripts/Test-AppCiWorkerResult.ps1",
+          "sha256": "cac76e4a140469a54b2c4437399ff3791a64d1026b1d1ea6e6e2955079356f07",
+          "src": "skills/ci/scripts/Test-AppCiWorkerResult.ps1"
+        },
+        {
           "dest": "skills/ci/scripts/Test-Plan.ps1",
           "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
           "src": "skills/ci/scripts/Test-Plan.ps1"
@@ -488,7 +498,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.128"
+      "version": "1.0.129"
     },
     {
       "author": "jIRI-san",

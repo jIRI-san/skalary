@@ -9,6 +9,16 @@ Resolve the selected plan and run installed sibling `DirectWorkflow.psm1`
 `Test-PlanCriteriaBaseline` before every mutation and completion resume. Refuse changed, uncommitted, or
 ambiguous intent, requirements, risks, or decisions with exit `42`; progress markers remain mutable.
 
+For an **App CI worker** kickoff or `APP_CI_WORKER=true`, execute only the explicitly named phase
+visit or finalization at the expected full HEAD in a distinct worktree/environment. Repeat source,
+isolation and criteria checks before mutation. Never invoke `/ci` as a coordinator, launch children,
+run a whole-plan loop, create phase/child PRs, merge a PR or deploy. The app coordinator owns integration
+and final delivery. Phase visits may commit admitted independent AI progress around human blockers
+within the first unfinished phase, but never close a partial phase or run finalization. Run current
+focused evidence, report exact commits and blockers, and preserve exit `42`/`43` distinctions.
+Finalization alone follows the terminal lifecycle below, without worker PR publication.
+Existing factory repair and non-app execution retain their own contracts.
+
 When `FACTORY_LOOP_REPAIR_MODE=true`, the existing launcher has admitted one corrective call for
 the supplied incident and stable build lineage. Revalidate `Test-PlanCriteriaBaseline`, then repair
 only the confirmed implementation scope for the selected phase. Never edit plan assets, `plan.md`,

@@ -160,6 +160,25 @@ autopilot_entrypoint_target_close_state() {
         "${work_branch}" "${expected_close_target_branch}"
 }
 
+app_worker_target() {
+    local mode="$1" phase="${2:-}"
+    case "${mode}" in
+        app-phase)
+            [[ "${phase}" =~ ^[0-9]{1,3}$ ]] || {
+                echo "ERROR: App phase worker requires one explicit phase." >&2; return 2;
+            }
+            printf 'phase:%s\n' "${phase}"
+            ;;
+        app-finalization)
+            [ -z "${phase}" ] || {
+                echo "ERROR: App finalization cannot include a phase." >&2; return 2;
+            }
+            printf 'completion-only\n'
+            ;;
+        *) echo "ERROR: Invalid app worker mode." >&2; return 2 ;;
+    esac
+}
+
 # Expose the pure phase-progress and recovery probes to focused tests.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -229,7 +248,11 @@ fi
 cd /work
 
 # Determine target branch
-WORK_BRANCH="feature/${PLAN_SLUG}"
+WORK_BRANCH="${AUTOPILOT_WORK_BRANCH:-feature/${PLAN_SLUG}}"
+if ! git check-ref-format --branch "${WORK_BRANCH}" >/dev/null 2>&1; then
+    echo "ERROR: Invalid work branch." >&2
+    exit 2
+fi
 
 if [ -n "${EXPECTED_START_COMMIT:-}" ]; then
     checkout_epic_work_branch /work "${BRANCH}" "${EXPECTED_START_COMMIT}" \
@@ -250,6 +273,7 @@ else
 fi
 
 # --- Configure git identity ---
+APP_CI_EXPECTED_HEAD="$(git rev-parse HEAD)"
 git config user.name "${GIT_USER_NAME:-autopilot}"
 git config user.email "${GIT_USER_EMAIL:-autopilot@noreply}"
 
@@ -364,7 +388,17 @@ PHASE_NUMS=$(autopilot_phase_numbers "${PLAN_PATH}")
 PHASE_COUNT=$(printf '%s\n' "${PHASE_NUMS}" | grep -c '[0-9]' || echo "0")
 FINAL_PHASE_NUM=$(printf '%s\n' "${PHASE_NUMS}" | tail -n 1)
 echo "Found ${PHASE_COUNT} phases in plan (numbers: $(echo ${PHASE_NUMS} | tr '\n' ' '))."
-if ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}"); then
+if [[ "${MODE}" == app-* ]]; then
+    [ "${APP_CI_WORKER:-}" = "true" ] && [ -n "${EXPECTED_START_COMMIT:-}" ] || {
+        echo "ERROR: App worker requires an explicit expected start." >&2; exit 2;
+    }
+    [ "${COPILOT_MODEL:-}" = "gpt-6.1-sol" ] &&
+        [ "${COPILOT_CONTEXT:-}" = "default" ] &&
+        [ "${COPILOT_REASONING_EFFORT:-}" = "high" ] || {
+        echo "ERROR: App worker requires GPT-6.1 Sol high/default." >&2; exit 2;
+    }
+    TARGET_OUTPUT=$(app_worker_target "${MODE}" "${APP_CI_PHASE:-}") || exit $?
+elif ! TARGET_OUTPUT=$(autopilot_execution_targets "${PLAN_PATH}" "${MODE}"); then
     echo "ERROR: Unable to resolve safe autopilot execution targets."
     exit 1
 fi
@@ -434,6 +468,9 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
         PROMPT="Execute ${PLAN_PATH}, phase ${PHASE_NUM}"
     fi
+    if [[ "${MODE}" == app-* ]]; then
+        PROMPT="App CI worker. ${PROMPT}. Execute only this target directly at expected worker HEAD ${APP_CI_EXPECTED_HEAD}, with original source ancestry ${EXPECTED_START_COMMIT}. No recursive coordinator, other phase, worker PR, PR merge or deployment. Phase work never finalizes. The app coordinator verifies and integrates committed evidence locally; report exact commits and blockers."
+    fi
     USAGE_OUTPUT="${USAGE_OUTPUT_DIR}/session-usage-${TARGET//:/-}.json"
     echo "=== ${TARGET_LABEL} ==="
 
@@ -467,6 +504,35 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         EXIT_CODE=$?
         set -e
         COPILOT_PID=""
+
+        if [[ "${MODE}" == app-* ]]; then
+            # App acceptance is local; never enter the legacy PR-close/resume loop.
+            if [ "${EXIT_CODE}" -eq 0 ]; then
+                if [ "${MODE}" = "app-phase" ]; then
+                    set +e
+                    phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
+                    APP_CLOSE=$?
+                    set -e
+                    if [ "${APP_CLOSE}" -eq 0 ]; then
+                        echo "App phase remains partial; returning operator action."
+                        EXIT_CODE=42
+                    elif [ "${APP_CLOSE}" -ne 1 ]; then
+                        EXIT_CODE=3
+                    fi
+                elif ! git ls-files --error-unmatch \
+                    "docs/implementation-plans/archived/${PLAN_SLUG}/plan.md" >/dev/null 2>&1; then
+                    echo "ERROR: App finalization did not commit the plan archive." >&2
+                    EXIT_CODE=1
+                fi
+            fi
+            if [ "${EXIT_CODE}" -ne 0 ]; then
+                preserve_work || exit 70
+            elif ! git push origin "${WORK_BRANCH}"; then
+                touch /tmp/autopilot-preservation-failed
+                exit 70
+            fi
+            exit "${EXIT_CODE}"
+        fi
 
         CLOSE_STATE=""
         if [ "${EXIT_CODE}" -eq 0 ]; then

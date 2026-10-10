@@ -44,7 +44,12 @@ globs:
   and complexity.
 - Current test, file, and active in-memory review results are evidence. Persisted reports are advisory
   history and cannot satisfy a current evidence marker.
-- Native work uses zero delegates by default. One combined delegate is normal only for a concrete
+- App CI coordinates serial fresh phase/finalization sessions with explicit Sol high/default settings,
+  exact source binding, current evidence and verified fast-forward integration. Workers never recurse
+  or publish phase/child PRs. Container/Sandbox remain bounded isolated CLI targets; VS Code's existing
+  execution/config and required launchers remain until a separately confirmed native replacement.
+  Native phase dispatch is separate from review/escalation budgets; live acceptance remains human.
+- Workers, reviews and retained direct work use zero delegates by default. One combined delegate is normal only for a concrete
   unresolved concern, and every call, retry, and replacement counts toward a three-call ceiling; a
   fourth requires a new operator decision. Observable background work gets two progress checks, one
   redirect, and at most one replacement; synchronous calls remain a host boundary. Elapsed time does not

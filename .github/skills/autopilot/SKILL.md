@@ -16,6 +16,13 @@ and every other nonzero failure exactly. Duration alone never cancels progressin
 deterministic build, test, command, and offline operation timeouts; their failures become evidence
 handled by the agent. Preserve recoverable Git and Markdown progress for every non-completed outcome.
 
+App coordination uses `app-phase` with an explicit phase or `app-finalization`, exact source/head,
+distinct work branch and Sol high/default settings through the retained container/Sandbox launchers.
+These modes execute one target, suppress worker PR/legacy whole-plan handoffs, and retain recovery
+outputs for local app acceptance. Existing `next-phase`/`whole-plan`, VS Code and factory consumers
+retain their routes/configuration. The app coordinator, not this skill, owns serial integration and
+the final requested-run PR. No native remote attachment or manual operator CLI is required.
+
 Autonomous execution defaults to zero delegated calls and uses policy-owned role effort, direct
 evidence, risk-selected non-terminal review, one terminal `primary-model-mid` review, and the three-call ceiling
 described by the autopilot agent. It has no automatic Judge and does not persist auxiliary review or

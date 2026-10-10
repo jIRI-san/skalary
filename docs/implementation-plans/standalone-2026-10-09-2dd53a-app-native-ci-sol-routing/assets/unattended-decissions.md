@@ -59,3 +59,17 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
   preservation, not a completed native acceptance claim.
 - Boundary: the capability stop above remains historical evidence. This disposition is not a
   confirmation stamp or permission to implement against stale criteria; baseline must pass first.
+
+## 2.1-2.2: Reuse launchers with explicit app-only bounded modes
+
+- Choice: retain existing launcher ownership and `next-phase`/`whole-plan` consumers; add explicit
+  `app-phase`/`app-finalization` modes and one stateless result checker. No new scheduler or journal.
+- Rationale: the app must bypass legacy PR-close loops without changing VS Code/factory behavior.
+  Launch isolated workers from an owned transport checkout because existing transcripts/usage write
+  locally. Verify exact retry HEAD separately from original-source ancestry after offline rebundling.
+- Consequence: coordinator checkout stays unchanged while workers run; exact usage is committed in
+  transport before local import. Git/checklist checks do not substitute for current scope/evidence.
+  Six named app acceptance markers pass; live app/container/Sandbox and VS Code preservation remain
+  pending human gates.
+- Existing failure: `ContainerOffline.Tests.ps1` calls absent `Wait-AutopilotProcessUntil` on baseline
+  `ff6805be`. Leave it unchanged; do not claim the wider container fixture clean.

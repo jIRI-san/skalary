@@ -22,8 +22,11 @@ param(
     [string]$PlanSlug,
 
     [Parameter(Mandatory)]
-    [ValidateSet('whole-plan', 'next-phase')]
+    [ValidateSet('whole-plan', 'next-phase', 'app-phase', 'app-finalization')]
     [string]$Mode,
+
+    [ValidateRange(0, 999)]
+    [int]$Phase,
 
     [Parameter(Mandatory)]
     [PSCustomObject]$Config,
@@ -55,6 +58,14 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'autopilot-dispatch.ps1')
 
 $RepoRoot = git rev-parse --show-toplevel
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    if (-not $ExpectedStartCommit -or $Config.model -cne 'gpt-6.1-sol' -or
+        $Config.context -cne 'default' -or $Config.reasoningEffort -cne 'high' -or
+        ($Mode -eq 'app-phase' -and -not $PSBoundParameters.ContainsKey('Phase')) -or
+        ($Mode -eq 'app-finalization' -and $PSBoundParameters.ContainsKey('Phase'))) {
+        throw 'App container worker requires explicit source and Sol high/default target.'
+    }
+}
 $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
 $ContainerName = Get-AutopilotContainerName -Run $Run
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
@@ -144,6 +155,10 @@ try {
         '--name', $ContainerName
         '--env-file', $EnvFilePath
     )
+    if ($Mode -in @('app-phase', 'app-finalization')) {
+        $dockerArgs += @('-e', "AUTOPILOT_WORK_BRANCH=$Branch", '-e', 'APP_CI_WORKER=true')
+        if ($Mode -eq 'app-phase') { $dockerArgs += @('-e', "APP_CI_PHASE=$Phase") }
+    }
     if ($FeedPath) {
         # Read-only mount: the entrypoint copies /feed to a writable cache, so the
         # mounted feed itself is never mutated by the disposable runtime.
@@ -205,8 +220,8 @@ try {
     docker cp "${ContainerName}:/tmp/autopilot-preservation-failed" $preservationMarker 2>$null
     $preservationFailed = Test-Path -LiteralPath $preservationMarker -PathType Leaf
     Remove-Item -LiteralPath $preservationMarker -Force -ErrorAction SilentlyContinue
-    if ($preservationFailed -or $usageCopyExit -ne 0) {
-        Write-Warning "Retaining container '$ContainerName' because recovery data was not fully preserved."
+    if ($preservationFailed -or $usageCopyExit -ne 0 -or $Mode -in @('app-phase', 'app-finalization')) {
+        Write-Warning "Retaining container '$ContainerName' for recovery or app-local acceptance."
     }
     else {
         Write-Host "Removing container: $ContainerName"

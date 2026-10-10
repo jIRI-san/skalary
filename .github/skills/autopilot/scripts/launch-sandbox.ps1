@@ -23,8 +23,11 @@ param(
     [string]$PlanSlug,
 
     [Parameter(Mandatory)]
-    [ValidateSet('whole-plan', 'next-phase')]
+    [ValidateSet('whole-plan', 'next-phase', 'app-phase', 'app-finalization')]
     [string]$Mode,
+
+    [ValidateRange(0, 999)]
+    [int]$Phase,
 
     [Parameter(Mandatory)]
     [PSCustomObject]$Config,
@@ -35,6 +38,10 @@ param(
     [string]$Branch = "feature/$PlanSlug",
 
     [string]$StartBranch = (git branch --show-current),
+
+    [string]$ExpectedStartCommit,
+
+    [switch]$TrustedInternalRetry,
 
     # When set, map this host package-feed read-only at C:\feed so the sandbox
     # bootstrap restores fully offline (see prepare-packages.ps1).
@@ -51,6 +58,17 @@ $GhCliVersion = '2.92.0'
 $PowerShellVersion = '7.5.3'
 
 $RepoRoot = git rev-parse --show-toplevel
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    if ($ExpectedStartCommit -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' -or
+        $Config.model -cne 'gpt-6.1-sol' -or $Config.context -cne 'default' -or
+        $Config.reasoningEffort -cne 'high' -or
+        $Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        $StartBranch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or
+        ($Mode -eq 'app-phase' -and -not $PSBoundParameters.ContainsKey('Phase')) -or
+        ($Mode -eq 'app-finalization' -and $PSBoundParameters.ContainsKey('Phase'))) {
+        throw 'App Sandbox worker requires explicit source and Sol high/default target.'
+    }
+}
 $SandboxDir = Join-Path $env:TEMP "autopilot-sandbox-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 
@@ -263,6 +281,8 @@ try {
 `$env:GH_TOKEN = `$Token
 `$env:COPILOT_ALLOW_ALL = 'true'
 `$env:COPILOT_MODEL = '$($Config.model)'
+`$appWorker = '$Mode' -in @('app-phase', 'app-finalization')
+if (`$appWorker) { `$env:APP_CI_WORKER = 'true' }
 
 # --- Configure git and gh auth ---
 git config --global --add safe.directory '*'
@@ -284,7 +304,20 @@ Log "Remote: `$RepoRemote"
 `$BranchName = '$Branch'
 `$StartBranchName = '$StartBranch'
 `$remoteRef = git ls-remote --heads origin `$BranchName 2>&1
-if (`$remoteRef -and `$remoteRef -notmatch 'fatal') {
+if (`$appWorker) {
+    `$retry = '$TrustedInternalRetry' -eq 'True'
+    if (`$remoteRef -and -not `$retry) { throw 'Fresh app work branch already exists; reconcile before dispatch.' }
+    if (`$retry -and -not `$remoteRef) { throw 'App rebundle retry cannot find its work branch.' }
+    `$fetchBranch = if (`$retry) { `$BranchName } else { `$StartBranchName }
+    git fetch origin `$fetchBranch 2>&1 | ForEach-Object { Log `$_ }
+    if (`$LASTEXITCODE -ne 0) { throw 'Cannot fetch app source branch.' }
+    `$actualStart = (git rev-parse FETCH_HEAD).Trim()
+    if (-not `$retry -and `$actualStart -cne '$ExpectedStartCommit') { throw 'App source HEAD mismatch.' }
+    git checkout -b `$BranchName `$actualStart
+    if (`$LASTEXITCODE -ne 0) { throw 'Cannot create isolated app work branch.' }
+    git merge-base --is-ancestor '$ExpectedStartCommit' HEAD
+    if (`$LASTEXITCODE -ne 0) { throw 'App retry has lost expected-start ancestry.' }
+} elseif (`$remoteRef -and `$remoteRef -notmatch 'fatal') {
     Log "Remote branch exists - checking out..."
     git fetch origin `$BranchName 2>&1 | Out-Null
     git checkout `$BranchName
@@ -297,6 +330,7 @@ if (`$remoteRef -and `$remoteRef -notmatch 'fatal') {
     git checkout -b `$BranchName "origin/`$StartBranchName"
 }
 Log "On branch: `$(git branch --show-current)"
+`$appExpectedHead = (git rev-parse HEAD).Trim()
 
 # --- Offline package feed setup ---
 # A read-only C:\feed mount means the host bundled a package feed; copy it to a
@@ -355,10 +389,15 @@ if (-not (Test-Path `$PlanPath)) {
 `$totalPhases = `$phaseNumbers.Count
 `$phaseList = `$phaseNumbers -join ', '
 Log "Plan has `$totalPhases phases (numbers: `$phaseList)."
+if ('$Mode' -eq 'app-phase' -and $Phase -notin `$phaseNumbers) {
+    throw 'App phase target does not exist.'
+}
 
 `$rebundleRequested = `$false
 `$phaseStateScript = 'C:\autopilot-runtime\Get-PhaseExecutionState.ps1'
 foreach (`$phase in `$phaseNumbers) {
+    if ('$Mode' -eq 'app-finalization') { break }
+    if ('$Mode' -eq 'app-phase' -and `$phase -ne $Phase) { continue }
     Log "=== Phase `$phase of `$totalPhases ==="
 
     `$phaseStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
@@ -382,6 +421,9 @@ foreach (`$phase in `$phaseNumbers) {
     `$transcriptName = "session-transcript-phase`$phase.md"
     `$usageName = Join-Path `$SessionPath "session-usage-phase-`$phase.json"
     `$prompt = "Execute `$PlanPath, phase `$phase only. Do not run plan finalization; the launcher has a separate completion target."
+    if (`$appWorker) {
+        `$prompt = "App CI worker. `$prompt Expected worker HEAD `$appExpectedHead, original source ancestry $ExpectedStartCommit. No recursive coordinator, other phase, worker PR, PR merge or deployment. Report committed current evidence and blockers to the app coordinator."
+    }
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
     & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share="./`$transcriptName"
@@ -411,6 +453,16 @@ foreach (`$phase in `$phaseNumbers) {
         break
     }
 
+    if (`$appWorker) {
+        `$appClose = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
+            -Phase `$phase -RepoRoot . 2>&1
+        if (`$LASTEXITCODE -ne 0) { `$runExitCode = 3 }
+        elseif ((`$appClose -join '').Trim() -ne 'closed') {
+            Log 'App phase remains partial; returning operator action.'
+            `$runExitCode = 42
+        }
+        break
+    }
     `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
         -Phase `$phase -RepoRoot . 2>&1
     if (`$LASTEXITCODE -ne 0) {
@@ -431,7 +483,7 @@ foreach (`$phase in `$phaseNumbers) {
     }
 }
 
-if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
+if (`$runExitCode -eq 0 -and '$Mode' -in @('whole-plan', 'app-finalization')) {
     foreach (`$phase in `$phaseNumbers) {
         `$closeStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
             -Phase `$phase -RepoRoot . 2>&1
@@ -443,10 +495,17 @@ if (`$runExitCode -eq 0 -and '$Mode' -eq 'whole-plan') {
     }
     if (`$runExitCode -eq 0) {
         `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
+        if (`$appWorker) {
+            `$prompt = "App CI worker. `$prompt Expected worker HEAD `$appExpectedHead, original source ancestry $ExpectedStartCommit. No worker PR, recursive coordinator, PR merge or deployment. Report committed review, learning and archive handoff to the app coordinator."
+        }
         Log 'Invoking Copilot CLI for plan finalization...'
         `$usageName = Join-Path `$SessionPath 'session-usage-finalization.json'
         & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share='./session-transcript-finalization.md'
         `$runExitCode = `$LASTEXITCODE
+        if (`$appWorker -and `$runExitCode -eq 0) {
+            git ls-files --error-unmatch 'docs/implementation-plans/archived/$PlanSlug/plan.md' | Out-Null
+            if (`$LASTEXITCODE -ne 0) { `$runExitCode = 1; Log 'App finalization archive is not committed.' }
+        }
         if (`$runExitCode -eq 42) {
             Log '@human step encountered during plan finalization. Stopping.'
         } elseif (`$runExitCode -eq 43) {

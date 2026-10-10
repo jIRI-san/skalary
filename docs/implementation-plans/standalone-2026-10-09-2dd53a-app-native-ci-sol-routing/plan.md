@@ -50,7 +50,7 @@
 
 ## Phase 2: App-first coordinator and isolated phase integration
 
-- [ ] 2.1 Add app coordination and preserve VS Code's existing route (REQ-3, REQ-4, REQ-5, REQ-12, REQ-17, REQ-18, RISK-2, RISK-9) [after: 1.2] `L`
+- [x] 2.1 Add app coordination and preserve VS Code's existing route (REQ-3, REQ-4, REQ-5, REQ-12, REQ-17, REQ-18, RISK-2, RISK-9) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** app `/ci` selects a confirmed plan/extent/environment: fresh native local sessions, Docker or Windows Sandbox workers. Interactive/unattended app runs share policy; isolated workers use CLI internally. VS Code retains its existing execution/config route.
@@ -64,7 +64,7 @@
   **Stop/escalate when:** app tools cannot bind/observe exact settings/source/isolation, role admission is ambiguous, or preservation requires changing VS Code behavior. Keep needed routes; do not simulate support or silently fall back.
 
   </details>
-- [ ] 2.2 Verify committed phase closure and fast-forward the integration branch (REQ-5, REQ-6, REQ-7, REQ-17, RISK-2, RISK-3, RISK-8) [after: 2.1] `L`
+- [x] 2.2 Verify committed phase closure and fast-forward the integration branch (REQ-5, REQ-6, REQ-7, REQ-17, RISK-2, RISK-3, RISK-8) [after: 2.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** only verified phase commits reach the integration branch; dependent work starts from that accepted head.

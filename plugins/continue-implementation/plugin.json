@@ -1,6 +1,6 @@
 {
   "name": "continue-implementation",
-  "version": "1.0.128",
+  "version": "1.0.129",
   "description": "Direct plan implementation workflow with Git criteria protection.",
   "author": "jIRI-san",
   "license": "MIT",
@@ -18,11 +18,13 @@
   "files": [
     { "src": "skills/ci/SKILL.md", "dest": "skills/ci/SKILL.md" },
     { "src": "skills/ci/assets/model-aliases.psd1", "dest": "skills/ci/assets/model-aliases.psd1" },
+    { "src": "skills/ci/assets/app-coordinator.md", "dest": "skills/ci/assets/app-coordinator.md" },
     { "src": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1", "dest": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1" },
     { "src": "skills/ci/scripts/Write-RecentLearning.ps1", "dest": "skills/ci/scripts/Write-RecentLearning.ps1" },
     { "src": "skills/ci/scripts/Archive-Plan.ps1", "dest": "skills/ci/scripts/Archive-Plan.ps1" },
     { "src": "skills/ci/scripts/Get-PlanState.ps1", "dest": "skills/ci/scripts/Get-PlanState.ps1" },
     { "src": "skills/ci/scripts/Test-Plan.ps1", "dest": "skills/ci/scripts/Test-Plan.ps1" },
+    { "src": "skills/ci/scripts/Test-AppCiWorkerResult.ps1", "dest": "skills/ci/scripts/Test-AppCiWorkerResult.ps1" },
     { "src": "skills/ci/scripts/DirectWorkflow.psm1", "dest": "skills/ci/scripts/DirectWorkflow.psm1" },
     { "src": "skills/ci/scripts/PlanState.psm1", "dest": "skills/ci/scripts/PlanState.psm1" },
     { "src": "skills/ci/scripts/SecretGuard.psm1", "dest": "skills/ci/scripts/SecretGuard.psm1" }

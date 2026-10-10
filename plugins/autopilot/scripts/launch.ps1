@@ -16,8 +16,13 @@ param(
     [string]$PlanSlug,
 
     [Parameter(Mandatory)]
-    [ValidateSet('whole-plan', 'next-phase')]
+    [ValidateSet('whole-plan', 'next-phase', 'app-phase', 'app-finalization')]
     [string]$Mode,
+
+    [ValidateRange(0, 999)]
+    [int]$Phase,
+
+    [string]$WorkerBranch,
 
     [ValidateSet('host', 'container', 'sandbox')]
     [string]$Runtime,
@@ -172,6 +177,29 @@ if (-not $testAllowed) {
 $effectiveRuntime = if ($Runtime) { $Runtime } else { $Config.runtime }
 Write-Host "Runtime: $effectiveRuntime"
 
+$appWorker = $Mode -in @('app-phase', 'app-finalization')
+if ($appWorker) {
+    if ($effectiveRuntime -notin @('container', 'sandbox') -or $FactoryRepair -or
+        -not $Branch -or -not $ExpectedStartCommit -or -not $WorkerBranch -or
+        ($Mode -eq 'app-phase' -and -not $PSBoundParameters.ContainsKey('Phase')) -or
+        ($Mode -eq 'app-finalization' -and $PSBoundParameters.ContainsKey('Phase'))) {
+        throw 'App worker requires isolated runtime, explicit source/head/work branch and exactly one phase or finalization target.'
+    }
+    & git check-ref-format --branch $WorkerBranch | Out-Null
+    if ($LASTEXITCODE -ne 0 -or $WorkerBranch -eq $Branch -or
+        $WorkerBranch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
+        throw 'App worker branch must be a valid distinct Git branch.'
+    }
+    $Config.modelAlias = 'primary-model-high'
+    $Config.model = [string]$ModelPolicy.Aliases['primary-model-high'].Cli
+    if ($Config.model -cne 'gpt-6.1-sol') { throw 'App worker requires the exact GPT-6.1 Sol binding.' }
+    $Config.context = 'default'
+    $Config.reasoningEffort = 'high'
+}
+elseif ($WorkerBranch -or $PSBoundParameters.ContainsKey('Phase')) {
+    throw 'Phase and WorkerBranch are app-worker-only parameters.'
+}
+
 if ($FactoryRepair -and $effectiveRuntime -ne 'host') {
     Write-Error 'Factory repair mode is supported only by the host runtime.'
     exit 1
@@ -193,7 +221,7 @@ if ($FactoryRepair) {
     }
 }
 
-if ($expectedStartCommitNormalized -and $effectiveRuntime -ne 'container') {
+if ($expectedStartCommitNormalized -and $effectiveRuntime -ne 'container' -and -not $appWorker) {
     Write-Error '-ExpectedStartCommit is supported only by the container runtime.'
     exit 1
 }
@@ -343,6 +371,10 @@ if ($factoryRepairInvocation) {
 if ($expectedStartCommitNormalized) {
     $dispatchParams.ExpectedStartCommit = $expectedStartCommitNormalized
 }
+if ($appWorker) {
+    $dispatchParams.Branch = $WorkerBranch
+    if ($Mode -eq 'app-phase') { $dispatchParams.Phase = $Phase }
+}
 if ($ExpectedPullRequestBase) {
     if ($effectiveRuntime -ne 'container') {
         Write-Error "ExpectedPullRequestBase is supported only by the container runtime."
@@ -376,7 +408,7 @@ $orchestratorScript = switch ($effectiveRuntime) {
     'container' { 'launch-container.ps1' }
     'sandbox' { 'launch-sandbox.ps1' }
 }
-$WorkBranch = "feature/$PlanSlug"
+$WorkBranch = if ($appWorker) { $WorkerBranch } else { "feature/$PlanSlug" }
 $offlineEcosystems = $offline.Ecosystems
 
 $Launch = {

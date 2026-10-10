@@ -108,7 +108,13 @@ the existing reconfirmed baseline before execution resumes.
 `Invoke-DirectEvidence` evaluates current supplied tests/files and an active complete clean exact-scope
 review. Persisted reports are advisory.
 
-Ordinary work is direct and uses no delegated call. One combined `primary-model-mid` Designer/Validator is
+App CI uses the installed app coordinator asset: serial fresh phase/finalization sessions,
+explicit Sol/high/default settings, exact source binding, stateless Git/checklist result checks and
+current local evidence before fast-forward. Docker/Sandbox remain bounded CLI targets launched from
+owned transport checkouts; VS Code's direct/host/epic/config routes remain. New native VS Code
+coordination is deferred, not inferred from shared harness.
+
+Workers and retained non-app ordinary work are direct and use no delegated call. One combined `primary-model-mid` Designer/Validator is
 available for a concrete unresolved concern; deterministic evidence is the normal Judge. `primary-model-high`
 is a deep escalation only after unresolved standard evidence, and `secondary-model-high` is one
 independent pass for a named high-risk path.

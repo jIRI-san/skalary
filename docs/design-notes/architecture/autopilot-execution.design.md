@@ -10,6 +10,27 @@ globs:
 
 # Autonomous plan execution
 
+## App-first coordination
+
+Installed CI distinguishes the app coordinator, explicit App CI workers and retained non-app routes.
+App local workers are fresh full native sessions/worktrees with explicit Sol/high/default/interactive
+kickoff and integration-branch/full-HEAD binding. The coordinator holds its checkout unchanged,
+verifies current scoped evidence and stateless `Test-AppCiWorkerResult.ps1` Git/checklist checks, then
+fast-forwards serially. No journal, recursive coordinator, worker PR or fabricated usage.
+
+App container/Sandbox dispatch uses `app-phase`/`app-finalization` from a distinct owned transport
+checkout, with explicit source/head/work branch. Settings override only the in-memory config.
+The new modes bypass legacy PR-close/whole-plan loops; partial phases retain operator action `42`,
+offline rebundle `43` remains distinct, outputs stay recoverable, and local acceptance is separate
+from launcher exit/sentinels. Existing auth/feed/toolchain/usage mechanisms remain.
+
+VS Code's existing direct/host/epic/factory routes and configured effort/context remain; new native
+VS Code coordination is deferred because 1.141 creation/inspection cannot prove exact worker settings.
+Required shared launchers remain installed. Live app/isolated acceptance and VS Code preservation
+are human gates, not results inferred from static tests.
+
+## Retained non-app execution
+
 `/ci` selects one runtime and a one-phase or whole-plan extent. The autopilot skill accepts that
 choice without a second menu, validates or creates host-local configuration, and invokes the existing
 blocking launcher.
