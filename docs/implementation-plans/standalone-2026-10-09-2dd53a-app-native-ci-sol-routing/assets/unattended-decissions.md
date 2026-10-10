@@ -133,3 +133,38 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
   explicitly repaired HEAD in a fresh settings-verified worker. Fixture criteria and prior accepted
   evidence remain intact. Native acceptance 6.1 is still pending; no publication, smoke-to-parent
   integration or cleanup is authorized.
+
+## 6.1: Operator-accepted local native smoke
+
+- Operator choice: "Accept native app gate 6.1 (Recommended)" on 2026-10-10. Mark only 6.1 complete.
+- Fixture 4c8316 ran in disposable coordinator session `16cf01c3-9e32-4055-899f-dc3151e6bf03`,
+  branch `jiri-san-native-ci-acceptance`; initial implementation source was
+  `ad59e23ed09ed93151657e20e5b97b5b5a638cd3`. Confirmed fixture H0 was
+  `8721e45172891fd2c24b7bfbd8cbe19a47085d32`.
+- Accepted independent 1.2: `87476c3510c0a67308b0648f6e7484ed4e45db06`. No-approval resume
+  returned operator-action with zero ready AI and zero new dispatches. Human 1.1 was separately
+  authorized and committed at `980b0e4fcc1bf6d4080374af4374151549822b54`.
+- Parent readiness repair `a60259343f5375dbc5ace4d9e0817d18fa103e75` was separately approved
+  and cherry-picked as `aa14fd8823e7493e58368291d80e08227272bf1d`. Original evidence was retained,
+  not retroactively attributed to repaired code. The pre-repair held worker was never released.
+- Fresh repaired 1.3 accepted at `a3efd950019ac8cb0bf01db77c8bb7d634749dab`; fresh Phase 2
+  2.1 accepted at `5cca375ab5dd14c1a18db37539361a5f74b706f3`. Both canonical phases closed.
+  Exact ASCII+LF outputs were 12/10/7 bytes; current raw byte/blob checks passed.
+- Executed phase sessions: `8a2e4747-8064-4ae2-9243-f14b299f4a72`,
+  `160ac8d1-a693-45db-82c0-209a768995b7`, `6d68c1a0-4f30-4f49-81a2-d75e221d79a2`.
+  Sole finalization session: `c1e1d952-f020-4b92-81d3-8431e2bb0436`. Each was a distinct full
+  native worktree at its exact accepted starting HEAD. For each executed session, operator UI quote
+  "gpt 6.1 sol high default" and separate native interactive-mode observation preceded release.
+  Kickoff, inheritance and worker assertions were not settings proof.
+- One fresh whole-fixture CR was clean at completed source
+  `5cca375ab5dd14c1a18db37539361a5f74b706f3`; current scope/evidence/result checks preceded each
+  fast-forward. Required design-note compaction ran once with no edits or merge/delete.
+  Immediate learning commit `f6a1f7d4d34bab1fde023f2569ced63615849d1a` had that source as parent;
+  separate archive commit `2e6716f16bee69621a3192dab59752fa05f646c0` had learning as parent.
+  Parent inspection verified that order, the cited learning and nine unchanged R100 plan/assets moves.
+- Disposable integration is clean at the archive commit. Archive-aware resolution and finalized
+  resume dispatched nothing and repeated no integration, learning or archival. All worker surfaces
+  and outputs remain retained; fixture work and learning were not imported into this branch.
+- Limits: host/app version was not supplied, no native usage was fabricated, and no Docker,
+  Sandbox or VS Code acceptance was inferred. Steps 6.2/6.3/7.1 remain pending. No parent terminal
+  finalization, remote push/PR/merge, deployment or session/worktree cleanup is authorized.

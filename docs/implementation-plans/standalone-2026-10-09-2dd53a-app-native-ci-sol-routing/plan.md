@@ -164,7 +164,7 @@
 
 ## Phase 6: Live app and isolated runtime acceptance
 
-- [ ] 6.1 Confirm native child execution, human blocking, and local integration in the app (REQ-4, REQ-6, REQ-8, REQ-9, REQ-12, REQ-16, RISK-7) @human [after: 5.2] `M`
+- [x] 6.1 Confirm native child execution, human blocking, and local integration in the app (REQ-4, REQ-6, REQ-8, REQ-9, REQ-12, REQ-16, RISK-7) @human [after: 5.2] `M`
   <details><summary>Operator acceptance</summary>
 
   **Steps:**
