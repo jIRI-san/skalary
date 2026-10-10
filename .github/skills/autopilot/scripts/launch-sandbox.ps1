@@ -395,13 +395,15 @@ if ('$Mode' -eq 'app-phase' -and $Phase -notin `$phaseNumbers) {
 
 `$rebundleRequested = `$false
 `$phaseStateScript = 'C:\autopilot-runtime\Get-PhaseExecutionState.ps1'
+`$phaseAdmissionArgs = @()
+if (`$appWorker) { `$phaseAdmissionArgs = @('-AllowIndependentAi') }
 foreach (`$phase in `$phaseNumbers) {
     if ('$Mode' -eq 'app-finalization') { break }
     if ('$Mode' -eq 'app-phase' -and `$phase -ne $Phase) { continue }
     Log "=== Phase `$phase of `$totalPhases ==="
 
     `$phaseStateOutput = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-        -Phase `$phase -RepoRoot . 2>&1
+        -Phase `$phase -RepoRoot . @phaseAdmissionArgs 2>&1
     if (`$LASTEXITCODE -ne 0) {
         Log "Phase `${phase}: state check failed: `$(`$phaseStateOutput -join ' ')"
         `$runExitCode = 3
@@ -411,6 +413,11 @@ foreach (`$phase in `$phaseNumbers) {
     if (`$phaseState -eq 'closed') {
         Log "Phase `${phase}: checklist and phase close complete - skipping."
         continue
+    }
+    if (`$appWorker -and `$phaseState -eq 'operator-action') {
+        Log 'No admitted AI sibling remains; operator action required.'
+        `$runExitCode = 42
+        break
     }
     if (`$phaseState -notin @('execution-required', 'close-pending')) {
         Log "Phase `${phase}: invalid state result '`$phaseState'. Stopping."

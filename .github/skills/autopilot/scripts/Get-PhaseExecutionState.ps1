@@ -8,6 +8,8 @@ param(
     [ValidateRange(0, 999)]
     [int]$Phase,
 
+    [switch]$AllowIndependentAi,
+
     [string]$RepoRoot = (git rev-parse --show-toplevel)
 )
 
@@ -68,6 +70,24 @@ try {
         }
         $next = Get-NextStep -Metadata $metadata `
             -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
+        $noReadyAi = $false
+        if ($AllowIndependentAi -and $next.Step -and $next.Step.Phase -eq $phaseHeading[0]) {
+            $completeIds = @($metadata.Steps | Where-Object { $_.Status -eq 'x' } |
+                    ForEach-Object { $_.Id })
+            $ready = @($steps | Where-Object {
+                    $_.Status -ne 'x' -and $_.Role -ne 'human' -and
+                    @($_.After | Where-Object { $_ -notin $completeIds }).Count -eq 0
+                })
+            if ($ready.Count) {
+                $next = Get-NextStep -Metadata ([pscustomobject]@{ Steps = $ready }) `
+                    -HasUncommittedChanges:(-not [string]::IsNullOrWhiteSpace(($gitStatus -join '')))
+            }
+            else {
+                $noReadyAi = $true
+                # Evaluate phase/dependency/criteria guards before reporting exhaustion, not execution.
+                $next.BlockedByAfter = $false
+            }
+        }
         $planningContext = Get-PlanningContextState -PlanDir $plan.Path -RepoRoot $repoRootFull `
             -Inventory $inventory
         $admission = Get-PhaseAdmission -Plan $plan -Metadata $metadata -Markers $markers `
@@ -81,6 +101,10 @@ try {
                 [string]$admission.Reason
             }
             throw "Phase $Phase is not admitted: $reason"
+        }
+        if ($AllowIndependentAi -and $noReadyAi) {
+            Write-Output 'operator-action'
+            return
         }
         Write-Output 'execution-required'
         return

@@ -35,4 +35,21 @@ Describe 'App CI retained runtime contracts' {
                 -ExpectedStartCommit ('a' * 40) } | Should -Throw '*Sol high/default*'
         }
     }
+    It 'test:AppCi.EpicLocalExecution retains app local archive proof and the non-app wrapper' {
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $guide | Should -Match 'Get-EpicRollup'
+        $guide | Should -Match 'committed archive, not a child PR'
+        $guide | Should -Match 'Each child must finalize/archive once'
+        $guide | Should -Match 'all-child-archives resume still performs pending epic completion'
+        $guide | Should -Match 'Retained VS Code epic wrapper/provider proof remains unchanged'
+    }
+    It 'test:AppCi.UnattendedDecisions binds the requested log without granting criteria authority' {
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $guide | Should -Match 'assets/unattended-decissions.md'
+        $guide | Should -Match 'step/criterion, choice, rationale and consequence'
+        $guide | Should -Match 'confinement and\s+secret screening'
+        $guide | Should -Match 'only between worker intervals'
+        $guide | Should -Match 'cannot\s+override confirmed criteria'
+        $guide | Should -Match 'Present decisions/blockers on exhaustion'
+    }
 }

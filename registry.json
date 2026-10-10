@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-10T08:49:43.1609146Z",
+  "generatedAt": "2026-10-10T08:53:30.0407718Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -225,7 +225,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
-          "sha256": "2d36c9974f5b8ef92b919d92dc3666979784d38f3161607bfdad553096a98a7f",
+          "sha256": "7173cd8cade6909f5c913cd091a8ef457fb8584709c7e284ead2d840e43b9102",
           "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
         },
         {
@@ -280,7 +280,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "6915bba3d3514c1a4e7cc55a0ff744e7f87c4098e4d22d70aef2ac2432847a07",
+          "sha256": "534d690e8f84954e41e48769f650b35ddba5acd52b33969227004493979ecf68",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -305,7 +305,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "0c408f0a47fbde5fbcd07035353ac7c6b04fda2b97b867c5ddb9b0e3cf7f289e",
+          "sha256": "5187e671e442a99cf9771cf7c0c7ac23033650aa503b680464d3a869188db943",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.35"
+      "version": "1.3.36"
     },
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/assets/app-coordinator.md",
-          "sha256": "b7812fc6ec0757a4a9ea3c396ee02b2262e8132ce9c5addfd097f0fc3be9aa79",
+          "sha256": "f3c6360102b238d1edb0d82016d7135a50b9df990cd5d568e1a0023f6e204a5f",
           "src": "skills/ci/assets/app-coordinator.md"
         },
         {
@@ -498,7 +498,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.129"
+      "version": "1.0.130"
     },
     {
       "author": "jIRI-san",

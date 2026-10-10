@@ -87,6 +87,11 @@ reset, force-push or silently resolve conflicts.
 Within the first unfinished phase, execute dependency-ready AI siblings around human blockers.
 Every earlier phase must close before later phases, even without explicit dependency annotations.
 Use current metadata/dependency helpers; never equate `NextStep.IsHuman` with no independent work.
+For the first unfinished phase use installed autopilot `Get-PhaseExecutionState.ps1` with
+`-AllowIndependentAi`. That explicit app-only option selects a ready AI sibling before canonical
+admission and returns `operator-action` when only human/dependent work remains; it does not grant
+later-phase exemption. Load current `PlanState.psm1` metadata to name admitted AI IDs whose `After`
+prerequisites are already completed. Re-evaluate after each atomic step; never credit human work.
 A partial phase stays open; a later admitted visit has a fresh worker context. If no AI work is ready,
 report incomplete with remaining human/dependency actions, not whole-plan success.
 
@@ -104,6 +109,9 @@ deletion or push gates stop visibly. No worker PR.
 
 For app epics, inspect current child dependencies and criteria, select independently admitted child
 work serially, and use the same plan lifecycle. Do not invoke the competing host-only epic wrapper.
+Use `Get-EpicRollup` for membership/dependency facts, but inspect each dependency-ready child's app
+phase admission rather than treating its first human `NextStep` as an exhausted child. Finalize and
+integrate each child before launching dependents; its committed archive, not a child PR, is app proof. Do not invoke the competing host-only epic wrapper.
 Do not use per-child provider PRs as new app completion proof. Each child must finalize/archive once.
 After all child finalizations are integrated, verify the epic Goal/Definition-of-done/coherency,
 refresh/archive the epic index through installed autopilot `Archive-Epic.ps1`, and commit it.

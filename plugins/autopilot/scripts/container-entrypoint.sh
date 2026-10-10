@@ -30,10 +30,14 @@ phase_needs_execution() {
     local state_script="${AUTOPILOT_PHASE_STATE_SCRIPT:-/usr/local/lib/autopilot/Get-PhaseExecutionState.ps1}"
     local state_output
     local invocation_state
+    local state_args=()
+    if [ "${APP_CI_WORKER:-}" = "true" ]; then
+        state_args=(-AllowIndependentAi)
+    fi
 
     state_output="$(pwsh -NoProfile -File "${state_script}" \
         -PlanPath "${plan_path}" -Phase "${phase_number}" \
-        -RepoRoot "${repo_root}" 2>&1)"
+        -RepoRoot "${repo_root}" "${state_args[@]}" 2>&1)"
     invocation_state=$?
     if [ "${invocation_state}" -ne 0 ]; then
         echo "ERROR: Phase ${phase_number} close state is invalid." >&2
@@ -43,6 +47,7 @@ phase_needs_execution() {
     case "${state_output}" in
         execution-required|close-pending) return 0 ;;
         closed) return 1 ;;
+        operator-action) return 3 ;;
         *)
             echo "ERROR: Phase ${phase_number} state checker returned an invalid result." >&2
             printf '%s\n' "${state_output}" >&2
@@ -463,6 +468,10 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         elif [ "${PHASE_STATE}" -eq 2 ]; then
             preserve_work || exit 70
             exit 3
+        elif [ "${PHASE_STATE}" -eq 3 ]; then
+            echo "No admitted AI sibling remains; operator action required."
+            preserve_work || exit 70
+            exit 42
         fi
         TARGET_LABEL="Phase ${PHASE_NUM}"
         TRANSCRIPT="session-transcript-phase${PHASE_NUM}.md"
@@ -513,7 +522,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
                     phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
                     APP_CLOSE=$?
                     set -e
-                    if [ "${APP_CLOSE}" -eq 0 ]; then
+                    if [ "${APP_CLOSE}" -eq 0 ] || [ "${APP_CLOSE}" -eq 3 ]; then
                         echo "App phase remains partial; returning operator action."
                         EXIT_CODE=42
                     elif [ "${APP_CLOSE}" -ne 1 ]; then

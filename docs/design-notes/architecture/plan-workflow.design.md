@@ -114,6 +114,13 @@ current local evidence before fast-forward. Docker/Sandbox remain bounded CLI ta
 owned transport checkouts; VS Code's direct/host/epic/config routes remain. New native VS Code
 coordination is deferred, not inferred from shared harness.
 
+App readiness uses `Get-PhaseExecutionState.ps1 -AllowIndependentAi`: select only ready AI siblings
+in the first unfinished phase, then reuse canonical phase/dependency/criteria admission. When no AI
+is ready, return `operator-action`, not a closed phase. Calls without the switch retain existing
+first-step semantics. Later phases never bypass earlier human work. App epics use dependency facts
+from the existing rollup but finalize/archive each child locally before dependents; retained VS Code
+keeps its host wrapper/provider proof.
+
 Workers and retained non-app ordinary work are direct and use no delegated call. One combined `primary-model-mid` Designer/Validator is
 available for a concrete unresolved concern; deterministic evidence is the normal Judge. `primary-model-high`
 is a deep escalation only after unresolved standard evidence, and `secondary-model-high` is one

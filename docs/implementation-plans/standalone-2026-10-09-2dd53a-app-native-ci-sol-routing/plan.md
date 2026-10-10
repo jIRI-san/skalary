@@ -79,7 +79,7 @@
 
 ## Phase 3: Unattended readiness, decisions, and epic execution
 
-- [ ] 3.1 Execute dependency-ready AI work around human blockers and record bounded decisions (REQ-8, REQ-9, REQ-10, RISK-4) [after: 2.2] `L`
+- [x] 3.1 Execute dependency-ready AI work around human blockers and record bounded decisions (REQ-8, REQ-9, REQ-10, RISK-4) [after: 2.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** unattended execution exhausts reachable admitted AI work, preserves human-dependent work, and produces one concise decision/blocker handoff.
@@ -93,7 +93,7 @@
   **Stop/escalate when:** advancing independent work requires weakening a confirmed prerequisite or changing intent, acceptance, or scope.
 
   </details>
-- [ ] 3.2 Route app epic children through the coordinator and local completion proof (REQ-11, REQ-12, RISK-5) [after: 3.1] `L`
+- [x] 3.2 Route app epic children through the coordinator and local completion proof (REQ-11, REQ-12, RISK-5) [after: 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `/ci <epic-id>` in the app selects dependency-ready child plans and coordinates their chosen local/container/Sandbox workers without invoking a competing host-only epic orchestration loop.

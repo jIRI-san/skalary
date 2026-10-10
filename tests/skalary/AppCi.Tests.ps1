@@ -195,6 +195,32 @@ flowchart TD
             -PlanReference abc123 -ExpectedStartCommit $start -Phase 1 } |
             Should -Throw '*distinct worktree*'
     }
+    It 'test:AppCi.HumanBlockerReadiness admits only an independent AI sibling in the first unfinished phase' {
+        $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
+        $text = (Get-Content $plan -Raw).Replace('- [ ] 1.1 ', '- [x] 1.1 ')
+        $text = $text.Replace('## Phase 2:', "- [ ] 1.4 Independent AI ``S```n`n## Phase 2:")
+        Set-Content $plan $text -NoNewline
+        Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
+        Invoke-FixtureGit $script:integration @('commit', '-qm', 'prior approved progress') | Out-Null
+        $stateScript = Join-Path $script:repo 'scripts\skalary\Get-PhaseExecutionState.ps1'
+        & $stateScript -PlanPath $plan -Phase 1 -RepoRoot $script:integration -AllowIndependentAi |
+            Should -Be 'execution-required'
+        & $stateScript -PlanPath $plan -Phase 2 -RepoRoot $script:integration -AllowIndependentAi |
+            Should -BeNullOrEmpty
+        $LASTEXITCODE | Should -Be 2
+    }
+    It 'test:AppCi.HumanExhaustion preserves human and dependent work as operator action' {
+        $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
+        $text = (Get-Content $plan -Raw).Replace('- [ ] 1.1 ', '- [x] 1.1 ')
+        Set-Content $plan $text -NoNewline
+        Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
+        Invoke-FixtureGit $script:integration @('commit', '-qm', 'prior approved progress') | Out-Null
+        & (Join-Path $script:repo 'scripts\skalary\Get-PhaseExecutionState.ps1') `
+            -PlanPath $plan -Phase 1 -RepoRoot $script:integration -AllowIndependentAi |
+            Should -Be 'operator-action'
+        (Get-Content $plan -Raw) | Should -Match '\[ \] 1.2 Human'
+        (Get-Content $plan -Raw) | Should -Match '\[ \] 2.1 Later'
+    }
     It 'test:AppCi.CloseRefusal rejects an idle/no-progress result and premature finalization' {
         { Result } | Should -Throw '*no newly completed*'
         { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `

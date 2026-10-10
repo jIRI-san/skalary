@@ -73,3 +73,15 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
   pending human gates.
 - Existing failure: `ContainerOffline.Tests.ps1` calls absent `Wait-AutopilotProcessUntil` on baseline
   `ff6805be`. Leave it unchanged; do not claim the wider container fixture clean.
+
+## 3.1-3.2: Opt-in app readiness with existing canonical admission
+
+- Choice: add `-AllowIndependentAi` to the existing phase-state helper. Select only ready AI
+  siblings inside the first unfinished phase, then run the unchanged phase/dependency/criteria guards.
+  Exhaustion returns `operator-action`; retained callers without the switch keep existing semantics.
+- Consequence: app local/isolated policy can progress around human blockers without a new scheduler,
+  later-phase exemption or automatic human completion. App epics use existing dependency facts plus
+  per-child local finalization/archive proof; VS Code keeps its wrapper/provider proof.
+- Evidence: four named readiness/epic/decision markers pass. The broader unchanged ArchiveEpic
+  symlink fixture fails on this host with "A required privilege is not held by the client."
+  No skip or clean claim replaces that missing host capability.
