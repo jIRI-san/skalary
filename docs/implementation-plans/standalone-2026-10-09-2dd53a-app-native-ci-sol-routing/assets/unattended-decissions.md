@@ -168,3 +168,22 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
 - Limits: host/app version was not supplied, no native usage was fabricated, and no Docker,
   Sandbox or VS Code acceptance was inferred. Steps 6.2/6.3/7.1 remain pending. No parent terminal
   finalization, remote push/PR/merge, deployment or session/worktree cleanup is authorized.
+
+## 4.2/6.2-6.3: Keep app launches out of shared host cleanup
+
+- Operator choice: "Skip shared cleanup for app workers (Recommended)".
+- Preflight: Docker Engine 29.8.2 / Desktop 4.94.0 is responsive on desktop-linux; Windows Sandbox
+  is enabled on Windows 11 Pro build 26300; existing runtime authentication validates without exposing
+  credentials. VS Code is 1.141.0. These are prerequisites, not live acceptance.
+- Evidence: shared launch.ps1 unconditionally swept host autopilot-sessions directories older than
+  24 hours. Disposable actual-code tests reproduced deletion for app-phase and app-finalization,
+  conflicting with app retention/no-cleanup scope; no real shared session directory was touched.
+- Choice: skip that sweep only for app workers and report retention. Keep the existing non-app sweep,
+  saved configuration and other runtime behavior unchanged; add no cleanup mechanism or new state.
+- Consequence: source and installed tests cover both app modes retaining old output and both legacy
+  modes preserving prior cleanup semantics. Isolated live gates remain pending; named remote transport
+  refs still need operator approval before publication. No runtime launch or shared cleanup occurred.
+- Validation: nine focused retention/runtime/preservation tests pass; current direct scope review has
+  no findings. The combined distribution test hit its unchanged 60-second deadline. Its four existing
+  read-only owner checks then passed independently: zero bundle/dogfood changes, registry valid and
+  marketplace unchanged. The timed-out combined test is not reported as passing.

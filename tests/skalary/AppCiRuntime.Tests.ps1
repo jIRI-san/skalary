@@ -65,6 +65,46 @@ Describe 'App CI retained runtime contracts' {
         $containerLaunch | Should -Match 'import after checking out the verified worker head'
         $sandbox | Should -Match 'import after checking out the verified worker head'
     }
+    It 'test:AppCi.SessionRetention preserves app sessions and retained cleanup semantics for <Mode>' -ForEach @(
+        @{ Mode = 'app-phase'; RetainOld = $true }
+        @{ Mode = 'app-finalization'; RetainOld = $true }
+        @{ Mode = 'next-phase'; RetainOld = $false }
+        @{ Mode = 'whole-plan'; RetainOld = $false }
+    ) {
+        foreach ($path in @('plugins\autopilot\scripts\launch.ps1', '.github\skills\autopilot\scripts\launch.ps1')) {
+            $source = Get-Content (Join-Path $script:repo $path) -Raw
+            $parseErrors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$null, [ref]$parseErrors)
+            $parseErrors | Should -BeNullOrEmpty
+            $assignment = $ast.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                $node.Left.Extent.Text -eq '$appWorker'
+            }, $true)
+            $assignment | Should -Not -BeNullOrEmpty
+            $sweep = [regex]::Match($source, '(?s)# --- Sweep stale env files ---\s*(?<body>.*?)\s*# --- Get credentials ---')
+            $sweep.Success | Should -BeTrue
+            $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $old = Join-Path $fixtureRoot 'autopilot-sessions\old-session'
+            $recent = Join-Path $fixtureRoot 'autopilot-sessions\recent-session'
+            New-Item -ItemType Directory -Path $old, $recent -Force | Out-Null
+            Set-Content (Join-Path $old 'retained.txt') 'retained output'
+            (Get-Item -LiteralPath $old).LastWriteTime = (Get-Date).AddHours(-48)
+            $previousLocalAppData = $env:LOCALAPPDATA
+            try {
+                $env:LOCALAPPDATA = $fixtureRoot
+                & ([scriptblock]::Create($assignment.Extent.Text + "`n" + $sweep.Groups['body'].Value))
+                Test-Path -LiteralPath $old | Should -Be $RetainOld
+                Test-Path -LiteralPath $recent | Should -BeTrue
+                if ($RetainOld) {
+                    Get-Content (Join-Path $old 'retained.txt') | Should -Be 'retained output'
+                }
+            }
+            finally {
+                $env:LOCALAPPDATA = $previousLocalAppData
+            }
+        }
+    }
     It 'test:AppCi.RetainedIsolatedRuntimes parses the generated Sandbox bootstrap for each app target' {
         $parseErrors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($sandbox, [ref]$null, [ref]$parseErrors)

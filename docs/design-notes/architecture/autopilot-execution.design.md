@@ -28,6 +28,10 @@ The new modes bypass legacy PR-close/whole-plan loops; partial phases retain ope
 offline rebundle `43` remains distinct, outputs stay recoverable, and local acceptance is separate
 from launcher exit/sentinels. Existing auth/feed/toolchain/usage mechanisms remain.
 
+App-phase/finalization entrypoints skip the host's shared stale-session sweep and report retention.
+Unrelated old `autopilot-sessions` directories are not app cleanup candidates. Retained non-app modes
+keep their existing 24-hour sweep; app cleanup remains separately operator-authorized.
+
 App outputs and exact usage sidecars stay outside Git until the clean transport checkout moves to
 the inspected worker head. The coordinator imports/commits the archive-aware ledger there before
 local acceptance; it never creates a stale active-plan ledger. App containers remain recoverable,

@@ -287,13 +287,18 @@ else {
 }
 
 # --- Sweep stale env files ---
-Write-Host "Sweeping stale env files..."
-$envSessionDir = Join-Path $env:LOCALAPPDATA 'autopilot-sessions'
-if (Test-Path $envSessionDir) {
-    $staleThreshold = (Get-Date).AddHours(-24)
-    Get-ChildItem $envSessionDir -Directory | Where-Object { $_.LastWriteTime -lt $staleThreshold } | ForEach-Object {
-        Write-Host "  Removing stale session: $($_.Name)"
-        Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+if ($appWorker) {
+    Write-Host "Retaining existing session directories for app workers."
+}
+else {
+    Write-Host "Sweeping stale env files..."
+    $envSessionDir = Join-Path $env:LOCALAPPDATA 'autopilot-sessions'
+    if (Test-Path $envSessionDir) {
+        $staleThreshold = (Get-Date).AddHours(-24)
+        Get-ChildItem $envSessionDir -Directory | Where-Object { $_.LastWriteTime -lt $staleThreshold } | ForEach-Object {
+            Write-Host "  Removing stale session: $($_.Name)"
+            Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 

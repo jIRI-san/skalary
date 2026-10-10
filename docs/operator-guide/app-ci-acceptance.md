@@ -97,6 +97,8 @@ Force a controlled publication failure using the disposable fixture's approved t
 without revoking shared credentials: the named container, commits, dirty work and sidecars remain
 recoverable and local integration does not advance. Inspect recovery before an authorized retry.
 The launcher never auto-stages dirty app work or deletes its container.
+App phase/finalization launch also skips the shared host stale-session cleanup; old session directories
+remain untouched. Existing non-app launch modes retain their prior cleanup behavior.
 
 ## Windows Sandbox gate (6.3)
 
