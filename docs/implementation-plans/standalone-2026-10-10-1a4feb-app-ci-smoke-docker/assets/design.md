@@ -113,6 +113,19 @@ if ([Convert]::ToHexString($actual) -cne [Convert]::ToHexString($expected)) {
 
 Run the actual bytes at the inspected worker head and again locally before integration. Supply current result objects to existing `Invoke-DirectEvidence`; these identifiers are not claims that an installed test already ran. Use current `review:cr` for final evidence only from an active completed exact-scope review; advisory historical reports cannot satisfy it.
 
+Final review binding: `CurrentSource` is the actual full completed active-source commit cited by the subsequent strict learning handoff, not the later learning/archive/usage tip. The reviewer and coordinator use exactly this ordered `RequestedScope`:
+
+```powershell
+@(
+  'smoke\app-ci\1a4feb'
+  'docs\implementation-plans\standalone-2026-10-10-1a4feb-app-ci-smoke-docker'
+)
+```
+
+The finalization worker hands off the unchanged complete typed `ActiveReviewResult` through an existing supported live result channel before coordinator acceptance. Preserve its `Kind`, `Status`, `Source`, ordered `Scope`, `Tasks`, `Findings`, and `Verdict`; require `Source` equal to that actual completed-source commit, all tasks complete, no findings, and clean verdict. Pass the same source/scope/result to the installed evidence validator. Do not rebind it to a later commit, infer it from a transcript/advisory report, or rerun the unchanged terminal review.
+
+Separately inspect the actual subsequent learning/archive/ledger-only diffs and order, unchanged criteria/source blobs, and current bytes at the inspected acceptance tip. They are not covered by silently extending the source review. If no supported handoff supplies the complete active typed result, final review evidence and parent 6.2 remain incomplete; preserve work and stop for the parent.
+
 After H3, one fresh finalization owns current whole-plan evidence/review, strict learning commit immediately after completed active source, then a separate archive commit. No design-note changes means no compaction. Check exact source/learning/archive order and re-resolution by ID, then archive-aware sidecar import and ledger-only commit before local acceptance. Repeat archived resume: no worker, repeated finalization, active-folder recreation, duplicated integration/usage, or PR. No publication permission exists; stop before PR.
 
 ## Live evidence matrix - pending observations
@@ -148,24 +161,32 @@ Installed `prepare-packages.ps1` consumes root npm manifest/lock; initial restor
 
 Proposed companion: a separate disposable repository at `C:\Users\jiri\.copilot\session-state\b9ab0f2f-be39-4fde-b350-a8064c5876f0\files\docker-1a4feb-package-fixture`, populated only from named fixture-authored package inputs and installed runtime/CIP/CI/config payload at preparation commit. Its own implementation inputs live in its `smoke\app-ci\<fresh-companion-id>` subtree; root package.json/package-lock.json are the explicitly approved disposable-repository feed inputs, not Skalary inputs. No arbitrary host/main/sibling files or shared Git exclusions. Its independently created `/cip` plan, confirmation commit and refs require parent review/approval before launch. This is not confirmation inherited from 1a4feb/native fixture.
 
-Proposed root manifest is private, with initial dependency `is-number` 7.0.0; its current public registry bytes/integrity and generated lock require authorized host download, never invented lock metadata. Initial feed includes only that dependency. An admitted companion step changes its confined root manifest to add `is-odd` 3.0.1, which is absent from initial feed, and commits a real rebundle request under existing executor policy. For cap proof only, separately approved retry work adds `is-even` 1.0.0 absent from the rebuilt feed. Record versions/integrities/absence observations and original/new full heads. No package code runs during host restore (`--ignore-scripts` in existing helper).
+Proposed root manifest is private, with initial dependency `is-number` 7.0.0; its current public registry bytes/integrity and generated lock require authorized host download, never invented lock metadata. Initial feed includes only that dependency. An admitted companion step would change its confined root manifest to add `is-odd` 3.0.1, absent from initial feed. A manifest commit, npm failure, or agent statement is not a rebundle signal: the installed app entrypoint consumes the Copilot process exit code, and host dispatch retries only numeric 43. A supported real offline-miss to process/container/launcher 43 path is not established here.
+
+Stop the rebundle/cap portion until that existing supported signal path is established and included in the separately confirmed companion protocol. No synthetic exit injection, new harness, or Skalary repair is authorized. If unavailable, both observations and parent 6.2 remain incomplete. For cap proof only after this gate, separately approved retry work would add `is-even` 1.0.0 absent from the rebuilt feed and establish the same real signal. Record versions/integrities/absence observations and original/new full heads. No package code runs during host restore (`--ignore-scripts` in existing helper).
 
 Proposed companion source/work refs: `smoke-docker-1a4feb-packages-source`, `smoke-docker-1a4feb-packages-rebundle`, and separate `smoke-docker-1a4feb-packages-cap`; remote repository/endpoint and full commits are not yet established. Config: container/pat/github/pat-shared, Sol/high/default app target, `offlinePackages.enabled=true`, `ecosystems=["npm"]`, `maxRebundles=1`; build/test use companion-owned allowed `npm run`/`npm test` byte/package assertions, not Skalary tooling.
 
 Exact proposed companion file set: root `package.json`, generated `package-lock.json`, `.gitignore` ignoring node_modules/feed/output/local `.autopilot.json`; installed `.github\skills\{cip,ci,autopilot,skalary-config}` payload and their declared installed dependencies; fresh script-scaffolded plan/assets; fixture-only `smoke\app-ci\<companion-id>\package.test.cjs` using Node's built-in assertions/test runner, and the exact text outputs if its independently confirmed intent uses them. Do not copy tracked Skalary config; bootstrap from the installed example and preview only named local values. Payload dependency closure must be observed and pinned before companion approval; an incomplete copied payload stops, not installation/download by default.
 
-Proposed commands, run directly from that companion root only after separate approval:
+Proposed authoring commands, run from that companion root only after separate approval; these do not launch a worker:
 
 ```powershell
 git init
 # Set only the approved disposable origin; URL remains an operator-owned capability gap.
 git remote add origin <approved-disposable-repository-url>
 .\.github\skills\cip\scripts\New-Plan.ps1 -Title 'Docker package rebundle acceptance' -Slug app-ci-smoke-docker-packages -RepoRoot .
+npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+# Complete independent companion planning confirmation and commit before binding its actual H0.
+git worktree add --detach 'C:\Users\jiri\.copilot\session-state\b9ab0f2f-be39-4fde-b350-a8064c5876f0\files\docker-1a4feb-package-transport' <approved-full-companion-H0>
+```
+
+Proposed launch/configuration preparation runs only from that separate owned transport checkout, never the companion integration/authoring root. Verify its clean exact HEAD and installed payload. The ignored local companion `.autopilot.json` does not travel with a worktree; use the installed bootstrap/preview there, with the separately approved named values, not arbitrary copied host configuration:
+
+```powershell
 .\.github\skills\skalary-config\scripts\Set-SkalaryConfig.ps1 -Action bootstrap -Category autopilot -RepoRoot .
 # Review bootstrap digest, then separately authorize exact apply and named values.
-npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-.\.github\skills\autopilot\scripts\prepare-packages.ps1 -RepoRoot . -Ecosystems npm
-# Main launch automatically prepares feed; this explicit preparation may be omitted to avoid duplication.
+# Installed launch prepares the feed; do not add a duplicate prepare-packages invocation.
 .\.github\skills\autopilot\scripts\launch.ps1 -PlanSlug <independently-confirmed-folder> -Mode app-phase -Phase 1 -Runtime container -Branch smoke-docker-1a4feb-packages-source -ExpectedStartCommit <approved-full-companion-H0> -WorkerBranch smoke-docker-1a4feb-packages-rebundle
 ```
 
@@ -173,9 +194,15 @@ The bootstrap command above is preview-only in this installed config owner. No a
 
 Download/publication effects to approve: public npm metadata/tarballs for is-number/is-odd/is-even and their generated lock's actual transitive closure; default feed population; Docker base/toolchain and resolved Copilot CLI npm downloads on each image build; exact source/work-ref pushes and host lockfile pushes on the approved disposable origin. Capture registry URLs, integrity and downloaded closure before acceptance; refuse an unapproved dependency/feed credential source. Preserve companion repository/commits, feed paths, manifest/lock diffs, named containers, external exact sidecars/transcripts and actual retry heads. No Skalary dependency, lockfile or config changes.
 
-Existing launcher uses default `%LOCALAPPDATA%\autopilot-package-feed\<repository-leaf>\<sanitized-branch>\{npm,nuget}` and has no FeedRoot config forwarding. Approve only exact companion leaf/ref feed paths, read-only `/feed` mount and runtime-local writable npm cache. Rebundle changes work-ref feed path; capture actual paths before retry and never clear shared caches. Fresh unique companion leaf/ref names prevent reuse of unrelated feed data; stop if they exist.
+Existing launcher uses default `%LOCALAPPDATA%\autopilot-package-feed\<repository-leaf>\<sanitized-branch>\{npm,nuget}` and has no FeedRoot config forwarding. Its repository leaf is the launch checkout's leaf; initial branch is that checkout's actual branch, not the source supplied by `-Branch`. For the proposed detached `docker-1a4feb-package-transport` checkout, the actual initial branch is `HEAD`. Exact proposed feed roots:
 
-Action sequence after independent approval: generate/commit companion manifest+real lock; prepare initial feed; launch one app phase; observe genuine offline miss and committed manifest/ref publication with 43; allow at most one installed host unlocked restore/lock commit/push and image rebuild; inspect actual retry HEAD plus original ancestry; run actual offline package evidence. Separately exercise cap with the second approved miss: preserve final 43 and refuse a third attempt. Do not conflate intermediate 43 with launch.ps1's final exit after automatic retry.
+- Initial: `%LOCALAPPDATA%\autopilot-package-feed\docker-1a4feb-package-transport\HEAD\npm`.
+- First rebundle: `%LOCALAPPDATA%\autopilot-package-feed\docker-1a4feb-package-transport\smoke-docker-1a4feb-packages-rebundle\npm`.
+- Separate cap probe rebundle: `%LOCALAPPDATA%\autopilot-package-feed\docker-1a4feb-package-transport\smoke-docker-1a4feb-packages-cap\npm`.
+
+Approve these exact transport leaf/actual-branch/work-ref paths, read-only `/feed` mount and runtime-local writable npm cache. Re-observe transport leaf/branch and actual feed path before each launch/retry; update the approval first if any binding differs. Check that proposed feed paths do not exist or contain unrelated data; stop rather than reuse or clear shared caches. Separate probe source commits/locks still need their own current-head approvals.
+
+Conditional action sequence only after independent approval AND establishment of the supported real miss-to-43 path: generate/commit companion manifest+real lock; bind its owned exact-head transport/config; let installed launch prepare the initial feed and run one app phase; observe genuine offline miss, actual process/container 43 and committed manifest/ref publication; allow at most one installed host unlocked restore/lock commit/push and image rebuild; inspect actual retry HEAD plus original ancestry; run actual offline package evidence. Separately exercise cap with the second approved miss through that same established signal path: preserve final 43 and refuse a third attempt. Do not conflate intermediate 43 with launch.ps1's final exit after automatic retry. If the real signal cannot be established, do not execute this sequence or claim either typed rebundle observation.
 
 Existing helpers remove their own temporary restore/rebundle checkout. Parent must explicitly approve that bounded helper-owned cleanup exception before this package path; no persistent fixture work surfaces are deleted. If any package mechanism/endpoint/authorization cannot be established, report capability gap; static dispatch tests cannot pass this observation.
 
