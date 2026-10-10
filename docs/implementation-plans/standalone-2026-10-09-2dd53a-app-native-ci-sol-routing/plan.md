@@ -1,7 +1,7 @@
 # 2dd53a: App-native CI execution and GPT-6.1 Sol routing
 <!-- plan-id: 2dd53a -->
 <!-- cip-stage: drafted -->
-<!-- planning-confirmed: sha256:e50b57fe032cb4fdd9e4ba2fc9251905f2fb2708a9ff4491644d84bc29b5726a -->
+<!-- planning-confirmed: sha256:97f0db01428a5c1f75ddedb029de1ee6492d11f949c13579c6e36b181d3099ef -->
 <!-- scope: plan -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 6 -->
@@ -48,20 +48,20 @@
 
   </details>
 
-## Phase 2: App coordinator and isolated phase integration
+## Phase 2: App-first coordinator and isolated phase integration
 
-- [ ] 2.1 Unify CI coordination across app/VS Code and retained isolated workers (REQ-3, REQ-4, REQ-5, REQ-12, REQ-17, REQ-18, RISK-2, RISK-9) [after: 1.2] `L`
+- [ ] 2.1 Add app coordination and preserve VS Code's existing route (REQ-3, REQ-4, REQ-5, REQ-12, REQ-17, REQ-18, RISK-2, RISK-9) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
-  **Outcome:** `/ci` in the app or modern VS Code Copilot selects a confirmed plan, extent, and explicit environment: fresh native local sessions, Docker workers, or Windows Sandbox workers. Both clients and both autonomy modes share coordinator/executor policy; retained isolated workers use CLI internally without manual CLI interaction.
+  **Outcome:** app `/ci` selects a confirmed plan/extent/environment: fresh native local sessions, Docker or Windows Sandbox workers. Interactive/unattended app runs share policy; isolated workers use CLI internally. VS Code retains its existing execution/config route.
 
-  **Likely touchpoints:** `plugins/continue-implementation/skills/ci/**`, small app/VS Code host-specific instruction assets, shared executor in `plugins/autopilot/**`, `scripts/skalary/{PlanState,DirectWorkflow}.psm1`. App-only project instructions cannot be the shared authority.
+  **Likely touchpoints:** installed CI app/preserved-VS-Code instruction assets, shared autopilot executor, existing PlanState/DirectWorkflow helpers. Client routing lives in CI, not app-only project settings.
 
-  **Constraints:** discover/verify actual modern VS Code full-session creation, model/effort/context configuration, observation and handoff before claiming support; record the supported target/version and capability evidence. Shared SDK, UI session creation, or a same-context subagent alone is insufficient. Use small client-specific instruction routes, not a new framework. Local kickoff explicitly binds Sol high/default, canonical phase, exact source branch/commit and non-planning execution. Isolated workers bind equivalent flags through retained launchers. Dispatch one admitted phase visit/finalization, never a nested whole-plan loop. Workers never recursively coordinate; selected isolation is not a missing-native-tool fallback.
+  **Constraints:** app kickoff explicitly binds Sol high/default, phase, exact source/HEAD and non-planning execution; isolated launchers bind equivalent flags. One admitted phase visit/finalization, no nested loop/recursive worker coordinator or silent isolation fallback. Small client instruction routes, not a framework. VS Code keeps current behavior and needed host/epic/factory assets; native replacement is deferred. Record version-pinned capability evidence, not shared-SDK/inheritance claims.
 
-  **Verify:** capability evidence and policy/contract tests cover both clients, full local phase-session identity/isolation/settings, all three environment routes, unavailable-tool refusal, worker boundaries, criteria admission and phase/finalization ownership. Live acceptance is separate for each client.
+  **Verify:** app tool contracts cover identity/isolation/settings, all environments, missing-tool refusal and worker/admission/ownership boundaries. VS Code regression tests prove explicit preserved routing without app dependencies. Live app acceptance and VS Code preservation are separate.
 
-  **Stop/escalate when:** a client cannot expose the required automatic full-session creation/observation/handoff or exact settings, admission cannot distinguish worker/coordinator, or the chosen environment cannot start at the exact commit. Report the capability gap for an operator decision before removing that client's local execution route; do not simulate success or silently fall back to in-context/host execution.
+  **Stop/escalate when:** app tools cannot bind/observe exact settings/source/isolation, role admission is ambiguous, or preservation requires changing VS Code behavior. Keep needed routes; do not simulate support or silently fall back.
 
   </details>
 - [ ] 2.2 Verify committed phase closure and fast-forward the integration branch (REQ-5, REQ-6, REQ-7, REQ-17, RISK-2, RISK-3, RISK-8) [after: 2.1] `L`
@@ -93,16 +93,16 @@
   **Stop/escalate when:** advancing independent work requires weakening a confirmed prerequisite or changing intent, acceptance, or scope.
 
   </details>
-- [ ] 3.2 Route epic children through the same coordinator and local completion proof (REQ-11, REQ-12, RISK-5) [after: 3.1] `L`
+- [ ] 3.2 Route app epic children through the coordinator and local completion proof (REQ-11, REQ-12, RISK-5) [after: 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `/ci <epic-id>` in the app selects dependency-ready child plans and coordinates their chosen local/container/Sandbox workers without invoking a competing host-only epic orchestration loop.
 
-  **Likely touchpoints:** `PlanState.psm1` epic rollup/admission, reusable portions of `EpicAutopilot.psm1`, `Invoke-EpicAutopilot.ps1` retirement, `Archive-Epic.ps1`, `tests/{skalary,autopilot}` epic tests.
+  **Likely touchpoints:** `PlanState.psm1` epic rollup/admission, reusable portions of `EpicAutopilot.psm1`, app versus preserved VS Code routing to `Invoke-EpicAutopilot.ps1`, `Archive-Epic.ps1`, `tests/{skalary,autopilot}` epic tests.
 
-  **Constraints:** retain plan identity, child dependencies, criteria checks, close checks, and archive confinement. Each child plan has its own terminal finalization target. After all child finalization commits are integrated and all children archived, the coordinator owns one epic Goal/Definition-of-done/coherency check and epic-index archival. Local committed/integrated child completion replaces mandatory per-child provider PR proof for new app runs; old archived histories remain history. Publish at most one final PR for the requested epic run, not one PR per phase or child.
+  **Constraints:** retain plan identity, child dependencies, criteria checks, close checks, and archive confinement. Each app child plan has its own terminal finalization target. After all child finalization commits are integrated and all children archived, the app coordinator owns one epic Goal/Definition-of-done/coherency check and epic-index archival. Local committed/integrated child completion replaces per-child provider PR proof for new app runs only; VS Code retains its existing wrapper and proof, and archived histories remain history. Publish at most one final PR for the requested app epic run, not one PR per phase or child.
 
-  **Verify:** epic fixtures cover a blocked child plus a ready sibling, local completed-child proof, all-closed unarchived children still requiring finalization, finalized archived children skipped without child PRs, pending epic completion after all child archives, unchanged completed epic boundaries not repeated, and no host launcher dispatch.
+  **Verify:** app epic fixtures cover a blocked child plus a ready sibling, local completed-child proof, all-closed unarchived children still requiring finalization, finalized archived children skipped without child PRs, pending epic completion after all child archives, unchanged completed epic boundaries not repeated, and no app host launcher dispatch. Retained VS Code epic dispatch/proof still passes.
 
   </details>
 
@@ -115,21 +115,21 @@
 
   **Likely touchpoints:** CI completion asset, shared autopilot compaction instructions, retained container/Sandbox explicit completion targets, `Get-DesignNoteCompactionContext.ps1`, `Write-RecentLearning.ps1`, `Archive-Plan.ps1`, final review consumers.
 
-  **Constraints:** use one native finalization child for local execution or one fresh CLI completion invocation in the selected container/Sandbox environment. Keep active current-run evidence, one unchanged-scope terminal review, conditional compaction, criteria protection, and explicit push guards. Headless execution skips optional PFB. Cross-note merge/delete and other unresolved human gates stop visibly. Phase dispatch is not counted as a review/escalation call; bounded role retries remain bounded. Record exact isolated CLI usage through the retained sidecar/ledger path; local app usage is not fabricated. No worker PR, GitHub PR merge or deployment is authorized.
+  **Constraints:** app finalization uses one native child locally or one fresh CLI completion invocation in the selected container/Sandbox. Keep current evidence, one unchanged-scope review, conditional compaction, criteria and push guards. Headless skips PFB; human gates stop. Dispatch is separate from bounded review calls. Keep exact isolated usage; no fabricated app accounting, worker PR, PR merge or deployment. Preserve existing VS Code completion.
 
   **Verify:** completion fixtures cover pending phases, all-closed unarchived plans that still require finalization, finalized archived plans that are skipped, human finalization gates, learning-before-archive ordering, archive-path re-resolution, and prevention of duplicate per-plan finalization or requested-run publication.
 
   </details>
-- [ ] 4.2 Retain isolated autopilot and replace only competing local host orchestration (REQ-14, REQ-15, REQ-17, REQ-18, RISK-6, RISK-8, RISK-9) [after: 4.1] `L`
+- [ ] 4.2 Replace app local orchestration without deleting VS Code/runtime consumers (REQ-14, REQ-15, REQ-17, REQ-18, RISK-6, RISK-8, RISK-9) [after: 4.1] `L`
   <details><summary>Implementation contract</summary>
 
-  **Outcome:** continue-implementation owns the app coordinator; autopilot remains the shared isolated executor/runtime plugin. Local native sessions replace standalone local host orchestration without removing container or Windows Sandbox support.
+  **Outcome:** CI owns app coordination; autopilot remains shared runtime/executor. App native sessions replace app local host dispatch; VS Code keeps its current route and both isolated environments remain.
 
   **Likely touchpoints:** `plugins/{autopilot,continue-implementation}/plugin.json`, shared executor, `launch.ps1`, local host/epic launcher callers, retained container/Sandbox target dispatch and config schemas/templates, Skalary config catalog/readers, affected factory-loop integration contracts and tests.
 
-  **Constraints:** do not retire the autopilot plugin or remove its dependency while CI uses its isolated payloads. Preserve container/Sandbox launchers, toolchains, auth, offline feeds/rebundling, config, exit contracts, and exact usage recording. Remove obsolete local orchestration only after app and modern VS Code replacement routes are established and live consumers, including factory repair, migrated. Capability failure stops rather than removing a still-needed route. Retain one owner per path and source-first removal semantics. Never delete user configs/credentials or alter history. Map legacy local host selection to the current client's native route; retain valid container/Sandbox selections.
+  **Constraints:** retain autopilot/dependency, host/epic/factory payloads needed by VS Code or unmigrated consumers, and all isolated runtime contracts. Migrate app callers; delete only proven unreferenced app-only orchestration. No global host-to-native remap: app maps host selection to app sessions, VS Code keeps it. Keep one owner/source-first distribution; never delete user config/credentials or alter history.
 
-  **Verify:** focused install/update, config, target-dispatch, container/Sandbox/offline/usage, and factory-consumer tests prove retained modes remain available and local orchestration has no dangling callers. Source/dogfood manifests retain their required runtime assets without destination collisions.
+  **Verify:** focused install/update/config/dispatch/isolated/offline/usage/factory and VS Code regressions prove app avoids competing loops while preserved consumers retain their paths and bounds. Required source/dogfood payloads remain collision-free.
 
   **Stop/escalate when:** a live consumer of a deleted launcher cannot be migrated without removing unrelated behavior; identify it rather than ship a dangling reference.
 
@@ -140,7 +140,7 @@
 - [ ] 5.1 Converge distribution and update active architecture/operator guidance (REQ-1, REQ-14, REQ-15, REQ-16, RISK-6) [after: 4.2] `M`
   <details><summary>Implementation contract</summary>
 
-  **Outcome:** installed CI/runtime payloads match sources; active contracts/operator docs describe one shared coordinator policy in app and modern VS Code Copilot, client-specific native local session routes, retained container/Sandbox execution and Sol routing.
+  **Outcome:** installed payloads match sources; active docs describe app-first coordination, preserved VS Code execution, deferred native replacement, retained container/Sandbox and Sol routing.
 
   **Likely touchpoints:** canonical manifests, `Sync-PluginScripts.ps1`, registry/marketplace/dogfood generators, affected architecture/design notes, `docs/operator-guide/**`, README and repository instructions where structure changes.
 
@@ -158,7 +158,7 @@
 
   **Constraints:** prefer existing runners and small fixtures; no new scheduler, state journal, dynamic workflow, or provider API. Static prompt tests cannot prove native app session creation or model settings.
 
-  **Verify:** focused suites pass; live acceptance instructions specify disposable confirmed two-phase fixtures in app and supported modern VS Code, human-blocked independent work, exact expected heads, local session or isolated CLI settings, controlled transport, phase closures, exact usage where available and one finalization handoff. VS Code coverage names target/version and excludes the legacy Local extension-host harness.
+  **Verify:** focused suites pass; app smokes specify confirmed two-phase fixtures, human blockers, exact heads/settings, transport/closure/usage and finalization. VS Code's version-named preservation fixture proves current local/epic/isolated behavior without app dependencies; no new native coordination claim.
 
   </details>
 
@@ -210,18 +210,18 @@
 
   </details>
 
-## Phase 7: Live modern VS Code acceptance
+## Phase 7: Live VS Code preservation
 
-- [ ] 7.1 Confirm local orchestration and retained runtime dispatch from VS Code (REQ-3, REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, REQ-18, RISK-9) @human [after: 5.2] `M`
+- [ ] 7.1 Confirm VS Code's existing execution route remains usable (REQ-3, REQ-16, REQ-17, REQ-18, RISK-6, RISK-9) @human [after: 5.2] `M`
   <details><summary>VS Code acceptance</summary>
 
   **Steps:**
-  1. Approve confirmed fixtures in the supported VS Code version/modern Copilot Agent Host target, not legacy Local.
-  2. Verify automatic fresh full-session/worktree creation, Sol high/default, exact HEAD, observation and handoff; subagents/manual UI are insufficient.
-  3. Check human blocker/independent sibling/resume, accepted fast-forwards, no duplicate writer and one terminal target/final PR.
-  4. From VS Code run retained container/Sandbox fixtures; verify settings/transport/isolation without app-only tools or manual CLI.
+  1. Approve disposable confirmed preservation fixtures; record the actual VS Code target/version and existing route/config.
+  2. Verify `/ci` retains its local and epic dispatch/admission/completion behavior without app-native tools; aliases use Sol, existing effort/context remains.
+  3. Verify current container/Sandbox dispatch, isolation, outcomes, output/usage and blocker/resume on capable hosts.
+  4. Confirm docs label new native VS Code phase coordination as deferred, not delivered through peer chats, inheritance or manual handoff.
 
-  **Verify:** named host/version evidence proves native local and isolated dispatch; absent tools are blockers, not shared-SDK claims or legacy/manual fallback.
+  **Verify:** actual existing route remains usable with required payloads and no app dependencies/settings regression. This is non-regression evidence, not new native phase-session support or broader legacy compatibility.
 
   **Rollback:** stop only fixture sessions/processes; retain commits/output and unrelated sessions/environments/config/branches. Cleanup needs authorization.
 

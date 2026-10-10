@@ -2,8 +2,8 @@
 
 ## Terms and meanings
 
-- Coordinator: the app or supported modern VS Code Copilot session running `/ci`, sharing admission, environment selection, worker dispatch, local integration, resume and delivery policy.
-- Phase worker: a fresh full native local session/worktree using the current client's verified capabilities, or fresh CLI invocation in selected Docker/Windows Sandbox, executing one phase's admitted work. A later visit uses fresh context.
+- Coordinator: the app `/ci` session owning new admission/dispatch/integration/resume/delivery. VS Code retains its existing execution route; new native coordination there is deferred.
+- Phase worker: a fresh native app session/worktree or fresh CLI invocation in selected Docker/Windows Sandbox, executing one app-admitted phase visit. Retained VS Code execution is not relabeled as a new native worker.
 - Client/harness: app and modern VS Code Copilot share SDK-based harness behavior, not necessarily tool inventories. VS Code's legacy Local extension-host target is outside new local orchestration support.
 - Execution environment: local host, Docker container, or Windows Sandbox. App process sandboxing and cloud sandboxes are distinct, not replacements for the retained environments.
 - Isolated result transport: existing controlled Git/artifact transfer that makes exact worker commits available locally for acceptance; transcripts/sentinels alone are not completion proof.
@@ -26,10 +26,10 @@
 
 - `tools/model-allowlist.psd1` owns model aliases, role effort, host formats, and replacement policy.
 - `Sync-ModelBindings.ps1` owns generated aliases and Waza model bindings.
-- Continue-implementation owns shared coordinator policy and small client-specific app/VS Code routes. Autopilot remains shared executor/isolated-runtime owner; its dependency/closure remains installed.
-- Existing plan/epic helpers own identity, immutable baseline, dependencies, and archival. Replace competing standalone local host/epic orchestration, retaining bounded container/Sandbox target launchers.
+- Continue-implementation owns app coordinator policy and explicit app/preserved-VS-Code instruction routes. Autopilot remains shared executor/runtime owner; its dependency/closure remains installed.
+- Existing helpers own identity/baseline/dependencies/archival. App dispatch avoids competing host/epic loops; shared launchers remain while VS Code/factory consumers need them.
 - Native `create_session` kickoff explicitly binds model, effort, context, phase scope, source branch, and expected HEAD.
-- That tool name is app-specific. VS Code's full-session equivalent must be discovered/verified; shared SDK, UI creation or a same-context subagent cannot establish automatic isolated phase-session support.
+- App and VS Code use different `create_session` schemas. VS Code 1.141 exposes native orchestration but has no explicit per-call effort/context/base controls; keep its current execution until a future confirmed replacement proves them or an approved equivalent.
 - Isolated CLI flags explicitly bind the same Sol high/default setting and exact target/start commit. Their outputs and exit 0/42/43/failure contracts remain distinct; usage sidecars retain exact isolated accounting.
 - Live native session or owned isolated process/container state is necessary for observation; committed locally accepted source/checklist state determines progress. Session history, transcripts, sentinels and advisory reports are not success evidence.
 

@@ -2,7 +2,7 @@
 
 ## Outcome and proposed behavior
 
-One instruction-first `/ci` coordinator policy works in the Copilot app and modern VS Code Copilot. It selects local native sessions through the current client's verified tools or retained container/Windows Sandbox CLI workers. The operator uses the chosen client, not a manual CLI workflow; isolated CLI processes remain an internal runtime. Reuse deterministic plan/Git primitives and launchers, not another framework. Requirements and acceptance are in [requirements.md](requirements.md); selections are in [decisions.md](decisions.md).
+App-first `/ci` selects native local app sessions or retained container/Windows Sandbox CLI workers. VS Code retains its current execution/config route until native replacement is proven. CI owns explicit client routing and shared worker primitives; the operator uses the client, not a manual CLI workflow. Reuse helpers/launchers, not another framework. Requirements and acceptance are in [requirements.md](requirements.md); selections are in [decisions.md](decisions.md).
 
 Model aliases keep their public names for compatibility but all bind to GPT-6.1 Sol. The initial effort policy remains Routine medium and Standard/Deep/Independent high. Phase and finalization kickoff explicitly uses high effort/default context. Existing distinct planning-review contexts remain distinct; unavailable Sol stops visibly rather than dispatching a same-model fallback alias.
 
@@ -10,12 +10,13 @@ Model aliases keep their public names for compatibility but all bind to GPT-6.1 
 
 | Component | Responsibility |
 |---|---|
-| CI skill and small installed app/VS Code assets | Shared coordinator/worker policy, verified client-specific native session route, explicit environment selection, settings, observation and integration |
+| CI skill and small installed client assets | App coordinator/environment/settings/integration; explicit preserved VS Code route without app dependencies |
 | Shared direct executor | Admitted phase work, focused validation, atomic source/checklist commits, explicit blocked outcomes |
-| Local worker | Fresh full native session in an isolated worktree, created/observed by the current client's verified tools, replacing in-context and standalone host orchestration |
+| Local app worker | Fresh native app session/worktree, replacing app in-context and standalone host orchestration |
+| Preserved VS Code route | Existing direct/host/epic/isolated behavior and required payloads; native replacement deferred |
 | Retained isolated runtime | Docker or Windows Sandbox CLI phase/completion invocation with existing auth, toolchain, offline/rebundle, output and usage handling |
 | Existing plan helpers | Criteria baseline, dependency/phase admission, committed close and archive state |
-| Existing epic helpers | Dependency-ready child selection and local integrated completion; no host launcher |
+| Existing epic helpers | App dependency-ready child selection/local completion without host dispatch; preserved VS Code wrapper/proof |
 | Per-plan finalization worker | Current final evidence/review, conditional compaction, learning and plan archival, once for each standalone or epic-child plan |
 | Coordinator completion/delivery | Integrate finalization commits, perform the distinct epic completion check/index archival when applicable, preserve explicit push guards, create at most one requested-run PR |
 | Model allowlist and owner generators | One model authority and consistent skill/eval bindings |
@@ -23,6 +24,8 @@ Model aliases keep their public names for compatibility but all bind to GPT-6.1 
 Avoid custom app extensions, dynamic workflows, generic configuration frameworks, automatic cleanup, extra persisted lifecycle state, and parallel integration branches. Use native tools for local sessions and existing controlled launchers/transfers for explicitly selected isolated workers. Do not claim those workers are native app child sessions. App local process sandboxing and cloud sandboxes are not replacements for these Docker/Windows Sandbox environments.
 
 ## Program flow
+
+This flow describes the new app route. VS Code keeps its existing local/epic/runtime orchestration and completion.
 
 ```mermaid
 flowchart TD
@@ -50,13 +53,13 @@ flowchart TD
 
 ### Client capability boundary
 
-The modern Copilot SDK-backed harness is shared across VS Code/CLI/app; tool inventories and lifecycle interfaces need not be. Support modern VS Code's Copilot Agent Host target explicitly, not its legacy Local extension-host harness. Keep shared authority in the installed CI skill, with small app/VS Code instruction routes; `.github/github-app.yml` is app-only supplemental guidance.
+The SDK-backed harness is shared; tools are not identical. Keep app/preserved-VS-Code routing in installed CI; app project settings are supplemental. VS Code 1.141 exposes native orchestration but its creation schema lacks explicit effort/context/base controls; current session metadata cannot prove effective worker settings. See the version-pinned execution decision log.
 
-Before removing local execution routes, establish the actual automatic full-session creation, isolated worktree, exact model/effort/context, live observation and result handoff available in each client. Record supported target/version and capability evidence. App `create_session`/messaging are not assumed to exist in VS Code. A UI new-session command or same-context subagent alone does not prove the requested unattended phase orchestration. If the native client route is absent, stop for an operator decision before deleting that route; do not add a framework or silently revive in-context/standalone-host fallback.
+Operator-selected app-first correction permits implementation without simultaneous VS Code native replacement. App tools must still bind/observe exact sessions/settings/source. Preserve VS Code's current route and needed host/epic/factory launchers, not a silent fallback. Its live gate proves preservation only. Future native replacement requires separately confirmed capability/acceptance criteria; inheritance, manual UI or subagents are not current proof.
 
 ### Handoff and resume
 
-Before dispatch, inspect coordinator cleanliness and source branch/full commit. App children bind `base_branch` to the integration branch; VS Code's verified equivalent must establish the same exact start/worktree, never infer a project-default base. Isolated workers bind that source commit through retained preparation. Each worker rechecks HEAD/isolation before mutation. All clients/environments use Sol high/default and a fresh phase-visit context; isolated launchers must not start a competing whole-plan loop.
+Before app dispatch, inspect cleanliness/source HEAD. App children bind `base_branch` to integration; isolated workers bind that commit through retained preparation. Workers recheck HEAD/isolation. New app workers use Sol high/default and fresh phase context with no competing loop. Preserved VS Code workers keep existing effort/context behavior under Sol aliases.
 
 Do not mutate the integration checkout while the worker runs. The worker produces source/checklist commits on its isolated branch. Container/Sandbox outputs return via existing controlled Git/artifact transfer; preserve commit ancestry and verify exact commits locally before acceptance. Retain explicit transport-push permissions, but workers do not create phase/child PRs. Do not transport credentials or broad mapped host state. The coordinator verifies criteria remain unchanged, exact phase scope, current focused evidence, clean committed checklist progress, and ancestry before `git merge --ff-only`. Dirty state, out-of-scope changes, missing/corrupt transport, source movement, or divergence stops with recoverable work.
 
@@ -78,11 +81,11 @@ Epic children each use that complete plan lifecycle and serial phase workers. Af
 
 ### Retained runtimes and local orchestration replacement
 
-Continue-implementation owns shared app/VS Code coordinator policy; keep autopilot and its dependency for shared executor, compaction/helpers and isolated runtime payloads. Keep one payload owner rather than duplicate executors or needless receipt transfer. This supersedes the prior blanket retirement. Verify both clients' replacement local routes and migrate callers before removing old local orchestration.
+CI owns app coordination and preserved VS Code routing; keep autopilot/dependency for shared executor/helpers and runtime payloads. One owner, no duplicate executors/receipt transfer. App-first supersedes simultaneous replacement; migrate app callers, not VS Code to unverified tools.
 
-Preserve container and Windows Sandbox launchers, runtime config schemas/templates, authentication, toolchains, offline feeds/rebundling, exit/output contracts, usage sidecar normalization and their tests. Replace only the standalone local host/epic orchestration loop after migrating live consumers, including factory repair without removing its bounds. Do not retire the whole plugin or remove required assets merely because local host execution becomes native. Old configs, credential stores, receipts and archived ledgers remain untouched except explicit owner-controlled configuration migration.
+Preserve container/Sandbox contracts and host/epic/factory launchers needed by retained consumers. App coordinator bypasses competing loops; delete only proven unused app-only paths. Never retire required payloads because app execution becomes native. Existing config, credentials, receipts and archived ledgers stay untouched except authorized owner migration.
 
-CI selects the current client's native local sessions, container or Windows Sandbox explicitly. Retain the isolated config/catalog and valid container/Sandbox markers. Map old host selection to that client's native route clearly; no isolation downgrade or unavailable-native CLI fallback. Unrelated CLI package/eval tooling remains. Exact isolated CLI usage is retained; local app/VS Code usage is not inferred or fabricated.
+App CI selects native local/container/Sandbox explicitly; app host selection maps to app sessions. VS Code keeps host and isolated selections/config without app tools. No global remap, isolation downgrade or unavailable-app CLI fallback. Preserve unrelated tooling and exact isolated usage; never fabricate client accounting.
 
 Run the owning model, script-bundle, registry, marketplace, and dogfood generators; do not hand-edit generated copies. Update active direct-workflow architecture, execution/plan/customization/config notes, operator guides, and README/instructions when structure changes.
 
@@ -94,8 +97,8 @@ Run the owning model, script-bundle, registry, marketplace, and dogfood generato
 - Preserving earlier-phase closure limits unattended progress when a human step blocks that phase, even if later work appears independent. Ready AI siblings in the current phase and independently admitted epic siblings still proceed; no cross-phase exemption is added.
 - No recovery journal means ambiguous lost-session ownership stops for the operator rather than risking a duplicate writer.
 - The operator works in the selected app/VS Code client, but isolated workers remain CLI processes rather than native child sessions. Native remote/container/Sandbox attachment is not promised or required.
-- Modern VS Code support is required, but shared harness is not capability proof. Small client-specific routes and a separate live gate expose unsupported session APIs without creating a compatibility framework or silent local fallback.
-- Preserving environments keeps their launch/auth/offline mechanisms, not competing plan coordinators. One coordinator owns admission and integration; launchers execute bounded targets.
+- App-first rollout temporarily keeps different orchestration routes. VS Code preservation, not native replacement, is required now; future replacement needs separately confirmed proof.
+- App mode keeps launch/auth/offline mechanisms, not competing plan coordinators: one app coordinator owns admission/integration and isolated launchers execute bounded targets. Existing VS Code/factory loops remain for their retained consumers.
 - Native-tool/launcher contract tests are necessary but insufficient. Explicit live local, container and Windows Sandbox smokes are human gates.
 - No remaining intent choice is delegated silently. Newly discovered material choices use the existing confirmation flow.
 

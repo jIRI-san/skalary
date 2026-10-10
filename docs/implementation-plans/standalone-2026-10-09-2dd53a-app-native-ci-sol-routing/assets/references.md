@@ -1,5 +1,12 @@
 # References
 
+## App-first rollout capability evidence
+
+- Installed VS Code `1.141.0`, commit `2a59476c9bfcb90b3ddc372c36762471b7dfad1c`: [session creation schema/implementation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/agentHost/node/shared/sessionServerTools.ts) and [effort/context resolution](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/agentHost/node/copilot/copilotSessionLauncher.ts).
+- Native VS Code orchestration exists, but explicit creation inputs do not include effort/context/base.
+  App-first is operator-selected; inherited settings are not claimed as exact-worker proof. Preserve
+  existing VS Code routes while new native replacement is deferred.
+
 ## Active contracts and design
 
 - `docs/architecture-notes/.architecture-notes.md` and provisional `arch-direct-workflow.md`: criteria baseline, current evidence, bounded reviews, terminal lifecycle; update the execution-host boundary with implementation.
@@ -38,4 +45,4 @@
 - https://code.visualstudio.com/docs/agents/concepts/agent-harnesses : the modern Copilot harness uses the shared SDK across VS Code/CLI/app; shared harness does not establish identical client tools or environment capabilities.
 - https://code.visualstudio.com/docs/agents/concepts/agent-host : clients may contribute tools separately from the Agent Host's baseline. VS Code Dev Container capability is not proof of this app's native container/Sandbox attachment.
 - https://code.visualstudio.com/docs/agents/run/agents-window : modern VS Code exposes full Agent Host sessions and Dev Container environment selection; Dev Container sessions work in their container workspace and cannot be combined with New Worktree. This is not proof of model-callable automated session creation or a replacement for the retained runtime.
-- Operator-selected follow-on requirement: support app and modern VS Code Copilot, verify native full-session capabilities instead of assuming shared tools, and add explicit live VS Code acceptance. Legacy Local extension-host compatibility is not promised.
+- Earlier operator-selected follow-on requirement: simultaneous app/modern VS Code native coordination and live acceptance, superseded by the app-first correction above. Legacy Local extension-host compatibility is not promised.

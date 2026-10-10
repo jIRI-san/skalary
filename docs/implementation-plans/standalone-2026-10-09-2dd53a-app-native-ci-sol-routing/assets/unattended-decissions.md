@@ -49,3 +49,13 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
 - [VS Code 1.141 session tools/schema and creation](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/agentHost/node/shared/sessionServerTools.ts)
 - [VS Code 1.141 effective effort/context resolution](https://github.com/microsoft/vscode/blob/2a59476c9bfcb90b3ddc372c36762471b7dfad1c/src/vs/platform/agentHost/node/copilot/copilotSessionLauncher.ts)
 - [Official session orchestration and confirmations](https://code.visualstudio.com/docs/agents/run/sessions/manage-sessions#_orchestrate-sessions-from-agent-host-sessions)
+
+## 2.1: Operator-selected app-first disposition
+
+- Operator choice: "App-first; retain VS Code’s existing route (Recommended)".
+- Consequence: correct only affected plan criteria through CIP confirmation. App exact-setting
+  native coordination proceeds after reconfirmation; retain VS Code's current route/settings and
+  required host/epic/factory payloads. Replace the simultaneous native VS Code gate with live
+  preservation, not a completed native acceptance claim.
+- Boundary: the capability stop above remains historical evidence. This disposition is not a
+  confirmation stamp or permission to implement against stale criteria; baseline must pass first.
