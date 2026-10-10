@@ -16,9 +16,9 @@ and excluded from design-note compaction.
 | Surface | Responsibility |
 |---|---|
 | `/cep` | Decision-ready epic planning, criteria confirmation, optional combined design/validation, normal Judge |
-| `/cip` | Decision-ready planning, mandatory pre-confirmation two-model review, operator-selected current-plan edits, criteria confirmation |
+| `/cip` | Decision-ready planning, mandatory pre-confirmation two-context review, operator-selected current-plan edits, criteria confirmation |
 | `/ws` | Lightweight concept interview, up to three isolated runnable prototypes, operator selection, explicit draft handoff to `/cip` |
-| `/ci`, autopilot | Git criteria baseline, direct evidence, bounded native roles, one terminal review |
+| `/ci`, autopilot | App-owned serial fresh phase/finalization workers; shared isolated executor; retained VS Code direct/host/epic routes; criteria, current evidence and one terminal review |
 | `/cr`, `/dr` | Risk-selected read-only review and advisory Markdown |
 | `/rcs` | Repository-wide survey, risk-selected drift/dead-code/design traces, advisory record, and explicit handoffs |
 | `/pfb`, `/si` | Optional feedback and bounded recent-learning intake |

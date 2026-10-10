@@ -17,6 +17,10 @@ activity. Record identities in native conversation context, not a new journal. I
 ambiguous, stop with `42`; do not start another writer. Keep integration HEAD and checkout unchanged
 while the worker runs. Use only one worker at a time.
 
+Before local dispatch require available native `create_session`, `get_session`, session-status and
+messaging tools. Missing creation/observation or inability to bind/inspect exact source/settings
+stops with `42` before dispatch; never simulate a full session with a subagent or peer chat.
+
 For local execution call app `create_session` with the current project, `workspace_type: "worktree"`,
 `base_branch` explicitly set to the integration branch, and `coordinate_with_creator: true`.
 Bind `kickoff.model: "gpt-6.1-sol"`, `reasoning_effort: "high"`, `context_tier: "default"`,

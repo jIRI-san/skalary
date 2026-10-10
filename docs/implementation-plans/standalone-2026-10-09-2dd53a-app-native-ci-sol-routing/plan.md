@@ -137,7 +137,7 @@
 
 ## Phase 5: Distribution, documentation, and acceptance
 
-- [ ] 5.1 Converge distribution and update active architecture/operator guidance (REQ-1, REQ-14, REQ-15, REQ-16, RISK-6) [after: 4.2] `M`
+- [x] 5.1 Converge distribution and update active architecture/operator guidance (REQ-1, REQ-14, REQ-15, REQ-16, RISK-6) [after: 4.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** installed payloads match sources; active docs describe app-first coordination, preserved VS Code execution, deferred native replacement, retained container/Sandbox and Sol routing.
@@ -149,7 +149,7 @@
   **Verify:** detect-only model/bundle/registry/marketplace/dogfood checks, focused consumer installation tests, and affected documentation/reference checks.
 
   </details>
-- [ ] 5.2 Run the regression matrix and prepare bounded live smokes for all environments (REQ-6, REQ-7, REQ-8, REQ-9, REQ-11, REQ-12, REQ-16, REQ-17) [after: 5.1] `M`
+- [x] 5.2 Run the regression matrix and prepare bounded live smokes for all environments (REQ-6, REQ-7, REQ-8, REQ-9, REQ-11, REQ-12, REQ-16, REQ-17) [after: 5.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** deterministic tests cover readiness, integration, resume, completion, and local-host migration while preserving isolated runtime behavior; an operator can execute each live environment smoke without guessing setup or success conditions.

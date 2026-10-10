@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-10T09:03:07.2823592Z",
+  "generatedAt": "2026-10-10T09:07:23.5753620Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/assets/app-coordinator.md",
-          "sha256": "a35b367492ea7a16f95ad58341b2b7fab8b9822a8e32332389517c90964503b7",
+          "sha256": "7ce31282bb244d3237eed5c76409fc4b8a641192ddbe3f31c5673d124be5bf6e",
           "src": "skills/ci/assets/app-coordinator.md"
         },
         {
@@ -498,7 +498,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.132"
+      "version": "1.0.133"
     },
     {
       "author": "jIRI-san",

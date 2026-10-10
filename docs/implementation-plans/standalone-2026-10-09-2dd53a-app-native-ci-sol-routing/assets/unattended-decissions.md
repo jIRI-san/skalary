@@ -96,3 +96,20 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
 - Consequence: no new completion journal, usage schema or competing orchestrator. App container
   visits retain unique named workspaces; Sandbox preserves commits and confined local dirty-work
   recovery without auto-staging/publication. Existing non-app normalization and consumers remain.
+
+## 5.1-5.2: Narrow heavy regressions without weakening the runtime deadline
+
+- Choice: retain the existing 60-second process-tree deadline and validate selected surfaces in
+  bounded groups. The focused consumer fixture snapshots current canonical payloads, then installs
+  CI with its five-plugin dependency closure rather than provisioning every unrelated plugin.
+- Rationale: concurrent broad setup exceeded the deadline; an accidentally nested focused fixture
+  also invoked the broad parent setup. Corrected its scope. The isolated distribution gate, focused
+  install, source/readiness/transport fixtures, completion guards and factory handoff/admission/bounds
+  now pass. Slow warnings remain evidence; the timed-out broad attempts are not clean suite results.
+- Consequence: distribution and active guide links agree; no new installer abstraction, timeout
+  increase or broad/premium workaround. Existing Waza, absent container wait helper and symlink-host
+  limitations recorded above remain unresolved, not silently skipped.
+- Handoff: `docs/operator-guide/app-ci-acceptance.md` defines the confirmed disposable two-phase
+  fixture, human blocker/resume, exact settings/heads, transport/usage/recovery and completion/PR
+  boundaries for native app, Docker, Windows Sandbox and named-version VS Code preservation.
+  Steps 6.1-6.3 and 7.1 remain pending human evidence. No whole-plan finalization or PR yet.

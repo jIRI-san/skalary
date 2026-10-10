@@ -115,4 +115,33 @@ Describe 'App CI retained runtime contracts' {
         $note | Should -Match 'existing direct/host/epic/factory routes'
         $note | Should -Match 'human gates, not results inferred from static tests'
     }
+    It 'test:AppCi.SingleCoordinator binds serial ownership and refuses recursive workers' {
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $skill = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\SKILL.md') -Raw
+        $guide | Should -Match 'Use only one worker at a time'
+        $guide | Should -Match 'If ownership is\s+ambiguous, stop with `42`'
+        $skill | Should -Match 'Never recursively coordinate'
+    }
+    It 'test:AppCi.UnsupportedHost refuses missing native capability rather than silently changing isolation' {
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $guide | Should -Match 'require available native `create_session`, `get_session`'
+        $guide | Should -Match 'Missing creation/observation'
+        $guide | Should -Match 'stops with `42` before dispatch'
+        $guide | Should -Match 'never simulate a full session'
+        $guide | Should -Match 'do not turn selected isolation into a local fallback'
+    }
+    It 'test:AppCi.MaterialChoiceStop preserves criteria and routes consequential choices to reconfirmation' {
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $guide | Should -Match 'Material choices stop affected work through CIP reconfirmation'
+        $guide | Should -Match 'only\s+independently admitted unaffected work may continue'
+        $guide | Should -Match 'cannot\s+override confirmed criteria'
+    }
+    It 'test:AppCi.DistributionConvergence composes existing read-only distribution gates' {
+        Import-Module (Join-Path $script:repo 'tests\ConsumerInstallFixture.psm1') -Force -DisableNameChecking
+        $result = Test-ConsumerDistributionDrift -SourceRepoRoot $script:repo
+        $result.Unchanged | Should -BeTrue
+        foreach ($check in $result.Checks) {
+            $check.ExitCode | Should -Be 0 -Because "$($check.Name): $($check.Output)"
+        }
+    }
 }

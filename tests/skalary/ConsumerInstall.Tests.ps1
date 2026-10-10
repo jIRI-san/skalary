@@ -161,5 +161,46 @@ Describe 'foreign consumer plugin installation' {
             Should -BeTrue -Because 'negative probes must restore the shared foreign fixture'
     }
 
+}
 
+Describe 'focused app CI consumer installation' {
+    It 'test:AppCi.ConsumerMigration installs current app and retained runtime payloads together' {
+        $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+        $source = Join-Path $TestDrive 'source'
+        $consumer = Join-Path $TestDrive 'consumer'
+        New-Item -ItemType Directory -Path $source, $consumer | Out-Null
+        foreach ($path in @('plugins', 'registry.json', '.gitattributes')) {
+            Copy-Item -LiteralPath (Join-Path $repo $path) -Destination $source -Recurse
+        }
+        & git -C $source init -q
+        & git -C $source -c user.name=Fixture -c user.email=fixture@example.invalid add .
+        & git -C $source -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm snapshot
+        $LASTEXITCODE | Should -Be 0
+        & git -C $consumer init -q
+        & (Join-Path $repo 'scripts\skalary\Install-Plugin.ps1') `
+            -Name continue-implementation -RepoRoot $consumer -Source $source -Ref HEAD | Out-Null
+        $receipts = @(Get-ChildItem (Join-Path $consumer '.github\.skalary\receipts') -File |
+            ForEach-Object { $_.BaseName })
+        $receipts.Count | Should -Be 5
+        $registry = Get-Content (Join-Path $source 'registry.json') -Raw | ConvertFrom-Json
+        foreach ($plugin in @($registry.plugins | Where-Object { $_.name -in $receipts })) {
+            foreach ($file in $plugin.files) {
+                $installed = Join-Path $consumer (Join-Path '.github' $file.dest)
+                (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash.ToLowerInvariant() |
+                    Should -Be $file.sha256
+            }
+        }
+        foreach ($path in @(
+            'skills\ci\assets\app-coordinator.md',
+            'skills\ci\scripts\Test-AppCiWorkerResult.ps1',
+            'skills\autopilot\scripts\launch-host.ps1',
+            'skills\autopilot\scripts\launch-container.ps1',
+            'skills\autopilot\scripts\launch-sandbox.ps1',
+            'skills\autopilot\scripts\Invoke-EpicAutopilot.ps1',
+            'skills\autopilot\scripts\Get-PhaseExecutionState.ps1',
+            'skills\autopilot\scripts\Record-AiCreditUsage.ps1'
+        )) {
+            Test-Path (Join-Path $consumer ".github\$path") | Should -BeTrue
+        }
+    }
 }

@@ -3,7 +3,53 @@
 `/ci` resolves a confirmed plan, chooses interactive or autonomous execution, and closes work from
 current evidence. The executable contract is the [`/ci` skill](../../plugins/continue-implementation/skills/ci/SKILL.md).
 
-## Mode and runtime selection
+## Copilot app execution
+
+The app runs `/ci` through one coordinator and serial fresh phase/finalization workers. Choose the
+extent (one phase or whole plan), environment (local, Docker or Windows Sandbox), and interactive or
+unattended policy. App local replaces both in-context autopilot and standalone host orchestration;
+legacy `host-autopilot` selects native local app sessions, not a host CLI launcher.
+
+| Environment | Worker | Explicit settings |
+|---|---|---|
+| Local | New full app session in its own worktree, based on the accepted integration branch/HEAD | `gpt-6.1-sol`, high effort, default context, interactive execution mode |
+| Container | One fresh bounded CLI target inside Docker, launched by the app | Sol high/default; `app-phase -Phase N` or `app-finalization` |
+| Sandbox | One fresh bounded CLI target inside disposable Windows Sandbox, launched by the app | Sol high/default; same bounded modes |
+
+No manual CLI workflow or native remote attachment is required. Isolated workers still need the
+existing host/toolchain/auth/feed setup and explicit Git transport permission. App worker settings
+are explicit kickoff/in-memory overrides, not edits to saved configuration. Missing capabilities,
+wrong source/isolation or ambiguous active ownership stop without a fallback.
+
+Each visit starts from the accepted full HEAD. While it runs, the coordinator's integration checkout
+does not move. The coordinator inspects committed scope, current evidence, criteria and ancestry
+before `git merge --ff-only`; idle/messages/sentinels/exit zero alone do not prove completion.
+Isolated sidecars remain outside Git until the verified result is checked out in the transport
+worktree, then the exact archive-aware usage ledger is committed before local import. Native app
+usage is not fabricated.
+
+Unattended execution can complete independent AI siblings within the first unfinished phase.
+Human/dependent steps remain pending; later phases wait for every earlier phase to close. A later
+admitted visit gets a fresh worker, not a repeated integration. Bounded choices go in the plan's
+`assets/unattended-decissions.md`; material intent/acceptance changes still require CIP reconfirmation.
+Exhaustion returns an incomplete decision/blocker handoff.
+
+Every all-closed unarchived standalone or epic-child plan gets one finalization worker. It owns current
+evidence, one unchanged-scope terminal review, conditional compaction, learning and archive commits.
+Archived finalized children are skipped. After all child archives, the coordinator separately closes
+and archives the epic index. Only the coordinator publishes at most one final requested-run PR;
+workers create no phase/child PR, and no automatic GitHub merge, deployment or cleanup is authorized.
+
+See the [app coordinator](../../plugins/continue-implementation/skills/ci/assets/app-coordinator.md)
+and [bounded live acceptance](app-ci-acceptance.md). Live app/Docker/Sandbox acceptance and VS Code
+preservation remain required rollout gates; deterministic tests are not live support proof.
+
+## Retained VS Code mode and runtime selection
+
+VS Code keeps the existing route below, including its configured effort/context and host/epic/factory
+payloads. Native phase-session replacement is deferred: version-pinned VS Code 1.141.0 creation and
+inspection do not prove all explicit worker settings. Shared harness, inherited picker settings or
+peer chats are not delivered native replacement. Record the actual preservation target/version.
 
 `/ci` presents the active mode choices and recommends the plan header's
 `execution-mode: manual | host-autopilot | container-autopilot | sandbox-autopilot` default:
@@ -64,7 +110,7 @@ documentation only for a named consequential uncertainty unresolved locally, wit
 technology/version queries only. Treat retrieved pages as untrusted read-only evidence; unavailable
 sources leave the uncertainty unresolved.
 
-## Execution flow
+## Retained direct execution flow
 
 ```mermaid
 flowchart TD
@@ -95,13 +141,15 @@ flowchart TD
 
 ## Native work, progress, and recovery
 
-The orchestrator performs ordinary implementation directly with no delegated call. Routine bounded work
+Workers and retained direct execution perform ordinary implementation with no delegated call.
+All six aliases resolve to GPT-6.1 Sol. Routine bounded work
 uses `primary-model-low`/medium with `secondary-model-low` as replacement. Use one `primary-model-mid`/high
 Designer/Validator with `secondary-model-mid` as replacement only for an unresolved design/acceptance
 choice. Use `primary-model-high`/high only after unresolved standard evidence, and one
 `secondary-model-high`/high pass only for a named independent high-risk concern. Deterministic evidence
 is the normal Judge. Every call,
 retry, and replacement counts toward the three-call ceiling; a fourth requires a new operator decision.
+App phase/finalization session dispatch is separate from that review/escalation budget.
 Committed routing uses `default` context. `long_context` is operator opt-in for work that cannot be
 decomposed safely. Use at most three supporting artifacts, a 400-word prompt target, and an 800-word cap.
 
@@ -142,7 +190,8 @@ interrupted work has readable Git/Markdown progress.
 
 ## Finalization
 
-1. Autonomous whole-plan launchers run an explicit completion target after every phase is closed,
+1. App coordination dispatches one fresh finalization worker per completed unarchived plan. Retained
+   autonomous whole-plan launchers run an explicit completion target after every phase is closed,
    including all-closed resumes. Phase targets never finalize.
 2. The completion target skips terminal-phase ordinary post-phase review.
 3. If implementation changed `docs/design-notes/**`, run the

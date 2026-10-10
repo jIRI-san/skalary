@@ -14,6 +14,7 @@ sources of truth; links below point to them.
 | Split a large goal into independently executable plans | `/cep` | [Planning](planning.md) |
 | Create or repair one confirmed plan | `/cip` | [Planning](planning.md) |
 | Continue a plan interactively or choose autonomous execution | `/ci` | [Implementation](implementation.md) |
+| Verify app workers and retained client/runtime behavior before rollout | `/ci` disposable fixtures | [Live acceptance](app-ci-acceptance.md) |
 | Review code or a design | `/cr` or `/dr` | [Reviews](reviews.md) |
 | Survey repository quality and preserve scoped maintenance decisions | `/rcs` | [Reviews](reviews.md#repository-maintenance) |
 | Discover configuration sources and safe change previews | `/skalary-config` | [Configuration](configuration.md) |
@@ -34,6 +35,7 @@ what wins when prose and executable state disagree.
 | Requirements | `/cip` | `assets/requirements.md` | Confirmed criteria; byte-protected during execution | Confirmation-baseline Git tree | `/ci`, evidence |
 | Risks | `/cip` | `assets/risks.md` | Confirmed criteria; byte-protected during execution | Confirmation-baseline Git tree | Review selection |
 | Decisions | `/cip` | `assets/decisions.md` and optional `assets/decisions/*.md` | Confirmed criteria; byte-protected during execution | Confirmation-baseline Git tree | All later stages |
+| Unattended execution decisions | App `/ci` coordinator/worker | `assets/unattended-decissions.md`, only when needed | Mutable bounded choices and blockers, not criteria | Current scoped commits and operator decisions | Final handoff and resume |
 | References | `/cep` or `/cip` | `assets/references.md` | Accepted provenance; may be refreshed through planning | Current committed file | Planning and review |
 | Architecture contracts | Human-owned architecture flow | [`docs/architecture-notes/`](../architecture-notes/) | Active contracts; changed with their boundary | [Architecture index](../architecture-notes/.architecture-notes.md) | Planning, implementation, review |
 | AI design notes | Implementer/design-note flow | [`docs/design-notes/`](../design-notes/) | Updated with implementation; conditionally compacted at whole-plan finalization | [Design-note index](../design-notes/.design-notes.md) | Agents working in matching scope |
@@ -80,6 +82,7 @@ The plan layout and marker grammar are defined by
 | Workshop concepts | At most 3 distinct concepts over one workshop, including rejected/replacement directions | [`/ws` skill](../../plugins/workshop/skills/ws/SKILL.md) |
 | Delegated prompt | 400-word target; 800-word hard cap | [CI](../../plugins/continue-implementation/skills/ci/SKILL.md) and [CIP](../../plugins/create-implementation-plan/skills/cip/SKILL.md) |
 | Model ladder | `primary-model-low` routine; `primary-model-mid` standard; `primary-model-high` deep; `secondary-model-high` independent; committed context is `default` | [CI](../../plugins/continue-implementation/skills/ci/SKILL.md) and [CIP](../../plugins/create-implementation-plan/skills/cip/SKILL.md) |
+| App worker settings | Fresh full phase/finalization session; Sol/high/default; dispatch separate from delegated-review budget | [App coordinator](../../plugins/continue-implementation/skills/ci/assets/app-coordinator.md) |
 | Observable stuck recovery | 2 no-progress checks, 1 redirect, at most 1 replacement | [`/ci` skill](../../plugins/continue-implementation/skills/ci/SKILL.md) |
 | Non-terminal review | Only on concrete risk; 1 event plus at most 1 changed-scope replacement | [Review design](../design-notes/architecture/review-reporting.design.md) |
 | Terminal review | Exactly 1 whole-plan review event | [Direct workflow contract](../architecture-notes/arch-direct-workflow.md) |

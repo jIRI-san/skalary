@@ -24,6 +24,12 @@ Before running the one-liner:
 For the human workflow from planning through implementation and review, start with the
 [operator guide](docs/operator-guide/README.md).
 
+In the Copilot app, `/ci` coordinates serial fresh GPT-6.1 Sol/high/default phase and finalization
+sessions, verifies local fast-forward integration, and owns one final requested-run PR. Docker and
+Windows Sandbox remain isolated CLI workers behind the app. VS Code retains its existing execution
+route; new native coordination there is deferred. See [implementation](docs/operator-guide/implementation.md)
+and the required [live acceptance gates](docs/operator-guide/app-ci-acceptance.md).
+
 Discover configuration authorities, effective values, and bounded change previews:
 
 ```powershell
@@ -83,7 +89,7 @@ Generated from `registry.json` by `scripts/skalary/Build-Registry.ps1`.
 | `architecture-notes` | 1.0.12 | partial | — | 13 | Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill. |
 | `autopilot` | 1.3.37 | partial | code-review, create-implementation-plan | 41 | Self-contained direct-workflow autonomous plan executor. |
 | `code-review` | 1.0.88 | stable | — | 9 | Risk-selected code review with direct advisory Markdown. |
-| `continue-implementation` | 1.0.132 | stable | autopilot, code-review, create-implementation-plan | 12 | Direct plan implementation workflow with Git criteria protection. |
+| `continue-implementation` | 1.0.133 | stable | autopilot, code-review, create-implementation-plan | 12 | Direct plan implementation workflow with Git criteria protection. |
 | `create-implementation-plan` | 1.0.116 | stable | design-review | 28 | Direct implementation and epic plan creation. |
 | `design-notes` | 1.1.5 | stable | — | 7 | Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it. |
 | `design-review` | 1.0.90 | stable | — | 8 | Risk-selected design review with direct advisory Markdown. |

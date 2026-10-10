@@ -572,6 +572,26 @@ Describe 'Epic rollup for /ci' {
     }
 
     Context 'test:ci-selects-next-child-plan' {
+        It 'test:AppCi.EpicBlockedSibling exposes current dependency facts without a child PR' {
+            $tmp = & $newTempRoot
+            try {
+                & $newChildPlan -Root $tmp -PlanId '111aaa' -Slug 'blocked' -Done 0 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '222bbb' -Slug 'ready' -Done 0 | Out-Null
+                & $newChildPlan -Root $tmp -PlanId '333ccc' -Slug 'dependency' -Done 0 | Out-Null
+                & $newEpic -Title 'App dependency facts' -Slug 'app-facts' -RepoRoot $tmp `
+                    -EpicId 'ab12cd' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '222bbb' | Out-Null
+                & $newEpic -Epic 'ab12cd' -RepoRoot $tmp -ChildPlan '111aaa' -DependsOn '333ccc' | Out-Null
+                $rollup = Get-EpicRollup -EpicId 'ab12cd' -RepoRoot $tmp
+                (@($rollup.Children | Where-Object { $_.Id -eq '111aaa' }))[0].IsBlocked | Should -BeTrue
+                (@($rollup.Children | Where-Object { $_.Id -eq '222bbb' }))[0].IsBlocked | Should -BeFalse
+                $rollup.NextChild.Id | Should -Be '222bbb'
+            }
+            finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force
+            }
+        }
+
         It 'test:ci-selects-next-child-plan skips blocked children and picks the first unblocked one' {
             $tmp = & $newTempRoot
             try {

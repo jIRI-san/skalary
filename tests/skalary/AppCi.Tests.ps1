@@ -160,51 +160,51 @@ flowchart TD
         Invoke-FixtureGit $script:integration @('merge', '--ff-only', $result.WorkerCommit) | Out-Null
         Invoke-FixtureGit $script:integration @('rev-parse', 'HEAD') | Should -Be $result.WorkerCommit
     }
-    It 'refuses dirty committed-result acceptance' {
+    It 'test:AppCi.CriteriaAndIdentity refuses dirty committed-result acceptance' {
         Complete-Step 1.1
         { Result } | Should -Throw '*clean committed*'
     }
-    It 'refuses source movement and prevents duplicate acceptance after integration' {
+    It 'test:AppCi.ResumeAndRetention refuses source movement and prevents duplicate acceptance after integration' {
         Complete-Step 1.1
         Commit-Worker
         $result = Result
         Invoke-FixtureGit $script:integration @('merge', '--ff-only', $result.WorkerCommit) | Out-Null
         { Result } | Should -Throw '*HEAD moved*'
     }
-    It 'refuses divergence' {
+    It 'test:AppCi.CriteriaAndIdentity refuses divergence' {
         Invoke-FixtureGit $script:worker @('checkout', '--orphan', 'divergent') | Out-Null
         Invoke-FixtureGit $script:worker @('commit', '-qm', 'unrelated') | Out-Null
         { Result } | Should -Throw '*Git check failed*'
     }
-    It 'refuses criteria drift' {
+    It 'test:AppCi.CriteriaAndIdentity refuses criteria drift' {
         Complete-Step 1.1
         Set-Content (Join-Path (Split-Path $script:workerPlan) 'assets\intent.md') '# Changed intent'
         Commit-Worker
         { Result } | Should -Throw '*differs*baseline*'
     }
-    It 'refuses unauthorized human completion' {
+    It 'test:AppCi.WorkerBoundary refuses unauthorized human completion' {
         Complete-Step 1.1
         Complete-Step 1.2
         Commit-Worker
         { Result } | Should -Throw '*unauthorized checklist*'
     }
-    It 'refuses dependent AI work before human approval' {
+    It 'test:AppCi.WorkerBoundary refuses dependent AI work before human approval' {
         Complete-Step 1.3
         Commit-Worker
         { Result } | Should -Throw '*prerequisite*'
     }
-    It 'refuses later-phase work without earlier closure' {
+    It 'test:AppCi.WorkerBoundary refuses later-phase work without earlier closure' {
         Complete-Step 2.1
         Commit-Worker
         { Result 2 } | Should -Throw '*earlier phases*'
     }
-    It 'refuses checklist body and prerequisite rewrites' {
+    It 'test:AppCi.WorkerBoundary refuses checklist body and prerequisite rewrites' {
         $text = (Get-Content $script:workerPlan -Raw).Replace('[after: 1.2]', '[after: 1.1]')
         Set-Content $script:workerPlan $text -NoNewline
         Commit-Worker
         { Result } | Should -Throw '*immutable checklist*'
     }
-    It 'refuses same-worktree execution' {
+    It 'test:AppCi.CriteriaAndIdentity refuses same-worktree execution' {
         { & $resultScript -IntegrationRoot $integration -WorkerRoot $integration `
             -PlanReference abc123 -ExpectedStartCommit $start -Phase 1 } |
             Should -Throw '*distinct worktree*'
@@ -289,5 +289,24 @@ flowchart TD
         Commit-Worker
         (& $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
             -PlanReference abc123 -ExpectedStartCommit $start -Finalization).Status | Should -Be 'finalized'
+    }
+    It 'test:AppCi.IsolatedResultImport validates an independently transferred result before fast-forward' {
+        Complete-Step 1.1
+        Commit-Worker
+        $transport = Join-Path $scratch 'transport'
+        Invoke-FixtureGit $integration @('clone', '-q', '--no-local', '--single-branch', '--branch', 'worker', $integration, $transport) | Out-Null
+        $result = & $resultScript -IntegrationRoot $integration -WorkerRoot $transport `
+            -PlanReference abc123 -ExpectedStartCommit $start -Phase 1
+        Invoke-FixtureGit $integration @('fetch', '--no-tags', $transport, $result.WorkerCommit) | Out-Null
+        Invoke-FixtureGit $integration @('merge', '--ff-only', $result.WorkerCommit) | Out-Null
+        Invoke-FixtureGit $integration @('rev-parse', 'HEAD') | Should -Be $result.WorkerCommit
+    }
+    It 'test:AppCi.IsolatedResultImport refuses corrupt transport without moving integration' {
+        $bundle = Join-Path $scratch 'corrupt.bundle'
+        Set-Content $bundle 'not a Git bundle'
+        & git -C $integration bundle verify $bundle 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        Invoke-FixtureGit $integration @('rev-parse', 'HEAD') | Should -Be $start
+        Test-Path $workerPlan | Should -BeTrue
     }
 }

@@ -44,6 +44,17 @@ after setup, run:
 
 ## Direct owners remain available
 
+All six model/review aliases bind GPT-6.1 Sol: `gpt-6.1-sol` in the app/CLI and
+`GPT-6.1 Sol (copilot)` in VS Code. Routine effort is medium; Standard/Deep/Independent are high.
+Equal primary/secondary bindings provide no availability fallback or model diversity; separate review
+contexts remain. Unavailable Sol stops visibly.
+
+App `/ci` phase/finalization workers always bind Sol/high/default explicitly. Native kickoff and
+isolated in-memory overrides do not alter saved `.autopilot.json` or VS Code settings. VS Code retains
+its existing execution/config behavior; app legacy `host` selection maps only to native app sessions.
+Container and Windows Sandbox still use their existing launcher configuration, auth, toolchain,
+offline feed and exact usage recording.
+
 The facade does not own advanced maintainer policy or generated outputs. Use these existing commands
 directly when they match the task:
 
