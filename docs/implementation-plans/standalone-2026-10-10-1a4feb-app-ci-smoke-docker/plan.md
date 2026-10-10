@@ -1,7 +1,7 @@
 # 1a4feb: Docker app CI live acceptance
 <!-- plan-id: 1a4feb -->
-<!-- cip-stage: scaffolded -->
-<!-- planning-confirmed: pending -->
+<!-- cip-stage: drafted -->
+<!-- planning-confirmed: sha256:57bdb2dba2b29600b709140e40b62044e16ce91808538f70d338960994311a51 -->
 <!-- execution-mode: container-autopilot -->
 <!-- scope: plan -->
 <!-- evidence: required -->
