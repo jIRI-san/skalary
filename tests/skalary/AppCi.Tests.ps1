@@ -28,6 +28,20 @@ Describe 'App CI worker boundaries and integration' {
             & $script:resultScript -IntegrationRoot $script:integration -WorkerRoot $script:worker `
                 -PlanReference abc123 -ExpectedStartCommit $script:start -Phase $Phase
         }
+        function Prepare-Finalization {
+            $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
+            Set-Content $plan ((Get-Content $plan -Raw).Replace('- [ ]', '- [x]')) -NoNewline
+            Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
+            Invoke-FixtureGit $script:integration @('commit', '-qm', 'operator-approved completed fixture') | Out-Null
+            $script:start = Invoke-FixtureGit $script:integration @('rev-parse', 'HEAD')
+            Invoke-FixtureGit $script:worker @('merge', '--ff-only', $script:start) | Out-Null
+            & (Join-Path $script:repo 'scripts\skalary\Write-RecentLearning.ps1') `
+                -RepoRoot $script:worker -PlanReference abc123 -SourceCommit $script:start | Out-Null
+            Commit-Worker
+            & (Join-Path $script:repo 'scripts\skalary\Archive-Plan.ps1') `
+                -RepoRoot $script:worker -Plan abc123 | Out-Null
+            Commit-Worker
+        }
     }
     BeforeEach {
         $script:scratch = Join-Path $script:repo ('tests\.app-ci-' + [guid]::NewGuid().ToString('N'))
@@ -226,5 +240,54 @@ flowchart TD
         { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
             -PlanReference abc123 -ExpectedStartCommit $start -Finalization } |
             Should -Throw '*all closed steps*'
+    }
+    It 'test:AppCi.FinalizationAndDelivery verifies learning-before-archive and rejects repeated finalization' {
+        Prepare-Finalization
+        $result = & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $start -Finalization
+        $result.Status | Should -Be 'finalized'
+        $result.RequiresCurrentEvidenceAndScopeReview | Should -BeTrue
+        Invoke-FixtureGit $integration @('merge', '--ff-only', $result.WorkerCommit) | Out-Null
+        { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $result.WorkerCommit -Finalization } |
+            Should -Throw '*newly committed plan archive*'
+    }
+    It 'test:AppCi.CompletionGates refuses unrelated learning' {
+        Prepare-Finalization
+        $learning = Join-Path $worker 'docs\feedback\recent-learning.md'
+        Set-Content $learning ((Get-Content $learning -Raw).Replace('abc123 fixture', 'def456 other')) -NoNewline
+        Commit-Worker
+        { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $start -Finalization } |
+            Should -Throw '*does not identify this plan*'
+    }
+    It 'test:AppCi.CompletionGates refuses learning rewritten after archival' {
+        Prepare-Finalization
+        Add-Content (Join-Path $worker 'docs\feedback\recent-learning.md') "`nExtra post-archive text."
+        Commit-Worker
+        { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $start -Finalization } |
+            Should -Throw '*Git check failed*'
+    }
+    It 'test:AppCi.IsolatedUsage imports exact usage after checkout and archive without duplication' {
+        Prepare-Finalization
+        $usagePath = Join-Path $scratch 'usage.json'
+        Set-Content $usagePath @'
+{"totalNanoAiu":1250000000,"tokenDetails":{"input":{"tokenCount":10},"output":{"tokenCount":20}},"sessionStartTime":"2026-10-09T12:00:00Z","modelMetrics":{"gpt-6.1-sol":{"totalNanoAiu":1250000000}}}
+'@
+        $activeFolder = Split-Path $workerPlan
+        $recorder = Join-Path $repo '.github\skills\autopilot\scripts\Record-AiCreditUsage.ps1'
+        foreach ($repeat in 1..2) {
+            & $recorder -PlanFolder $activeFolder -UsagePath $usagePath -Target finalization `
+                -Runtime sandbox -ModelAlias primary-model-mid -ContextTier default | Out-Null
+        }
+        Test-Path $activeFolder | Should -BeFalse
+        $archive = Join-Path $worker "docs\implementation-plans\archived\$folder"
+        $ledger = Get-Content (Join-Path $archive 'assets\ai-credits.json') -Raw | ConvertFrom-Json
+        $ledger.totalNanoAiu | Should -Be 1250000000
+        $ledger.executions.Count | Should -Be 1
+        Commit-Worker
+        (& $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $start -Finalization).Status | Should -Be 'finalized'
     }
 }

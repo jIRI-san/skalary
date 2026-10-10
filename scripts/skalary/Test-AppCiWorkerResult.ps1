@@ -78,6 +78,32 @@ if ($Finalization) {
     }
     $learning = Read-Git $worker @('show', "${head}:docs/feedback/recent-learning.md")
     if (-not $learning) { throw 'Finalization has no committed learning handoff.' }
+    $source = [regex]::Match($learning, '(?m)^Source commit: `(?<head>[0-9a-f]{40}|[0-9a-f]{64})`$')
+    $expectedPlanLine = "Source plan: ``$($afterPlan.Id) $($afterPlan.Slug)``"
+    if (-not $source.Success -or
+        -not [regex]::IsMatch($learning, '(?m)^' + [regex]::Escape($expectedPlanLine) + '$')) {
+        throw 'Finalization learning does not identify this plan and a full source commit.'
+    }
+    $sourceHead = $source.Groups['head'].Value
+    $learningCommit = Read-Git $worker @('log', '-1', '--format=%H', '--', 'docs/feedback/recent-learning.md')
+    $archivePath = [System.IO.Path]::GetRelativePath($worker, $after.PlanPath).Replace('\', '/')
+    $archiveCommit = Read-Git $worker @('log', '--no-renames', '--diff-filter=A', '-1', '--format=%H', '--', $archivePath)
+    if ($sourceHead -eq $learningCommit -or $learningCommit -eq $archiveCommit -or
+        -not $archiveCommit) {
+        throw 'Finalization requires separate source, learning and archive commits in order.'
+    }
+    Read-Git $worker @('merge-base', '--is-ancestor', $ExpectedStartCommit, $sourceHead) | Out-Null
+    Read-Git $worker @('merge-base', '--is-ancestor', $sourceHead, $learningCommit) | Out-Null
+    Read-Git $worker @('merge-base', '--is-ancestor', $learningCommit, $archiveCommit) | Out-Null
+    if ((Read-Git $worker @('rev-parse', "${learningCommit}^")) -cne $sourceHead) {
+        throw 'Finalization learning must be committed immediately after its completed source.'
+    }
+    $activePath = [System.IO.Path]::GetRelativePath($integration, $before.PlanPath).Replace('\', '/')
+    $sourcePlan = Read-Git $worker @('show', "${sourceHead}:${activePath}")
+    if ([regex]::IsMatch($sourcePlan, '(?m)^\s*- \[(?!x\])')) {
+        throw 'Finalization learning source is not a completed active plan.'
+    }
+    Read-Git $worker @('show', "${learningCommit}:${activePath}") | Out-Null
     $status = 'finalized'
 }
 else {

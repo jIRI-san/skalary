@@ -85,3 +85,14 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
 - Evidence: four named readiness/epic/decision markers pass. The broader unchanged ArchiveEpic
   symlink fixture fails on this host with "A required privilege is not held by the client."
   No skip or clean claim replaces that missing host capability.
+
+## 4.1-4.2: Keep completion proof stateless and defer app usage import
+
+- Choice: strengthen the existing result checker with plan/source identity and ordered source,
+  learning and archive commits. Current review and focused evidence remain caller-owned.
+- Rationale: existence of an old recent-learning file cannot prove this finalization. App launchers
+  must not write usage against the transport checkout's pre-worker active plan before fetching an
+  archived result; retain sidecars outside Git until checkout, then use the existing exact normalizer.
+- Consequence: no new completion journal, usage schema or competing orchestrator. App container
+  visits retain unique named workspaces; Sandbox preserves commits and confined local dirty-work
+  recovery without auto-staging/publication. Existing non-app normalization and consumers remain.

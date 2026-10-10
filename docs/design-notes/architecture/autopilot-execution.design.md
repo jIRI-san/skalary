@@ -24,6 +24,14 @@ The new modes bypass legacy PR-close/whole-plan loops; partial phases retain ope
 offline rebundle `43` remains distinct, outputs stay recoverable, and local acceptance is separate
 from launcher exit/sentinels. Existing auth/feed/toolchain/usage mechanisms remain.
 
+App outputs and exact usage sidecars stay outside Git until the clean transport checkout moves to
+the inspected worker head. The coordinator imports/commits the archive-aware ledger there before
+local acceptance; it never creates a stale active-plan ledger. App containers remain recoverable,
+with unique names per visit. Sandbox retains a Git bundle plus tracked recovery patch and ordinary
+non-ignored untracked files; links fail visibly. Neither runtime auto-stages dirty app work.
+The result checker requires this completed active source, its immediately following learning commit
+and a separate later archive commit; current review/evidence still belongs to the caller.
+
 VS Code's existing direct/host/epic/factory routes and configured effort/context remain; new native
 VS Code coordination is deferred because 1.141 creation/inspection cannot prove exact worker settings.
 Required shared launchers remain installed. Live app/isolated acceptance and VS Code preservation
@@ -104,7 +112,7 @@ evidence. After the committed learning handoff, successful whole-plan finalizati
 Phase targets and failed/incomplete finalization never archive. Archive status is `archived` or
 `already-archived`, and subsequent reads re-resolve by canonical ID, not the former active path.
 
-Each Copilot CLI target also writes an exact local usage sidecar. The launcher immediately normalizes
+Each retained non-app Copilot CLI target writes an exact local usage sidecar. The launcher immediately normalizes
 it into the plan-local `assets/ai-credits.json` ledger and removes the sidecar. Re-importing a target
 execution is idempotent. The ledger retains per-execution and per-model credits and token classes;
 an epic total is the sum of its child-plan ledgers. No provider usage API or telemetry service is

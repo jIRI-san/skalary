@@ -295,6 +295,12 @@ preserve_work() {
     cd /work 2>/dev/null || return 70
     git rev-parse --git-dir >/dev/null 2>&1 || return 70
     if [ -n "$(git status --porcelain)" ]; then
+        if [ "${APP_CI_WORKER:-}" = "true" ]; then
+            echo "Retaining uncommitted app work locally; no automatic staging/publication."
+            touch /tmp/autopilot-preservation-failed
+            git push origin "${WORK_BRANCH}" || return 70
+            return 0
+        fi
         echo "Committing in-flight work before exit..."
         if ! stage_recoverable_work /work ||
             { ! git diff --cached --quiet &&
@@ -480,6 +486,11 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
     if [[ "${MODE}" == app-* ]]; then
         PROMPT="App CI worker. ${PROMPT}. Execute only this target directly at expected worker HEAD ${APP_CI_EXPECTED_HEAD}, with original source ancestry ${EXPECTED_START_COMMIT}. No recursive coordinator, other phase, worker PR, PR merge or deployment. Phase work never finalizes. The app coordinator verifies and integrates committed evidence locally; report exact commits and blockers."
     fi
+    SHARE_PATH="./${TRANSCRIPT}"
+    if [[ "${MODE}" == app-* ]]; then
+        mkdir -p /tmp/autopilot-transcripts
+        SHARE_PATH="/tmp/autopilot-transcripts/${TRANSCRIPT}"
+    fi
     USAGE_OUTPUT="${USAGE_OUTPUT_DIR}/session-usage-${TARGET//:/-}.json"
     echo "=== ${TARGET_LABEL} ==="
 
@@ -505,7 +516,7 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
             --session-id "${TARGET_SESSION_ID}" \
             --no-ask-user \
             --usage-output-file="${USAGE_OUTPUT}" \
-            --share="./${TRANSCRIPT}" &
+            --share="${SHARE_PATH}" &
         COPILOT_PID=$!
 
         set +e
@@ -517,7 +528,10 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
         if [[ "${MODE}" == app-* ]]; then
             # App acceptance is local; never enter the legacy PR-close/resume loop.
             if [ "${EXIT_CODE}" -eq 0 ]; then
-                if [ "${MODE}" = "app-phase" ]; then
+                if [ -n "$(git status --porcelain)" ]; then
+                    echo "ERROR: App target left uncommitted work; retaining it for inspection." >&2
+                    EXIT_CODE=1
+                elif [ "${MODE}" = "app-phase" ]; then
                     set +e
                     phase_needs_execution "${PLAN_PATH}" "${PHASE_NUM}" "."
                     APP_CLOSE=$?

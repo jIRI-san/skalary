@@ -108,7 +108,7 @@
 
 ## Phase 4: Completion ownership and retained runtime integration
 
-- [ ] 4.1 Give each plan one finalization child and the coordinator the final PR handoff (REQ-12, REQ-13, RISK-3, RISK-5) [after: 3.2] `L`
+- [x] 4.1 Give each plan one finalization child and the coordinator the final PR handoff (REQ-12, REQ-13, RISK-3, RISK-5) [after: 3.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** each fully closed standalone or epic-child plan is finalized once; the source, learning, and archive commits are integrated before the coordinator publishes the single final PR for the requested run.
@@ -120,7 +120,7 @@
   **Verify:** completion fixtures cover pending phases, all-closed unarchived plans that still require finalization, finalized archived plans that are skipped, human finalization gates, learning-before-archive ordering, archive-path re-resolution, and prevention of duplicate per-plan finalization or requested-run publication.
 
   </details>
-- [ ] 4.2 Replace app local orchestration without deleting VS Code/runtime consumers (REQ-14, REQ-15, REQ-17, REQ-18, RISK-6, RISK-8, RISK-9) [after: 4.1] `L`
+- [x] 4.2 Replace app local orchestration without deleting VS Code/runtime consumers (REQ-14, REQ-15, REQ-17, REQ-18, RISK-6, RISK-8, RISK-9) [after: 4.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** CI owns app coordination; autopilot remains shared runtime/executor. App native sessions replace app local host dispatch; VS Code keeps its current route and both isolated environments remain.

@@ -35,7 +35,8 @@ finalizes. Attach at most three artifacts; target 400 words and narrow before 80
 ## Retained isolated dispatch
 
 Launch from a separate owned transport worktree at the integration commit, not the integration
-checkout: launchers write transcripts and usage there. Resolve/generate runtime config there through
+checkout: launchers use its config and remote. App output/usage remains outside Git until import.
+Resolve/generate runtime config there through
 existing approved config handling; never copy credentials or arbitrary host state. The shared
 launcher owns toolchains/auth/feed/output/usage and runtime-specific blocking waits.
 
@@ -60,9 +61,14 @@ proof. A blocked question/plan requires operator action, not self-approval.
 
 Fetch only the known isolated work ref into the transport checkout, with existing permissions, and
 verify its ancestry from the expected start. Import that exact ref into the integration repository
-using local Git fetch from the owned transport checkout, not broad file copying. Usage is normalized
-in the transport checkout; commit the exact plan-local ledger before import, including archive-aware
-re-resolution. Never fabricate native app usage or import secrets.
+using local Git fetch from the owned transport checkout, not broad file copying. First check out the
+verified worker head in the clean transport worktree; never normalize usage against its old active
+plan. Then use installed `Record-AiCreditUsage.ps1` on each exact retained sidecar, with its target,
+runtime, Sol alias and default context. Commit only the exact archive-aware plan-local ledger before
+import. Retain sidecars until accepted; reimport is idempotent. Sandbox's local `worker-result.bundle`
+is a recovery source when permitted remote transport failed: verify Git bundle integrity/ancestry and
+inspect the exact known result before import. Recovery patches/untracked files are local inspection
+only, not automatically staged, published or accepted. Never fabricate native app usage or import secrets.
 
 After the worker stops, run installed `.github/skills/ci/scripts/Test-AppCiWorkerResult.ps1` with
 `-IntegrationRoot <root> -WorkerRoot <worker-or-transport-root> -PlanReference <id>`
@@ -72,7 +78,8 @@ checklist structure and phase-local committed progress. It does not certify sour
 success: inspect the actual diff against confirmed scope, run the required focused evidence locally,
 and call `Invoke-DirectEvidence` with current results before acceptance. Out-of-scope work or failed
 evidence stops with recoverable commits. For finalization verify review/learning/archive ordering and
-current completion guards, not persisted review authority.
+current completion guards, not persisted review authority. Mechanical finalization requires this
+completed active source, its immediately following learning commit and a separate later archive commit.
 
 Only after all checks pass, import the exact worker commit and `git merge --ff-only <full-head>`.
 On `42`, inspect the named blocker and independently revalidate committed unaffected progress before

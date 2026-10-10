@@ -70,6 +70,9 @@ if ($Mode -in @('app-phase', 'app-finalization')) {
     }
 }
 $SandboxDir = Join-Path $env:TEMP "autopilot-sandbox-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    $SandboxDir += '-' + [guid]::NewGuid().ToString('N')
+}
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 
 # --- Verify Windows Sandbox is available ---
@@ -431,9 +434,10 @@ foreach (`$phase in `$phaseNumbers) {
     if (`$appWorker) {
         `$prompt = "App CI worker. `$prompt Expected worker HEAD `$appExpectedHead, original source ancestry $ExpectedStartCommit. No recursive coordinator, other phase, worker PR, PR merge or deployment. Report committed current evidence and blockers to the app coordinator."
     }
+    `$sharePath = if (`$appWorker) { Join-Path `$SessionPath `$transcriptName } else { "./`$transcriptName" }
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
-    & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share="./`$transcriptName"
+    & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share="`$sharePath"
     `$exitCode = `$LASTEXITCODE
 
     if (`$exitCode -eq 42) {
@@ -462,8 +466,11 @@ foreach (`$phase in `$phaseNumbers) {
 
     if (`$appWorker) {
         `$appClose = & pwsh -NoProfile -File `$phaseStateScript -PlanPath `$PlanPath `
-            -Phase `$phase -RepoRoot . 2>&1
-        if (`$LASTEXITCODE -ne 0) { `$runExitCode = 3 }
+            -Phase `$phase -RepoRoot . -AllowIndependentAi 2>&1
+        if (`$LASTEXITCODE -ne 0) {
+            Log "App phase close state failed: `$(`$appClose -join ' ')"
+            `$runExitCode = 3
+        }
         elseif ((`$appClose -join '').Trim() -ne 'closed') {
             Log 'App phase remains partial; returning operator action.'
             `$runExitCode = 42
@@ -507,7 +514,8 @@ if (`$runExitCode -eq 0 -and '$Mode' -in @('whole-plan', 'app-finalization')) {
         }
         Log 'Invoking Copilot CLI for plan finalization...'
         `$usageName = Join-Path `$SessionPath 'session-usage-finalization.json'
-        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share='./session-transcript-finalization.md'
+        `$sharePath = if (`$appWorker) { Join-Path `$SessionPath 'session-transcript-finalization.md' } else { './session-transcript-finalization.md' }
+        & copilot -p "`$prompt" --model '$($Config.model)' --context '$($Config.context)' --effort '$($Config.reasoningEffort)' --agent autopilot --no-ask-user --allow-all --usage-output-file="`$usageName" --share="`$sharePath"
         `$runExitCode = `$LASTEXITCODE
         if (`$appWorker -and `$runExitCode -eq 0) {
             git ls-files --error-unmatch 'docs/implementation-plans/archived/$PlanSlug/plan.md' | Out-Null
@@ -550,6 +558,44 @@ if (`$rebundleRequested) {
     Log "FATAL: `$_"
     `$runExitCode = 1
 } finally {
+    if (`$appWorker -and (Test-Path 'C:\work\.git')) {
+        try {
+            Set-Location C:\work
+            git bundle create (Join-Path `$SessionPath 'worker-result.bundle') HEAD
+            if (`$LASTEXITCODE -ne 0) { throw 'Cannot preserve app worker commits.' }
+            `$dirtyWork = @(git status --porcelain)
+            if (`$LASTEXITCODE -ne 0) { throw 'Cannot inspect app worker recovery state.' }
+            if (`$dirtyWork.Count) {
+                git diff --binary HEAD | Set-Content (Join-Path `$SessionPath 'worker-recovery.patch') -Encoding UTF8
+                if (`$LASTEXITCODE -ne 0) { throw 'Cannot preserve tracked app changes.' }
+                `$untracked = @(git -c core.quotepath=false ls-files --others --exclude-standard)
+                if (`$LASTEXITCODE -ne 0) { throw 'Cannot inspect untracked app changes.' }
+                foreach (`$relative in `$untracked) {
+                    `$source = [IO.Path]::GetFullPath((Join-Path C:\work `$relative))
+                    if (-not `$source.StartsWith('C:\work\', [StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'App recovery path escapes the worker.'
+                    }
+                    `$item = Get-Item -LiteralPath `$source -Force
+                    while (`$item.FullName -ne 'C:\work') {
+                        if (`$item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                            throw 'App recovery refuses linked files or parents.'
+                        }
+                        `$item = Get-Item -LiteralPath (Split-Path `$item.FullName -Parent) -Force
+                    }
+                    `$destination = Join-Path (Join-Path `$SessionPath 'worker-recovery') `$relative
+                    New-Item -ItemType Directory -Path (Split-Path `$destination -Parent) -Force | Out-Null
+                    Copy-Item -LiteralPath `$source -Destination `$destination -Force
+                }
+                if (`$runExitCode -eq 0) { `$runExitCode = 1 }
+                Log 'Uncommitted app work retained locally, not auto-staged or published.'
+            }
+        } catch {
+            Log "App recovery failed: `$_"
+            `$runExitCode = 70
+            Complete-Bootstrap -Code `$runExitCode
+            throw
+        }
+    }
     # Copy transcripts and any useful debug output to session dir (survives sandbox teardown)
     Get-ChildItem -Path C:\work -Filter 'session-transcript-*.md' -ErrorAction SilentlyContinue |
         Copy-Item -Destination `$SessionPath -Force -ErrorAction SilentlyContinue
@@ -699,7 +745,14 @@ if (Test-Path $RebundleMarker) {
     $exitCode = 43
 }
 
-try {
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    if ($exitCode -eq 0 -and
+        @(Get-ChildItem -LiteralPath $SandboxDir -Filter 'session-usage-*.json').Count -eq 0) {
+        throw "App worker completed without usage output; recovery retained at '$SandboxDir'."
+    }
+    Write-Host "App usage sidecars: $SandboxDir (import after checking out the verified worker head)."
+}
+else { try {
     foreach ($usageFile in @(Get-ChildItem -LiteralPath $SandboxDir -Filter 'session-usage-*.json')) {
         $target = $usageFile.BaseName.Substring('session-usage-'.Length)
         $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
@@ -718,7 +771,7 @@ catch {
         throw
     }
     Write-Warning "AI-credit recording failed after sandbox exit ${exitCode}: $_"
-}
+} }
 
 Write-Host ""
 Write-Host "Session output: $SandboxDir"

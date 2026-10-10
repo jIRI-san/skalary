@@ -68,6 +68,9 @@ if ($Mode -in @('app-phase', 'app-finalization')) {
 }
 $ImageName = "autopilot-$(Split-Path $RepoRoot -Leaf)".ToLower()
 $ContainerName = Get-AutopilotContainerName -Run $Run
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    $ContainerName += '-' + [guid]::NewGuid().ToString('N')
+}
 $PlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 $TranscriptsDir = Join-Path $PlanFolder 'transcripts'
 $planContent = Get-Content -LiteralPath (Join-Path $PlanFolder 'plan.md') -Raw
@@ -79,6 +82,9 @@ $UsageStagingDir = Join-Path ([System.IO.Path]::GetTempPath()) (
     "autopilot-usage-$([guid]::NewGuid().ToString('N'))"
 )
 [void](New-Item -ItemType Directory -Path $UsageStagingDir)
+if ($Mode -in @('app-phase', 'app-finalization')) {
+    $TranscriptsDir = Join-Path $UsageStagingDir 'transcripts'
+}
 $EnvFilePath = $null
 # Default to failure so any early throw or unread exit code surfaces as non-zero.
 $exitCode = 1
@@ -198,6 +204,12 @@ try {
         docker cp "${ContainerName}:/work/session-transcript-phase${i}-completion.md" $TranscriptsDir 2>$null
     }
     docker cp "${ContainerName}:/work/session-transcript-completion.md" $TranscriptsDir 2>$null
+    if ($Mode -in @('app-phase', 'app-finalization')) {
+        docker cp "${ContainerName}:/tmp/autopilot-transcripts/." $TranscriptsDir 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "App transcripts unavailable; retaining '$ContainerName' for inspection."
+        }
+    }
     $ErrorActionPreference = $prevEAP
 
     $prevEAP = $ErrorActionPreference
@@ -229,7 +241,14 @@ try {
     }
     $ErrorActionPreference = $prevEAP
 
-    try {
+    if ($Mode -in @('app-phase', 'app-finalization')) {
+        if ($exitCode -eq 0 -and
+            @(Get-ChildItem -LiteralPath $UsageStagingDir -Filter 'session-usage-*.json').Count -eq 0) {
+            throw "App worker completed without usage output; retaining '$ContainerName'."
+        }
+        Write-Host "App usage sidecars: $UsageStagingDir (import after checking out the verified worker head)."
+    }
+    else { try {
         foreach ($usageFile in @(Get-ChildItem -LiteralPath $UsageStagingDir -Filter 'session-usage-*.json')) {
             $target = $usageFile.BaseName.Substring('session-usage-'.Length)
             $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
@@ -249,7 +268,7 @@ try {
         }
         Write-Warning "AI-credit recording failed after container exit ${exitCode}: $_"
         Write-Warning "Usage sidecars retained at: $UsageStagingDir"
-    }
+    } }
 
     Write-Host ""
     Write-Host "=== Container-mode execution complete ==="

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-10T08:53:30.0407718Z",
+  "generatedAt": "2026-10-10T09:03:07.2823592Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -280,7 +280,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "534d690e8f84954e41e48769f650b35ddba5acd52b33969227004493979ecf68",
+          "sha256": "372c46081cbc6c1a650d54bc1ccac575abbbaa112127509c55e3760b45106ec9",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -295,7 +295,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-container.ps1",
-          "sha256": "6983be09c136139fe6e1ba541b1bec1e1f7821a0f831e073e31f62b53cbde3e7",
+          "sha256": "56fad8caf5f6e3ec28700514509c02a272ca1c0e34a948dcda363ba161d3be22",
           "src": "scripts/launch-container.ps1"
         },
         {
@@ -305,7 +305,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "5187e671e442a99cf9771cf7c0c7ac23033650aa503b680464d3a869188db943",
+          "sha256": "7d789058e9dd5b8d643e4609d8fc52be4d36e80300b5c41921c0aef94e1fd6f6",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.36"
+      "version": "1.3.37"
     },
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/assets/app-coordinator.md",
-          "sha256": "f3c6360102b238d1edb0d82016d7135a50b9df990cd5d568e1a0023f6e204a5f",
+          "sha256": "a35b367492ea7a16f95ad58341b2b7fab8b9822a8e32332389517c90964503b7",
           "src": "skills/ci/assets/app-coordinator.md"
         },
         {
@@ -476,7 +476,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-AppCiWorkerResult.ps1",
-          "sha256": "cac76e4a140469a54b2c4437399ff3791a64d1026b1d1ea6e6e2955079356f07",
+          "sha256": "3142524e60ab49dbee94b4e96f8ccf892170742ebf521526e57993df8f25daa4",
           "src": "skills/ci/scripts/Test-AppCiWorkerResult.ps1"
         },
         {
@@ -498,7 +498,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.130"
+      "version": "1.0.132"
     },
     {
       "author": "jIRI-san",
