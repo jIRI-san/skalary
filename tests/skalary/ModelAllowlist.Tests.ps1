@@ -70,9 +70,6 @@ Describe 'model allowlist validator' {
             $allowlist.Roles.Standard.Primary | Should -Be 'primary-model-mid'
             $allowlist.Roles.Deep.Primary | Should -Be 'primary-model-high'
             $allowlist.Roles.Independent.Primary | Should -Be 'secondary-model-high'
-            $allowlist.Aliases['secondary-model-low'].Cli | Should -Be 'mai-code-1.1-flash'
-            $allowlist.Aliases['secondary-model-mid'].Cli | Should -Be 'gemini-3.8-flash'
-            $allowlist.Aliases['secondary-model-high'].Cli | Should -Be 'grok-4.6'
 
             foreach ($binding in @($allowlist.Aliases.Values)) {
                 $binding.VSCode | Should -Match '^.+\s\([^)]+\)$'
@@ -83,7 +80,49 @@ Describe 'model allowlist validator' {
             $allowlist.Fallback.VSCode | Should -Be 'secondary-model-mid'
         }
 
-        It 'keeps independently installed alias assets generated from the canonical map' {
+        It 'test:ModelAllowlist.Sol61Bindings maps every public alias to exact Sol host identifiers' {
+            foreach ($alias in @(
+                    'primary-model-low', 'primary-model-mid', 'primary-model-high',
+                    'secondary-model-low', 'secondary-model-mid', 'secondary-model-high'
+                )) {
+                $modelPolicy.Aliases[$alias].Cli | Should -BeExactly 'gpt-6.1-sol'
+                $modelPolicy.Aliases[$alias].VSCode | Should -BeExactly 'GPT-6.1 Sol (copilot)'
+            }
+        }
+
+        It 'test:ModelAllowlist.RoleEffort retains role aliases and initial effort levels' {
+            $modelPolicy.Roles.Routine.ReasoningEffort | Should -BeExactly 'medium'
+            foreach ($role in @('Standard', 'Deep', 'Independent')) {
+                $modelPolicy.Roles[$role].ReasoningEffort | Should -BeExactly 'high'
+            }
+            $modelPolicy.Roles.WazaExecutor | Should -BeExactly 'primary-model-low'
+            $modelPolicy.Roles.WazaJudge | Should -BeExactly 'primary-model-mid'
+        }
+
+        It 'test:ModelAllowlist.SameModelUnavailable forbids alias-switch availability retries in each instruction consumer' {
+            foreach ($hostKey in @('Cli', 'VSCode')) {
+                foreach ($role in @('Routine', 'Standard', 'Deep', 'Independent')) {
+                    $primary = $modelPolicy.Roles[$role].Primary
+                    $replacement = $modelPolicy.Roles[$role].Fallback
+                    $modelPolicy.Aliases[$primary][$hostKey] |
+                        Should -BeExactly $modelPolicy.Aliases[$replacement][$hostKey]
+                }
+            }
+            foreach ($relative in @(
+                    'plugins/autopilot/agents/autopilot.agent.md',
+                    'plugins/code-review/skills/cr/SKILL.md',
+                    'plugins/design-review/skills/dr/SKILL.md',
+                    'plugins/create-implementation-plan/skills/cip/SKILL.md',
+                    'plugins/continue-implementation/skills/ci/SKILL.md'
+                )) {
+                $content = [System.IO.File]::ReadAllText((Join-Path $repoRoot $relative))
+                $content | Should -Match 'equal bindings are not availability fallbacks' -Because $relative
+                $content | Should -Match 'If the requested model is unavailable, stop visibly; never retry it through another alias' -Because $relative
+                $content | Should -Match 'Independent review means a fresh context, not model diversity' -Because $relative
+            }
+        }
+
+        It 'test:ModelAllowlist.GeneratedConsumers keeps skill alias assets and all Waza bindings on the canonical policy' {
             $canonical = [System.IO.File]::ReadAllBytes($script:allowlistPath)
             foreach ($relative in @(
                     'plugins/autopilot/skills/autopilot/assets/model-aliases.psd1'
@@ -95,6 +134,18 @@ Describe 'model allowlist validator' {
                 [System.IO.File]::ReadAllBytes((Join-Path $script:repoRoot $relative)) |
                     Should -Be $canonical -Because $relative
             }
+            $wazaFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'plugins') -Recurse -File -Filter '*.yaml' |
+                Where-Object { $_.FullName -match '[\\/]evals[\\/]waza[\\/]' })
+            $wazaFiles.Count | Should -BeGreaterThan 0
+            $bindingCount = 0
+            foreach ($file in $wazaFiles) {
+                $content = [System.IO.File]::ReadAllText($file.FullName)
+                foreach ($match in [regex]::Matches($content, '(?m)^\s+(?:model|judge_model):\s*(?<model>[^\r\n]+)$')) {
+                    $match.Groups['model'].Value.Trim() | Should -BeExactly 'gpt-6.1-sol' -Because $file.FullName
+                    $bindingCount++
+                }
+            }
+            $bindingCount | Should -BeGreaterThan 0
         }
     }
 

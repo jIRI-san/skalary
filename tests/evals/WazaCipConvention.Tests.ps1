@@ -27,8 +27,8 @@ Describe 'cip waza convention' {
         It 'test:waza-spec-shape targets the cip skill via copilot-sdk with pinned model + judge_model' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*cip\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
-            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
-            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra'
+            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-6\.1-sol\s*$'
+            $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-6\.1-sol\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+skill_directories:'
         }
 
@@ -71,7 +71,7 @@ Describe 'cip waza convention' {
                 if ($raw -match '(?m)^# ai-credit-disposition: subjective\r?$') {
                     $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
                     $graders | Should -Match '(?m)^\s+continue_session:\s*true'
-                    $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
+                    $graders | Should -Match '(?m)^\s+model:\s*gpt-6\.1-sol\s*$'
                 }
                 else {
                     $graders | Should -Not -Match '(?m)^\s+-\s*type:\s*prompt'

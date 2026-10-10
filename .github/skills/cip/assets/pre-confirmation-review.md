@@ -15,6 +15,9 @@ Dispatch exactly these two calls in this order. Do not add a Judge, panel, corro
 replacement fleet, or post-edit rerun. If either pass fails, is interrupted, or is incomplete, state the
 named failure and stop without fabricating a result or continuing to confirmation.
 
+Both aliases currently bind GPT-6.1 Sol. Separate contexts provide independent evidence, not model
+diversity; model unavailability stops the protocol rather than retrying through another alias.
+
 ## Reviewer scope
 
 Give the reviewer the complete current draft, current intent and active project contracts, relevant current

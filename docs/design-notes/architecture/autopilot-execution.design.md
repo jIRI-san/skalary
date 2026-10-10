@@ -28,6 +28,12 @@ current evidence, optional combined design/validation, no automatic Judge, nativ
 commit per completed step. Model configuration uses stable aliases; launchers resolve a concrete host
 identifier. Shipped configs select `default` context, while `long_context` remains explicit opt-in.
 
+All six public aliases now bind GPT-6.1 Sol. Routine role effort remains medium and
+Standard/Deep/Independent high; runtime configuration still explicitly owns worker effort/context.
+Equal resolved replacement bindings are not availability fallbacks. Unavailable Sol stops visibly;
+fresh review contexts do not provide cross-model diversity. Owner model sync also regenerates Waza
+executor/judge pins without adding effort fields.
+
 Factory repair is an explicit host-mode option on this same launcher, not a second framework or a
 change to ordinary `/ci`. It is available only after normal initial admission and authorization for
 one identified failed build or confirmed deployed defect. The launcher revalidates the linked plan's

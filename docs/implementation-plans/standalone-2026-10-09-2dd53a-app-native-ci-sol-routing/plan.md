@@ -21,7 +21,7 @@
 
 ## Phase 1: One model policy, existing effort categories
 
-- [ ] 1.1 Map all six public aliases to GPT-6.1 Sol and make replacement semantics honest (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Map all six public aliases to GPT-6.1 Sol and make replacement semantics honest (REQ-1, REQ-2, RISK-1) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** primary and secondary aliases use `gpt-6.1-sol` / `GPT-6.1 Sol (copilot)`; existing Routine medium and Standard/Deep/Independent high effort settings remain.
@@ -35,7 +35,7 @@
   **Stop/escalate when:** a host cannot accept the exact requested model identifier; do not silently select an older or different model.
 
   </details>
-- [ ] 1.2 Regenerate model consumers and update directly affected guidance (REQ-1, REQ-2, RISK-1) [after: 1.1] `M`
+- [x] 1.2 Regenerate model consumers and update directly affected guidance (REQ-1, REQ-2, RISK-1) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** generated skill assets and Waza executor/judge bindings use the same policy; planning/review instructions no longer promise cross-model diversity.

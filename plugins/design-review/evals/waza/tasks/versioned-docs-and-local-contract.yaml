@@ -33,7 +33,7 @@ graders:
   - type: prompt
     name: rubric_uses_version_scoped_evidence_and_local_fit
     config:
-      model: gpt-5.6-terra
+      model: gpt-6.1-sol
       continue_session: true
       prompt: |
         Call set_waza_grade_pass ONLY if the response:

@@ -70,7 +70,7 @@ verdict, receipt, lifecycle, clean requirement, or rerun, and standalone `/dr` r
 
 ## Model alias and budget matrix
 
-| Role | Primary | Availability fallback | When |
+| Role | Primary | Replacement slot | When |
 |---|---|---|---|
 | Routine implementation/support | `primary-model-low` | `secondary-model-low` | Bounded implementation, extraction, summaries, documentation, straightforward fixes |
 | Standard combined review/design judgment | `primary-model-mid` | `secondary-model-mid` | Standalone and ordinary risk-selected work |
@@ -84,9 +84,12 @@ verdict, receipt, lifecycle, clean requirement, or rerun, and standalone `/dr` r
 | Supporting artifacts | At most 3 |
 | Prompt | 400-word target; 800-word hard cap |
 | Context | Committed routing uses `default`; `long_context` is explicit opt-in |
-| Models per role | One primary plus one replacement fallback |
+| Models per role | GPT-6.1 Sol in every alias; Routine medium, other roles high |
 
-A fallback replaces an unavailable call; it does not add a panel.
+Replacement slots preserve public aliases and call budgets, not a model panel. All six aliases
+currently resolve to GPT-6.1 Sol (`gpt-6.1-sol` for CLI/app, `GPT-6.1 Sol (copilot)` for VS Code).
+If that model is unavailable, stop visibly; switching to an equal resolved alias is not an
+availability fallback. Independent review means a fresh context, not model diversity.
 [`tools/model-allowlist.psd1`](../../tools/model-allowlist.psd1) owns alias roles and exact host-specific
 bindings. [`Sync-ModelBindings.ps1`](../../scripts/skalary/Sync-ModelBindings.ps1) regenerates Waza pins
 and the independently installable skill copies.

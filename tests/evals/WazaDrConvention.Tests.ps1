@@ -27,12 +27,12 @@ Describe 'dr waza convention' {
         It 'test:waza-spec-shape targets the dr agent via copilot-sdk with pinned models' {
             $script:evalYaml | Should -Match '(?m)^skill:\s*dr\s*$'
             $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk'
-            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna'
+            $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-6\.1-sol\s*$'
             $subjectiveTasks = @($script:taskFiles | Where-Object {
                     (Get-Content -LiteralPath $_.FullName -Raw) -match '(?m)^# ai-credit-disposition: subjective\r?$'
                 })
             if ($subjectiveTasks.Count -gt 0) {
-                $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra'
+                $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-6\.1-sol\s*$'
             }
             else {
                 $script:evalYaml | Should -Not -Match '(?m)^\s+judge_model:'
@@ -89,7 +89,7 @@ Describe 'dr waza convention' {
                 if ($raw -match '(?m)^# ai-credit-disposition: subjective\r?$') {
                     $graders | Should -Match '(?m)^\s+-\s*type:\s*prompt'
                     $graders | Should -Match '(?m)^\s+continue_session:\s*true'
-                    $graders | Should -Match '(?m)^\s+model:\s*gpt-5\.6-terra'
+                    $graders | Should -Match '(?m)^\s+model:\s*gpt-6\.1-sol\s*$'
                 }
                 else {
                     $raw | Should -Match '(?m)^# ai-credit-disposition: deterministic\r?$'

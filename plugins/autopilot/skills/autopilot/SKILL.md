@@ -16,7 +16,7 @@ and every other nonzero failure exactly. Duration alone never cancels progressin
 deterministic build, test, command, and offline operation timeouts; their failures become evidence
 handled by the agent. Preserve recoverable Git and Markdown progress for every non-completed outcome.
 
-Autonomous execution defaults to zero delegated calls and uses the cheap-first model ladder, direct
+Autonomous execution defaults to zero delegated calls and uses policy-owned role effort, direct
 evidence, risk-selected non-terminal review, one terminal `primary-model-mid` review, and the three-call ceiling
 described by the autopilot agent. It has no automatic Judge and does not persist auxiliary review or
 learning lifecycle state beyond `assets/ai-credits.json`. Delegated prompts attach at most three artifacts, target 400 words, and must

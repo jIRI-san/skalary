@@ -113,11 +113,13 @@ observable prose are excluded.
 | Judge | Deterministic tests, parsers, and repository evidence; no automatic model call |
 | DR | One direct risk-selected review only for concrete unresolved design risk |
 | Calls | 0 for direct work; 1 for a concrete unresolved concern; 3 maximum including retries and replacements |
-| Models | `primary-model-low`/medium routine (`secondary-model-low` fallback); `primary-model-mid`/high standard (`secondary-model-mid` fallback); `primary-model-high`/high deep; `secondary-model-high`/high independent |
+| Models | All aliases use GPT-6.1 Sol; `primary-model-low`/medium routine; `primary-model-mid`/high standard; `primary-model-high`/high deep; `secondary-model-high`/high independent |
 | Context | Committed routing uses `default`; `long_context` is explicit opt-in; at most 3 supporting historical artifacts |
 | Prompt | 400-word target, 800-word hard cap |
 
-A fallback replaces a call. Built-in search/file/command tools are not agent calls. The active limits
+A replacement uses the same call budget. Equal resolved aliases are not availability fallbacks:
+unavailable Sol stops visibly. Independent review uses a fresh context, not model diversity.
+Built-in search/file/command tools are not agent calls. The active limits
 and review boundary are documented in the
 [direct workflow architecture](../architecture-notes/arch-direct-workflow.md).
 

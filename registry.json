@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-09T16:14:54.8155765Z",
+  "generatedAt": "2026-10-10T08:13:09.4174827Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -130,7 +130,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "742b3e21601865153e7f6eac16a15db3ffd1b218bb8fa310706236e42dec8069",
+          "sha256": "08e1128eab44a6f178d933985cfc3e4f6a2150811ea54ec81b57be821cb22883",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -145,7 +145,7 @@
         },
         {
           "dest": "skills/autopilot/SKILL.md",
-          "sha256": "03532bcdac5dbfd641f197a4b363cef113e59ad581c85cbb27049806f21746ef",
+          "sha256": "fa63c95a91fa95640cf5e793f8fd8876630d503691ae00ccccd4526a3a093ad3",
           "src": "skills/autopilot/SKILL.md"
         },
         {
@@ -155,7 +155,7 @@
         },
         {
           "dest": "skills/autopilot/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/autopilot/assets/model-aliases.psd1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.33"
+      "version": "1.3.34"
     },
     {
       "author": "jIRI-san",
@@ -378,12 +378,12 @@
         },
         {
           "dest": "skills/cr/SKILL.md",
-          "sha256": "8b95df4aa7fb84dafc188c4fd8e7e309e157ce12feffb921d1fa2c066052539f",
+          "sha256": "74eac953bf37fd9ef14b0832e65bc8c1ae6b9d48af40637ee93192ec2e3a31ba",
           "src": "skills/cr/SKILL.md"
         },
         {
           "dest": "skills/cr/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/cr/assets/model-aliases.psd1"
         },
         {
@@ -415,7 +415,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.87"
+      "version": "1.0.88"
     },
     {
       "author": "jIRI-san",
@@ -431,12 +431,12 @@
       "files": [
         {
           "dest": "skills/ci/SKILL.md",
-          "sha256": "0fe789fc3037cf3a86b13ac30050a4195e155b9739c923b9034da4e64e3d0f27",
+          "sha256": "643f81470ba9c33efa97a606a2ab796e52c03a5ed14cff585877a3e78c513d21",
           "src": "skills/ci/SKILL.md"
         },
         {
           "dest": "skills/ci/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/ci/assets/model-aliases.psd1"
         },
         {
@@ -488,7 +488,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.127"
+      "version": "1.0.128"
     },
     {
       "author": "jIRI-san",
@@ -512,7 +512,7 @@
         },
         {
           "dest": "skills/cep/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/cip/assets/model-aliases.psd1"
         },
         {
@@ -572,7 +572,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "ee0421b5b1481e26084b463dda5fb73694e18490eaad45fd5a4a7912ab88d835",
+          "sha256": "8abf246864ffcbd52899487a5b51af421509745aeb84c2dcdfeb3fb5bd5249d5",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -582,7 +582,7 @@
         },
         {
           "dest": "skills/cip/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/cip/assets/model-aliases.psd1"
         },
         {
@@ -592,7 +592,7 @@
         },
         {
           "dest": "skills/cip/assets/pre-confirmation-review.md",
-          "sha256": "aa20895a73ca0d572352126e76b7c3fb50cc8ce103f4a4f32afd6a9a78ac6383",
+          "sha256": "85c1fd24ae2e537315436914342fc4b69833a56d151c5bf9a901258b3fd7eec6",
           "src": "skills/cip/assets/pre-confirmation-review.md"
         },
         {
@@ -664,7 +664,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.115"
+      "version": "1.0.116"
     },
     {
       "author": "jIRI-san",
@@ -761,12 +761,12 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "c8cdc0631fa955aa3d23f02325f037e44891836062c90965c1c87bf1fe5a7b43",
+          "sha256": "3cde7bbc12c281b0e8fcfb72bdbf814671c198e307eb8ac12fdfc6294845dfcb",
           "src": "skills/dr/SKILL.md"
         },
         {
           "dest": "skills/dr/assets/model-aliases.psd1",
-          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "sha256": "e6566d5cb7e0f944ab15b2fe17c1ba94f6f39772d7fd1318c8be81e42a54bc34",
           "src": "skills/dr/assets/model-aliases.psd1"
         },
         {
@@ -798,7 +798,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.89"
+      "version": "1.0.90"
     },
     {
       "author": "jIRI-san",

@@ -11,28 +11,28 @@
 
     Aliases = @{
         'primary-model-low' = @{
-            Cli    = 'gpt-5.6-luna'
-            VSCode = 'GPT-5.6 Luna (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
         'primary-model-mid' = @{
-            Cli    = 'gpt-5.6-terra'
-            VSCode = 'GPT-5.6 Terra (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
         'primary-model-high' = @{
-            Cli    = 'gpt-5.6-sol'
-            VSCode = 'GPT-5.6 Sol (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
         'secondary-model-low' = @{
-            Cli    = 'mai-code-1.1-flash'
-            VSCode = 'MAI-Code-1.1-Flash (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
         'secondary-model-mid' = @{
-            Cli    = 'gemini-3.8-flash'
-            VSCode = 'Gemini 3.8 Flash (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
         'secondary-model-high' = @{
-            Cli    = 'grok-4.6'
-            VSCode = 'Grok 4.6 (copilot)'
+            Cli    = 'gpt-6.1-sol'
+            VSCode = 'GPT-6.1 Sol (copilot)'
         }
     }
 
@@ -87,7 +87,8 @@
         'dr-operability-observability'     = 'VSCode'
     }
 
-    # Explicit replacement alias used when the selected model is unavailable.
+    # Replacement slots retain their public aliases. Equal resolved host bindings are
+    # not availability fallbacks: stop if Sol is unavailable, rather than retry by alias.
     Fallback = @{
         VSCode = 'secondary-model-mid'
         Cli    = 'secondary-model-mid'

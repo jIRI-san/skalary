@@ -33,7 +33,7 @@ graders:
   - type: prompt
     name: rubric_disconfirms_guarded_candidate
     config:
-      model: gpt-5.6-terra
+      model: gpt-6.1-sol
       continue_session: true
       prompt: |
         Call set_waza_grade_pass ONLY if the response reports the real defect: after

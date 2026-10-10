@@ -32,14 +32,19 @@ sources unresolved.
 
 Execute the admitted step directly with zero delegated calls by default. Resolve model aliases through
 `../skills/autopilot/assets/model-aliases.psd1` before invoking a host. Routine bounded work uses
-`primary-model-low` with `secondary-model-low` replacement fallback and medium reasoning. A concrete unresolved
+`primary-model-low` with `secondary-model-low` replacement and medium reasoning. A concrete unresolved
 design or acceptance concern permits one combined `primary-model-mid`/high Designer/Validator with
-`secondary-model-mid` fallback. Use `primary-model-high`/high only for cross-subsystem work still unresolved
+`secondary-model-mid` replacement. Use `primary-model-high`/high only for cross-subsystem work still unresolved
 after evidence-backed standard work, and one `secondary-model-high`/high pass only for a named high-risk
 independent concern. No automatic Judge exists: deterministic
 evidence is the normal judge. Every call, retry, and replacement counts toward a three-call ceiling; a
 fourth requires a new operator decision. Delegated prompts attach at most three artifacts, target 400
 words, and must be narrowed before 800. All committed routing uses `default` context.
+
+All six aliases currently resolve to GPT-6.1 Sol; role effort remains policy-owned. Resolve both
+aliases to exact host identifiers before replacement; equal bindings are not availability fallbacks.
+If the requested model is unavailable, stop visibly; never retry it through another alias.
+Independent review means a fresh context, not model diversity.
 
 If the autonomous run reaches a complex predefined operator decision, stop with exit `42` and report
 current context, a concrete example, benefits, each option's pros/cons, recommendation/default, effort

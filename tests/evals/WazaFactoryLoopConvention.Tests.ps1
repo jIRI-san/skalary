@@ -17,8 +17,8 @@ Describe 'factory-loop waza convention' {
         $script:evalYaml | Should -Match '(?m)^schemaVersion:\s*"1\.2"'
         $script:evalYaml | Should -Match '(?m)^skill:\s*factory-loop\s*$'
         $script:evalYaml | Should -Match '(?m)^\s+executor:\s*copilot-sdk\s*$'
-        $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-5\.6-luna\s*$'
-        $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-5\.6-terra\s*$'
+        $script:evalYaml | Should -Match '(?m)^\s+model:\s*gpt-6\.1-sol\s*$'
+        $script:evalYaml | Should -Match '(?m)^\s+judge_model:\s*gpt-6\.1-sol\s*$'
         $script:evalYaml | Should -Match '(?m)^\s+-\s+\.\./\.\./skills\s*$'
         $script:evalYaml | Should -Not -Match '(?m)^adversarial:'
     }

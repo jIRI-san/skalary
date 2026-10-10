@@ -16,6 +16,12 @@ CR/DR select concerns from concrete scope risk and perform direct evidence work 
 uses zero calls; one unresolved concern normally uses one; three is the ceiling including retries and
 replacements, and a fourth requires a new operator decision.
 
+All six aliases bind GPT-6.1 Sol through `tools/model-allowlist.psd1`, using explicit CLI/app
+`gpt-6.1-sol` and VS Code `GPT-6.1 Sol (copilot)` identifiers. Routine effort stays medium;
+Standard/Deep/Independent stay high. Separate-context review is independent evidence, not model
+diversity. Replacement slots remain stable aliases; equal host bindings cannot bypass model
+unavailability. Stop visibly instead of retrying unavailable Sol through another alias.
+
 Complex predefined choices remain host-equivalent: context, example, benefits, pros/cons,
 recommendation/default, 1–10 effort/complexity, and Mermaid only when structure matters. Free-form
 input asks one focused question.

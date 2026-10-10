@@ -25,6 +25,11 @@ model panel, or unchanged-scope rerun exists. Every call, retry, and
 replacement counts toward a three-call ceiling; a fourth requires a new operator decision.
 Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before 800.
 
+All six aliases currently resolve to GPT-6.1 Sol; role effort remains policy-owned. Resolve both
+aliases to exact host identifiers before replacement; equal bindings are not availability fallbacks.
+If the requested model is unavailable, stop visibly; never retry it through another alias.
+Independent review means a fresh context, not model diversity.
+
 When `/cip` explicitly selects the pre-confirmation reviewer role, retain this read-only contract and use
 the caller's required `secondary-model-high`/high pass. Return every evidence-backed design and supplied
 epic-coherency finding as advisory Markdown. Compare supplied selected operator wording and confirmed

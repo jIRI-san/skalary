@@ -44,6 +44,11 @@ matrix. For observable background calls, two no-progress checks permit one same-
 most one replacement. Elapsed agent time never cancels work; declared deterministic command timeouts
 remain.
 
+All six aliases currently resolve to GPT-6.1 Sol; role effort remains policy-owned. Resolve both
+aliases to exact host identifiers before replacement; equal bindings are not availability fallbacks.
+If the requested model is unavailable, stop visibly; never retry it through another alias.
+Independent review means a fresh context, not model diversity.
+
 After the complete draft and before final confirmation, run the mandatory planning-owned protocol in
 [`./assets/pre-confirmation-review.md`](./assets/pre-confirmation-review.md). It is exactly one
 `secondary-model-high`/high read-only design pass followed by one `primary-model-high`/high applicability

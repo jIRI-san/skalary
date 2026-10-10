@@ -33,7 +33,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.33"
+      "version": "1.3.34"
     },
     {
       "description": "Risk-selected code review with direct advisory Markdown.",
@@ -46,7 +46,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.87"
+      "version": "1.0.88"
     },
     {
       "description": "Direct plan implementation workflow with Git criteria protection.",
@@ -59,7 +59,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.127"
+      "version": "1.0.128"
     },
     {
       "description": "Direct implementation and epic plan creation.",
@@ -71,7 +71,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.115"
+      "version": "1.0.116"
     },
     {
       "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
@@ -98,7 +98,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.89"
+      "version": "1.0.90"
     },
     {
       "description": "Run a restartable, issue-driven delivery loop with local demo adapters and explicit human gates.",

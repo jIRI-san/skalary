@@ -56,6 +56,11 @@ then stop. Never kill an agent for elapsed time. Retain deterministic build/test
 evidence. Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before
 800.
 
+All six aliases currently resolve to GPT-6.1 Sol; role effort remains policy-owned. Resolve both
+aliases to exact host identifiers before replacement; equal bindings are not availability fallbacks.
+If the requested model is unavailable, stop visibly; never retry it through another alias.
+Independent review means a fresh context, not model diversity.
+
 Present every operator question as rendered Markdown in the conversation: a short `###` heading,
 the focused question in its own paragraph, and numbered options with bold labels and blank lines
 between options. Put context and examples in separate paragraphs; put complex option details on

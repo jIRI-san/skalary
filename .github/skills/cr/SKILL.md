@@ -25,6 +25,11 @@ automatic Judge, model panel, or unchanged-scope rerun exists. Every call, retry
 toward a three-call ceiling; a fourth requires a new operator decision. Delegated prompts attach at most
 three artifacts, target 400 words, and must be narrowed before 800.
 
+All six aliases currently resolve to GPT-6.1 Sol; role effort remains policy-owned. Resolve both
+aliases to exact host identifiers before replacement; equal bindings are not availability fallbacks.
+If the requested model is unavailable, stop visibly; never retry it through another alias.
+Independent review means a fresh context, not model diversity.
+
 For a complex predefined operator choice, provide current context, a concrete example, benefits, pros/cons,
 recommendation/default, effort 1-10, and complexity 1-10. Add Mermaid only when relationships or sequencing matter. Pass
 the same ordered list to `vscode_askQuestions` in VS Code or number it in Copilot CLI. Ask free-form
