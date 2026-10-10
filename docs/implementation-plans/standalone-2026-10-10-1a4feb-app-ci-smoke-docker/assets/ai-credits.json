@@ -1,0 +1,32 @@
+{
+  "schema": "skalary-ai-credits/v1",
+  "planId": "1a4feb",
+  "epicId": null,
+  "totalNanoAiu": 32784420000,
+  "totalAiCredits": 32.78442,
+  "executions": [
+    {
+      "id": "5d55d97c958c16905da7f672066b58a463f1f0b411336184fdb94ce03d5d83b4",
+      "target": "phase-1",
+      "runtime": "container",
+      "startedAt": "2026-10-10T19:59:46.4220000Z",
+      "modelAlias": "primary-model-high",
+      "context": "default",
+      "totalNanoAiu": 32784420000,
+      "aiCredits": 32.78442,
+      "tokens": {
+        "input": 48,
+        "cacheRead": 690882,
+        "cacheWrite": 61976,
+        "output": 10372
+      },
+      "models": [
+        {
+          "model": "gpt-6.1-sol",
+          "totalNanoAiu": 32784420000,
+          "aiCredits": 32.78442
+        }
+      ]
+    }
+  ]
+}
