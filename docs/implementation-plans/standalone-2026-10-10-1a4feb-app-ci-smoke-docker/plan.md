@@ -35,7 +35,7 @@
   **Rollback:** before a dependent worker starts, withdraw authorization through the parent and make a new commit restoring this unchecked state. Preserve prior commits; no reset or deletion.
 
   </details>
-- [ ] 1.2 Write independent.txt with `independent` and an LF newline (REQ-2, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-7) `S`
+- [x] 1.2 Write independent.txt with `independent` and an LF newline (REQ-2, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-7) `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `smoke/app-ci/1a4feb/independent.txt` is exactly 12 ASCII bytes: `independent` followed by one LF.

@@ -9,4 +9,4 @@
 
 ## Execution choices
 
-None yet. First admitted 1.2 worker records its LF-writing method, REQ-2 exact 12-byte criterion, rationale, and consequence in its atomic source/checklist commit. This mutable log cannot authorize human work or override confirmed criteria.
+- 2026-10-10, step 1.2 / REQ-2: use `apply_patch` to create `smoke/app-ci/1a4feb/independent.txt` as one ASCII line with a final LF. Criterion: exactly 12 bytes, hex `696E646570656E64656E740A`, with no CR or BOM. Rationale: the direct patch avoids platform-dependent text encoders and newline conversion; the focused byte assertion and current `file:`/`test:` evidence verify the result before commit. Consequence: commit this file, only the 1.2 checkbox, and this bounded choice atomically; human 1.1 and dependent 1.3 remain unchecked, no dependent/second file is created, and this visit cannot close Phase 1 or finalize the plan.
