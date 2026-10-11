@@ -22,7 +22,7 @@
 
 ## Phase 1: Human-safe readiness
 
-- [ ] 1.1 Authorize dependent fixture work (REQ-1, RISK-1) @human `S`
+- [x] 1.1 Authorize dependent fixture work (REQ-1, RISK-1) @human `S`
   <details><summary>Human authorization</summary>
 
   **Steps:**
