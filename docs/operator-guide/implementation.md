@@ -34,8 +34,14 @@ admitted visit gets a fresh worker, not a repeated integration. Bounded choices 
 `assets/unattended-decissions.md`; material intent/acceptance changes still require CIP reconfirmation.
 Exhaustion returns an incomplete decision/blocker handoff.
 
-Every all-closed unarchived standalone or epic-child plan gets one finalization worker. It owns current
-evidence, one unchanged-scope terminal review, conditional compaction, learning and archive commits.
+Every all-closed unarchived standalone or epic-child plan gets one finalization worker. Native local
+finalization owns evidence/review/compaction/learning/archive. For app Docker/Sandbox, the coordinator
+completes source-changing compaction and final evidence, then one direct CR using
+`Write-DirectReviewReport -ResultOnly` at the clean completed commit. Its original live result gates a
+fresh lifecycle-only worker: no second review or source/criteria/report edits, immediate learning then
+separate archive. Pass that original result and exact ordered scope to the result checker on acceptance;
+also inspect unchanged source/current evidence and lifecycle/usage diffs. Lost authority/source drift
+stops, not report reconstruction or automatic rerun. Retained VS Code/non-app behavior is unchanged.
 Archived finalized children are skipped. After all child archives, the coordinator separately closes
 and archives the epic index. Only the coordinator publishes at most one final requested-run PR;
 workers create no phase/child PR, and no automatic GitHub merge, deployment or cleanup is authorized.
@@ -200,6 +206,8 @@ interrupted work has readable Git/Markdown progress.
 4. Same-note compression can continue normally. Cross-note merge/delete requires explicit operator
    approval; headless mode leaves the visible diff and exits `42`.
 5. Run final focused validation, then one whole-plan direct CR. Do not rerun unchanged scope.
+   For app Docker/Sandbox, steps 3-5 are coordinator-owned before lifecycle dispatch; the worker
+   validates unchanged source/current evidence and performs steps 6-8 without another review.
 6. After the full completed source commit exists, replace
    [`docs/feedback/recent-learning.md`](../feedback/recent-learning.md) using
    [`Write-RecentLearning.ps1`](../../scripts/skalary/Write-RecentLearning.ps1): zero to ten concise

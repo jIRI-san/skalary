@@ -45,6 +45,27 @@ VS Code coordination is deferred because 1.141 creation/inspection cannot prove 
 Required shared launchers remain installed. Live app/isolated acceptance and VS Code preservation
 are human gates, not results inferred from static tests.
 
+For app Docker/Sandbox finalization only, coordinator compaction/source edits precede final evidence
+and the sole CR at the clean completed source. `Write-DirectReviewReport -ResultOnly` returns its
+validated live object without a report write. The original result and exact source/ordered scope gate
+one lifecycle-only target; `APP_CI_LIFECYCLE_ONLY=true` prevents duplicate review/compaction/source edits.
+Learning immediately parents that source, then archive is separate. Result acceptance supplies the
+original `ActiveReviewResult` and `RequestedScope` to the existing checker, which refuses missing,
+non-clean, stale or wrong-scope authority and a changed learning source. The caller still inspects
+actual source preservation, current bytes and lifecycle/usage scope. Lost live authority stops without
+reconstruction or automatic unchanged-scope rerun. Native and retained non-app review ownership stays.
+
+Plan 2dd53a is bounded delivery by operator decision: native acceptance and Docker phase/usage evidence
+are retained; Docker finalization/rebundle/cap/failure, Sandbox and VS Code live rollout are deferred,
+not passed. The deferral does not establish runtime support or relax future rollout checks.
+
+## Dubious decisions
+
+Isolated app lifecycle workers trust the coordinator's live clean-review admission; they do not
+receive an independent review object. This trusted single-operator tradeoff avoids cross-process
+review payload machinery. Exact source, immediate learning ancestry and current scope/evidence still
+gate acceptance. Interrupted/lost authority blocks instead of inventing a reusable review receipt.
+
 ## Retained non-app execution
 
 `/ci` selects one runtime and a one-phase or whole-plan extent. The autopilot skill accepts that

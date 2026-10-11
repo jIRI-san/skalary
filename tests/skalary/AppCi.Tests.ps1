@@ -28,15 +28,21 @@ Describe 'App CI worker boundaries and integration' {
             & $script:resultScript -IntegrationRoot $script:integration -WorkerRoot $script:worker `
                 -PlanReference abc123 -ExpectedStartCommit $script:start -Phase $Phase
         }
-        function Prepare-Finalization {
+        function Prepare-Finalization([switch]$ChangeSourceBeforeLearning) {
             $plan = Join-Path $script:integration "docs\implementation-plans\$script:folder\plan.md"
             Set-Content $plan ((Get-Content $plan -Raw).Replace('- [ ]', '- [x]')) -NoNewline
             Invoke-FixtureGit $script:integration @('add', '.') | Out-Null
             Invoke-FixtureGit $script:integration @('commit', '-qm', 'operator-approved completed fixture') | Out-Null
             $script:start = Invoke-FixtureGit $script:integration @('rev-parse', 'HEAD')
             Invoke-FixtureGit $script:worker @('merge', '--ff-only', $script:start) | Out-Null
+            $learningSource = $script:start
+            if ($ChangeSourceBeforeLearning) {
+                Set-Content (Join-Path $script:worker 'unexpected-source.txt') 'source drift'
+                Commit-Worker
+                $learningSource = Invoke-FixtureGit $script:worker @('rev-parse', 'HEAD')
+            }
             & (Join-Path $script:repo 'scripts\skalary\Write-RecentLearning.ps1') `
-                -RepoRoot $script:worker -PlanReference abc123 -SourceCommit $script:start | Out-Null
+                -RepoRoot $script:worker -PlanReference abc123 -SourceCommit $learningSource | Out-Null
             Commit-Worker
             & (Join-Path $script:repo 'scripts\skalary\Archive-Plan.ps1') `
                 -RepoRoot $script:worker -Plan abc123 | Out-Null
@@ -300,6 +306,43 @@ flowchart TD
         { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
             -PlanReference abc123 -ExpectedStartCommit $start -Finalization } |
             Should -Throw '*does not identify this plan*'
+    }
+    It 'test:AppCi.CoordinatorReview binds lifecycle acceptance to the original clean result' {
+        Prepare-Finalization
+        Import-Module (Join-Path $repo 'scripts\skalary\DirectWorkflow.psm1') -Force
+        $scope = @('source', "docs/implementation-plans/$folder")
+        $review = Write-DirectReviewReport -RepoRoot $integration -PlanReference abc123 `
+            -Stage final -ReviewType cr -Source $start -Scope $scope `
+            -Task @([pscustomobject]@{ Name = 'source review'; Status = 'complete' }) `
+            -Verdict clean -ResultOnly
+        $parameters = @{
+            IntegrationRoot = $integration; WorkerRoot = $worker; PlanReference = 'abc123'
+            ExpectedStartCommit = $start; Finalization = $true
+            ActiveReviewResult = $review; RequestedScope = $scope
+        }
+        (& $resultScript @parameters).Status | Should -BeExactly 'finalized'
+        Test-Path (Join-Path $integration "docs\implementation-plans\$folder\assets\reviews") |
+            Should -BeFalse
+        $parameters.RequestedScope = @($scope[1], $scope[0])
+        { & $resultScript @parameters } | Should -Throw '*original clean source-bound*'
+        $parameters.RequestedScope = $scope
+        $parameters.ActiveReviewResult = $null
+        { & $resultScript @parameters } | Should -Throw '*original clean source-bound*'
+        $parameters.ActiveReviewResult = $review
+        $review.Source = '0' * 40
+        { & $resultScript @parameters } | Should -Throw '*original clean source-bound*'
+    }
+    It 'test:AppCi.CoordinatorReview.SourceDrift refuses worker source drift before learning' {
+        Prepare-Finalization -ChangeSourceBeforeLearning
+        Import-Module (Join-Path $repo 'scripts\skalary\DirectWorkflow.psm1') -Force
+        $review = Write-DirectReviewReport -RepoRoot $integration -PlanReference abc123 `
+            -Stage final -ReviewType cr -Source $start -Scope @('source') `
+            -Task @([pscustomobject]@{ Name = 'source review'; Status = 'complete' }) `
+            -Verdict clean -ResultOnly
+        { & $resultScript -IntegrationRoot $integration -WorkerRoot $worker `
+            -PlanReference abc123 -ExpectedStartCommit $start -Finalization `
+            -ActiveReviewResult $review -RequestedScope @('source') } |
+            Should -Throw '*changed the coordinator-reviewed source*'
     }
     It 'test:AppCi.CompletionGates refuses learning rewritten after archival' {
         Prepare-Finalization

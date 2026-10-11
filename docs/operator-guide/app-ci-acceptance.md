@@ -5,6 +5,22 @@ approving its session, source branch/full commit, selected isolation, auth/feed 
 remote publication boundary. Use disposable work surfaces based on the implementation commit.
 Never test by marking this implementation plan's human steps complete in a worker.
 
+## Bounded delivery status (plan 2dd53a, 2026-10-11)
+
+The operator selected "Finalize bounded delivery; defer remaining live checks (Recommended)".
+Native fixture 4c8316 was accepted and archived; Docker fixture 1a4feb completed three real phase
+visits at accepted local commit `9027fe1bb7d2a9a91f5b52d64edb9c98ea030773`, with human-safe partial/resume
+and three exact usage entries totaling 85.99159 credits. Its finalization has not run.
+The isolated coordinator-review repair is delivered with deterministic coverage, not new live proof.
+
+Remaining Docker finalization, real offline-miss exit 43/rebundle cap, controlled publication failure
+and real-old-directory retention observations are deferred. Windows Sandbox live execution and
+VS Code live preservation are also deferred; host availability/static checks are not acceptance.
+Original protocols below remain follow-up requirements needing separate runtime/transport permission.
+All disposable commits/worktrees/runtime outputs, including unconfirmed Docker correction drafts,
+are retained; none were imported into the implementation branch. No PR, merge, deployment or cleanup
+is part of this bounded completion.
+
 ## Confirmed two-phase fixture
 
 Create a separate disposable plan through `/cip` for each environment. Pick a fresh six-hex ID and
@@ -92,6 +108,15 @@ Verify exact sidecars and transcripts survive outside Git. Check out the inspect
 transport worktree before importing usage; commit the exact ledger, then verify current scope/evidence
 and fast-forward integration. Reimport the same execution: its count/credits do not increase.
 Finalization usage follows the archived plan, never recreating an active plan folder.
+
+For app Docker/Sandbox finalization, the coordinator completes any authorized source-changing
+compaction and final evidence before its sole source-bound CR. The existing review producer's
+`-ResultOnly` returns the actual live result without a report write. Admit one lifecycle-only worker
+at that exact clean reviewed commit; no second review/compaction/source/report edits. Learning must be
+its immediate child, archive separate. Retain original live authority through acceptance and supply
+it with exact ordered scope to `Test-AppCiWorkerResult -Finalization`; inspect unchanged reviewed bytes
+and later lifecycle/ledger diffs separately. Missing authority or source drift stops without
+reconstruction, rebinding or an automatic unchanged-scope review rerun. Native/non-app ownership stays.
 
 Force a controlled publication failure using the disposable fixture's approved transport boundary,
 without revoking shared credentials: the named container, commits, dirty work and sidecars remain

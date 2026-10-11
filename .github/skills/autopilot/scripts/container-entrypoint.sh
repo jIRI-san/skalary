@@ -485,6 +485,10 @@ for TARGET in "${EXECUTION_TARGETS[@]}"; do
     fi
     if [[ "${MODE}" == app-* ]]; then
         PROMPT="App CI worker. ${PROMPT}. Execute only this target directly at expected worker HEAD ${APP_CI_EXPECTED_HEAD}, with original source ancestry ${EXPECTED_START_COMMIT}. No recursive coordinator, other phase, worker PR, PR merge or deployment. Phase work never finalizes. The app coordinator verifies and integrates committed evidence locally; report exact commits and blockers."
+        if [ "${MODE}" = "app-finalization" ]; then
+            export APP_CI_LIFECYCLE_ONLY=true
+            PROMPT="${PROMPT} Isolated lifecycle only: the coordinator already completed compaction, final evidence and the sole clean terminal review at ${EXPECTED_START_COMMIT}. DO NOT REVIEW AGAIN or change source, criteria, checklist or reports. Validate unchanged-source current evidence; commit learning with Source ${EXPECTED_START_COMMIT} immediately after that commit, then separately commit the archive. Source drift or missing coordinator admission stops with 42."
+        fi
     fi
     SHARE_PATH="./${TRANSCRIPT}"
     if [[ "${MODE}" == app-* ]]; then

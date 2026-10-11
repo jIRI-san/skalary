@@ -21,7 +21,7 @@ archive move are artifacts, not duplicate plan identities.
 |---|---|
 | `Get-PlanIndex.ps1` | Keeps requirement/risk/decision discovery and adds case-insensitive filtered active/archived plan/epic intent candidates with provenance and at most three 240-character snippets per artifact. |
 | `Test-PlanCriteriaBaseline` | Finds the unique Git commit introducing the current confirmation marker across active and archived plan paths, rejects staged marker drift, and compares both index and worktree intent, requirements, risks, and decisions by Git-filtered blob identity. |
-| `Write-DirectReviewReport` | Atomically writes a confined stage report with fixed headings, complete-task enforcement, redaction, and a closed verdict. |
+| `Write-DirectReviewReport` | Validates source/tasks/findings and atomically writes a confined report by default; opt-in `-ResultOnly` returns the same normalized live result without creating directories or files. |
 | `Invoke-DirectEvidence` | Evaluates supplied current tests/files and the active exact-scope review without persisted authority. Test IDs may include colon-delimited namespaces (for example `test:eval:RCS.AlignmentContract`); the full ID after `test:` must match a live supplied result. |
 | `Resolve-DirectReviewStandards` | Parses optional bounded local Markdown against caller-supplied base rules. |
 | `ConvertTo-UntrustedReviewBlock` | Redacts high-confidence secrets and applies collision-safe framing. |

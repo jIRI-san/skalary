@@ -421,6 +421,59 @@ Describe 'Dormant direct workflow core' {
         } | Should -Throw
     }
 
+    It 'test:SimpleReview.ResultOnly returns validated live evidence without filesystem or Git changes' {
+        $fixture = New-DirectWorkflowFixture
+        $beforeFiles = @(Get-ChildItem -LiteralPath $fixture.Root -Recurse -File |
+            ForEach-Object FullName)
+        $review = Write-DirectReviewReport -RepoRoot $fixture.Root `
+            -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
+            -Source $fixture.Source -Scope @('source', 'plan') `
+            -Task @(New-TaskRecord) -Verdict clean -ResultOnly
+        $review.ReportPath | Should -BeNullOrEmpty
+        $review.PlanId | Should -BeExactly $fixture.PlanReference
+        Test-Path (Join-Path $fixture.AssetsDir 'reviews') | Should -BeFalse
+        @(Get-ChildItem -LiteralPath $fixture.Root -Recurse -File |
+            ForEach-Object FullName) | Should -Be $beforeFiles
+        @(Invoke-DirectFixtureGit $fixture.Root @('status', '--porcelain')) | Should -BeNullOrEmpty
+        (Test-DirectReviewResult -Result $review -Kind cr `
+            -CurrentSource $fixture.Source -RequestedScope @('source', 'plan')) | Should -BeTrue
+        (Test-DirectReviewResult -Result $review -Kind cr `
+            -CurrentSource ('0' * 40) -RequestedScope @('source', 'plan')) | Should -BeFalse
+        (Test-DirectReviewResult -Result $review -Kind cr `
+            -CurrentSource $fixture.Source -RequestedScope @('plan', 'source')) | Should -BeFalse
+        {
+            Write-DirectReviewReport -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
+                -Source $fixture.Source -Scope @('source') `
+                -Task @(New-TaskRecord -Status failed) -Verdict clean -ResultOnly
+        } | Should -Throw '*every selected task complete*'
+        {
+            Write-DirectReviewReport -RepoRoot $fixture.Root `
+                -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
+                -Source ('0' * 40) -Scope @('source') `
+                -Task @(New-TaskRecord) -Verdict clean -ResultOnly
+        } | Should -Throw
+        Test-Path (Join-Path $fixture.AssetsDir 'reviews') | Should -BeFalse
+    }
+
+    It 'test:SimpleReview.ResultOnly preserves an existing advisory report and non-clean outcomes' {
+        $fixture = New-DirectWorkflowFixture
+        $report = Write-DirectReviewReport -RepoRoot $fixture.Root `
+            -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
+            -Source $fixture.Source -Scope @('source') `
+            -Task @(New-TaskRecord) -Verdict clean
+        $before = [System.IO.File]::ReadAllBytes($report.ReportPath)
+        $result = Write-DirectReviewReport -RepoRoot $fixture.Root `
+            -PlanReference $fixture.PlanReference -Stage final -ReviewType cr `
+            -Source $fixture.Source -Scope @('source') `
+            -Task @(New-TaskRecord -Status stuck) -Verdict incomplete -ResultOnly
+        $result.Status | Should -BeExactly 'incomplete'
+        $result.ReportPath | Should -BeNullOrEmpty
+        [System.IO.File]::ReadAllBytes($report.ReportPath) | Should -Be $before
+        (Test-DirectReviewResult -Result $result -Kind cr `
+            -CurrentSource $fixture.Source -RequestedScope @('source')) | Should -BeFalse
+    }
+
     It 'publishes clean, findings, and incomplete outcomes and requires selected-task completion' {
         $fixture = New-DirectWorkflowFixture
         $clean = Write-DirectReviewReport -RepoRoot $fixture.Root `

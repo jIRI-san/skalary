@@ -7,13 +7,23 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^(?:[0-9a-f]{40}|[0-9a-f]{64})$')]
     [string]$ExpectedStartCommit,
     [Parameter(Mandatory, ParameterSetName = 'Phase')][ValidateRange(0, 999)][int]$Phase,
-    [Parameter(Mandatory, ParameterSetName = 'Finalization')][switch]$Finalization
+    [Parameter(Mandatory, ParameterSetName = 'Finalization')][switch]$Finalization,
+    [Parameter(ParameterSetName = 'Finalization')][AllowNull()][object]$ActiveReviewResult,
+    [Parameter(ParameterSetName = 'Finalization')][string[]]$RequestedScope = @()
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'DirectWorkflow.psm1') -Force -DisableNameChecking
+
+$coordinatorReviewed = $PSBoundParameters.ContainsKey('ActiveReviewResult')
+if ($coordinatorReviewed -and (
+        $null -eq $ActiveReviewResult -or $RequestedScope.Count -eq 0 -or
+        -not (Test-DirectReviewResult -Result $ActiveReviewResult -Kind cr `
+            -CurrentSource $ExpectedStartCommit -RequestedScope $RequestedScope))) {
+    throw 'Isolated finalization requires the original clean source-bound coordinator review.'
+}
 
 function Read-Git {
     param([string]$Root, [string[]]$Argument)
@@ -72,6 +82,11 @@ for ($i = 0; $i -lt $before.Steps.Count; $i++) {
     $completed.Add($new.Id)
 }
 if ($Finalization) {
+    if ($coordinatorReviewed -and (
+            $ActiveReviewResult.PSObject.Properties.Name -notcontains 'PlanId' -or
+            [string]$ActiveReviewResult.PlanId -cne $afterPlan.Id)) {
+        throw 'Isolated finalization requires the original clean source-bound coordinator review.'
+    }
     if (@($before.Steps | Where-Object { $_.Status -ne 'x' }).Count -gt 0 -or
         $beforePlan.IsArchived -or -not $afterPlan.IsArchived) {
         throw 'Finalization requires all closed steps and a newly committed plan archive.'
@@ -85,6 +100,9 @@ if ($Finalization) {
         throw 'Finalization learning does not identify this plan and a full source commit.'
     }
     $sourceHead = $source.Groups['head'].Value
+    if ($coordinatorReviewed -and $sourceHead -cne $ExpectedStartCommit) {
+        throw 'Isolated lifecycle changed the coordinator-reviewed source before learning.'
+    }
     $learningCommit = Read-Git $worker @('log', '-1', '--format=%H', '--', 'docs/feedback/recent-learning.md')
     $archivePath = [System.IO.Path]::GetRelativePath($worker, $after.PlanPath).Replace('\', '/')
     $archiveCommit = Read-Git $worker @('log', '--no-renames', '--diff-filter=A', '-1', '--format=%H', '--', $archivePath)

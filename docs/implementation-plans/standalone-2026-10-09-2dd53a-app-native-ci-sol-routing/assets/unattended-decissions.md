@@ -187,3 +187,48 @@ Sources (public, version-pinned implementation evidence; not live acceptance):
   no findings. The combined distribution test hit its unchanged 60-second deadline. Its four existing
   read-only owner checks then passed independently: zero bundle/dogfood changes, registry valid and
   marketplace unchanged. The timed-out combined test is not reported as passing.
+
+## 4.1/6.2/6.3/7.1: Operator-confirmed bounded completion
+
+- Operator choices, 2026-10-11: "Coordinator review; isolated lifecycle worker (Recommended)" and
+  "Finalize bounded delivery; defer remaining live checks (Recommended)".
+- Deliver the small result-only review producer and isolated coordinator-review/lifecycle boundary.
+  Native/non-app ownership and default advisory reports stay unchanged; no review payload machinery.
+- Accepted Docker fixture history remains separate at 9027fe1bb7d2a9a91f5b52d64edb9c98ea030773:
+  three phase visits, exact 12/10/7 LF outputs, independent partial 42, human authorization and fresh
+  dependent/second visits, local verified fast-forwards, no-human duplicate-free resume.
+  Actual ledger: three executions, 85991590000 nano-AIU / 85.99159 credits; idempotent reimports.
+- Deferred, not passed: Docker finalization/new review ownership live proof, real offline miss 43,
+  bounded rebundle/cap, controlled publication failure and old-host-directory live retention.
+  Sandbox enabled/host tools available is not Sandbox acceptance. VS Code 1.141.0 capability discovery
+  and static preservation are not its live route matrix. Preserve all original protocols in this plan
+  and docs/operator-guide/app-ci-acceptance.md for separately authorized follow-up.
+- Convert remaining steps into recording these explicit deferrals, not human acceptance. Preserve
+  accepted native gate 6.1 and old immutable baselines in Git history. Docker's five unconfirmed
+  correction drafts remain with its retained fixture; do not import or silently confirm them.
+- No additional fixture work, runtime launch, remote publication, PR, deployment or cleanup.
+  Finish source review, strict learning and separate whole-plan archive locally.
+
+## 4.1/5.1/6.2/6.3/7.1: Deliver the correction and close deferral recording
+
+- Outcome: the canonical review producer supports opt-in `-ResultOnly` after shared validation,
+  without report/path writes. Default advisory reports remain. Isolated app prompts/agent use
+  lifecycle-only finalization; coordinator admission/acceptance uses its original exact-source,
+  ordered-scope clean review. Learning-source drift is refused. Native/non-app ownership remains.
+- Validation: result-only/default-report cases passed (3); original coordinator-result lifecycle
+  acceptance passed (1); changed-source-before-learning refusal passed (1); retained native mechanical
+  finalization passed (1); final isolated prompt/runtime/retention/epic/decision/consumer cases passed
+  (11). These are deterministic regressions, not live isolated completion proof.
+- Test corrections: the new runtime regex initially interpolated an unset variable and was fixed.
+  Combined heavy lifecycle cases exceeded the unchanged 60-second deadline; distinct evidence IDs
+  now select each case independently. Both pass individually. No deadline increase or clean claim
+  for the timed-out attempts. Earlier unrelated failures remain as recorded above.
+- Distribution: owner bundle sync/version generation, registry/marketplace generation and dogfood
+  install completed. Detect-only bundle and dogfood report zero changes, registry validation passes,
+  marketplace has no drift. No generated consumer was hand-edited.
+- Compaction: one index-led finalization pass read the four touched design notes as one bounded batch.
+  Retained the unique runtime boundary/tradeoff, helper contract, workflow ordering and reporting
+  details. No same-note duplicate warranted an edit; no cross-note merge/deletion was proposed.
+- Steps 6.2/6.3/7.1 now complete their reconfirmed deferral-recording outcomes in this log and the
+  operator guide. They do not assert live container/Sandbox/VS Code acceptance. Original follow-up
+  protocols, accepted native evidence, Docker history and all disposable outputs stay retained.

@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-10-10T19:29:53.7423511Z",
+  "generatedAt": "2026-10-11T11:46:42.5423589Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -130,7 +130,7 @@
       "files": [
         {
           "dest": "agents/autopilot.agent.md",
-          "sha256": "6382716d3a726688abe67e7b3480501fc9569f1b59d1eed64972d7a083cfcc15",
+          "sha256": "890fdb5806f0b018022452e6b39278481d54b49d24ec8102c1a0d68329fa45ff",
           "src": "agents/autopilot.agent.md"
         },
         {
@@ -210,7 +210,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
         },
         {
@@ -280,7 +280,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/container-entrypoint.sh",
-          "sha256": "372c46081cbc6c1a650d54bc1ccac575abbbaa112127509c55e3760b45106ec9",
+          "sha256": "3157a1aa2e5cfc37019a48645f3b1608e4ebf7ef8c6484ce29982d08e5d3f22a",
           "src": "scripts/container-entrypoint.sh"
         },
         {
@@ -305,7 +305,7 @@
         },
         {
           "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
-          "sha256": "7d789058e9dd5b8d643e4609d8fc52be4d36e80300b5c41921c0aef94e1fd6f6",
+          "sha256": "928f8c3be447f111885a53eacfd2a988131dda3dd9d44ce6267f33bcd80c897d",
           "src": "scripts/launch-sandbox.ps1"
         },
         {
@@ -351,7 +351,7 @@
         "autopilot",
         "skill"
       ],
-      "version": "1.3.39"
+      "version": "1.3.40"
     },
     {
       "author": "jIRI-san",
@@ -388,7 +388,7 @@
         },
         {
           "dest": "skills/cr/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/cr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -415,7 +415,7 @@
         "prompt",
         "review"
       ],
-      "version": "1.0.88"
+      "version": "1.0.89"
     },
     {
       "author": "jIRI-san",
@@ -436,7 +436,7 @@
         },
         {
           "dest": "skills/ci/assets/app-coordinator.md",
-          "sha256": "7ce31282bb244d3237eed5c76409fc4b8a641192ddbe3f31c5673d124be5bf6e",
+          "sha256": "aa7651e7c6dc15a92484df078ac03c177b58328bd21c06d1a48b11f884e522cc",
           "src": "skills/ci/assets/app-coordinator.md"
         },
         {
@@ -451,7 +451,7 @@
         },
         {
           "dest": "skills/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -476,7 +476,7 @@
         },
         {
           "dest": "skills/ci/scripts/Test-AppCiWorkerResult.ps1",
-          "sha256": "3142524e60ab49dbee94b4e96f8ccf892170742ebf521526e57993df8f25daa4",
+          "sha256": "f4d3bde454f83e3d48526e4e4b8054a3b388a028d9e555968548a49f4ee4e1cd",
           "src": "skills/ci/scripts/Test-AppCiWorkerResult.ps1"
         },
         {
@@ -498,7 +498,7 @@
         "implementation",
         "skill"
       ],
-      "version": "1.0.133"
+      "version": "1.0.134"
     },
     {
       "author": "jIRI-san",
@@ -537,7 +537,7 @@
         },
         {
           "dest": "skills/cep/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/cep/scripts/DirectWorkflow.psm1"
         },
         {
@@ -612,7 +612,7 @@
         },
         {
           "dest": "skills/cip/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/cip/scripts/DirectWorkflow.psm1"
         },
         {
@@ -674,7 +674,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.116"
+      "version": "1.0.117"
     },
     {
       "author": "jIRI-san",
@@ -781,7 +781,7 @@
         },
         {
           "dest": "skills/dr/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/dr/scripts/DirectWorkflow.psm1"
         },
         {
@@ -808,7 +808,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.90"
+      "version": "1.0.91"
     },
     {
       "author": "jIRI-san",
@@ -835,7 +835,7 @@
         },
         {
           "dest": "skills/factory-loop/dependencies/ci/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/ci/scripts/DirectWorkflow.psm1"
         },
         {
@@ -947,7 +947,7 @@
         "delivery",
         "skill"
       ],
-      "version": "0.1.9"
+      "version": "0.1.10"
     },
     {
       "author": "jIRI-san",
@@ -1113,7 +1113,7 @@
         },
         {
           "dest": "skills/rcs/scripts/DirectWorkflow.psm1",
-          "sha256": "1f8abbc01c250c1cd2245506c2f805b2d171ffaf792bfc5dd0b862dff828e1df",
+          "sha256": "15513c89a9763d6e0eab5fc40147730bdb994227cbccd2568991db7a98ccaa2a",
           "src": "skills/rcs/scripts/DirectWorkflow.psm1"
         },
         {
@@ -1163,7 +1163,7 @@
         "review",
         "skill"
       ],
-      "version": "1.0.7"
+      "version": "1.0.8"
     },
     {
       "author": "jIRI-san",

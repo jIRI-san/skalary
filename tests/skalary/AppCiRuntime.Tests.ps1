@@ -35,6 +35,22 @@ Describe 'App CI retained runtime contracts' {
                 -ExpectedStartCommit ('a' * 40) } | Should -Throw '*Sol high/default*'
         }
     }
+    It 'test:AppCi.IsolatedLifecycle skips duplicate review only on isolated app finalization' {
+        $container | Should -Match 'if \[ "\$\{MODE\}" = "app-finalization" \]; then\s+export APP_CI_LIFECYCLE_ONLY=true'
+        $sandbox | Should -Match 'if \(`\$appWorker\) \{\s+`\$env:APP_CI_LIFECYCLE_ONLY = ''true'''
+        foreach ($script in @($container, $sandbox)) {
+            $script | Should -Match 'DO NOT REVIEW AGAIN'
+            $script | Should -Match 'immediately after that commit'
+            $script | Should -Match 'separately commit the archive'
+        }
+        $agent = Get-Content (Join-Path $script:repo 'plugins\autopilot\agents\autopilot.agent.md') -Raw
+        $agent | Should -Match 'APP_CI_LIFECYCLE_ONLY=true'
+        $agent | Should -Match 'Native app and retained non-app finalization are unchanged'
+        $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
+        $guide | Should -Match 'Write-DirectReviewReport -ResultOnly'
+        $guide | Should -Match '\-ActiveReviewResult'
+        $guide | Should -Match 'before selecting the clean completed source'
+    }
     It 'test:AppCi.EpicLocalExecution retains app local archive proof and the non-app wrapper' {
         $guide = Get-Content (Join-Path $script:repo 'plugins\continue-implementation\skills\ci\assets\app-coordinator.md') -Raw
         $guide | Should -Match 'Get-EpicRollup'

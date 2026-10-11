@@ -142,5 +142,12 @@ After the completed source commit, CI/autopilot run `Write-RecentLearning.ps1`, 
 source identity, citations, secrets, and 10-item/16-KiB limits before replacing the strict Markdown
 handoff (`None.` for zero lessons).
 
+App Docker/Sandbox finalization differs from native/non-app ownership: coordinator compaction precedes
+the sole result-only source review, then one lifecycle-only worker validates unchanged source and
+commits immediate learning followed by separate archive. Original live review authority/source/scope
+are checked before accepting those commits; no saved report or automatic rerun repairs lost authority.
+Explicitly confirmed bounded delivery may record outstanding live checks as deferred instead of
+passed; preserve their protocols and do not reinterpret archival as full rollout acceptance.
+
 Root-canonical workflow scripts bundle into their consumers. Run script sync, registry/marketplace
 generation, and dogfood sync as owned by [plugin-registry.design.md](plugin-registry.design.md).

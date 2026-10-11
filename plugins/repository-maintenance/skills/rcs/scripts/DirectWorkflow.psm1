@@ -317,7 +317,8 @@ function Write-DirectReviewReport {
         [AllowEmptyCollection()][object[]]$Finding = @(),
         [Parameter(Mandatory)]
         [ValidateSet('clean', 'findings', 'incomplete')]
-        [string]$Verdict
+        [string]$Verdict,
+        [switch]$ResultOnly
     )
 
     $commit = (Invoke-DirectGit -RepoRoot $RepoRoot -Argument @(
@@ -384,6 +385,21 @@ function Write-DirectReviewReport {
         throw 'A findings verdict requires at least one finding.'
     }
 
+    $resolved = Resolve-DirectPlan -RepoRoot $RepoRoot -PlanReference $PlanReference
+    $result = [pscustomobject]@{
+        Kind = $ReviewType
+        Status = if ($allComplete) { 'complete' } else { 'incomplete' }
+        PlanId = $resolved.Plan.Id
+        Stage = $Stage
+        Source = $Source
+        Scope = $scopeLines
+        Tasks = $taskRecords.ToArray()
+        Findings = $findingLines.ToArray()
+        Verdict = $Verdict
+        ReportPath = $null
+    }
+    if ($ResultOnly) { return $result }
+
     $target = Resolve-DirectReviewReportPath -RepoRoot $RepoRoot `
         -PlanReference $PlanReference -Stage $Stage
     if (Test-Path -LiteralPath $target.Path) {
@@ -420,18 +436,8 @@ function Write-DirectReviewReport {
     Write-AtomicUtf8File -Path $target.Path -Content $content
     [void](Resolve-ConfinedPlanPath -Context $target.Context -Path $target.Path -PathType Leaf)
 
-    return [pscustomobject]@{
-        Kind = $ReviewType
-        Status = if ($allComplete) { 'complete' } else { 'incomplete' }
-        PlanId = $target.PlanId
-        Stage = $Stage
-        Source = $Source
-        Scope = $scopeLines
-        Tasks = $taskRecords.ToArray()
-        Findings = $findingLines.ToArray()
-        Verdict = $Verdict
-        ReportPath = $target.Path
-    }
+    $result.ReportPath = $target.Path
+    return $result
 }
 
 function ConvertTo-UntrustedReviewBlock {

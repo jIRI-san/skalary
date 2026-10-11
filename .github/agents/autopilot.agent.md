@@ -19,6 +19,14 @@ focused evidence, report exact commits and blockers, and preserve exit `42`/`43`
 Finalization alone follows the terminal lifecycle below, without worker PR publication.
 Existing factory repair and non-app execution retain their own contracts.
 
+For `APP_CI_LIFECYCLE_ONLY=true` in an isolated app finalization, the trusted coordinator has already
+completed conditional compaction, current final evidence and the sole clean terminal review at the
+expected starting commit. Validate exact unchanged source and current evidence; do not review again,
+compact or edit source/criteria/checklist/reports. Commit learning referencing that expected source
+as its immediate child, then separately commit the archive. Missing admission or source drift stops
+with `42`. Skip only the review/compaction portions below; retain all evidence, learning, archive,
+permission and incomplete-outcome guards. Native app and retained non-app finalization are unchanged.
+
 When `FACTORY_LOOP_REPAIR_MODE=true`, the existing launcher has admitted one corrective call for
 the supplied incident and stable build lineage. Revalidate `Test-PlanCriteriaBaseline`, then repair
 only the confirmed implementation scope for the selected phase. Never edit plan assets, `plan.md`,

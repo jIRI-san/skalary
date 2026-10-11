@@ -113,8 +113,28 @@ override confirmed criteria. Material choices stop affected work through CIP rec
 independently admitted unaffected work may continue. Present decisions/blockers on exhaustion.
 
 After all required phases close, dispatch one fresh finalization worker with the same exact settings.
-It owns current final evidence, one unchanged-scope terminal CR, conditional compaction, committed
-recent learning and archive move, using the root skill's helpers. All-closed unarchived plans still
+Native local finalization owns current final evidence, one unchanged-scope terminal CR, conditional
+compaction, committed recent learning and archive move, using the root skill's helpers.
+
+For app Docker/Sandbox only, the coordinator first runs conditional compaction; commit any authorized
+source edits before selecting the clean completed source commit. Run current final evidence and the
+sole direct terminal CR there. Call `Write-DirectReviewReport -ResultOnly` to obtain the actual
+validated result without a tracked report write; retain it in live coordinator context. Validate it
+with `Test-DirectReviewResult` and `Invoke-DirectEvidence`, exact full source and ordered scope.
+Only clean evidence/review and unchanged source admit one separately authorized isolated lifecycle
+target at that commit. `APP_CI_LIFECYCLE_ONLY=true` forbids another review, compaction or
+source/criteria/checklist/report edits; the target validates current evidence, commits learning as
+the immediate child of the reviewed source, then separately archives. Do not transport or reconstruct
+review authority from a report, transcript or saved JSON.
+
+Before accepting isolated lifecycle commits, pass the original `-ActiveReviewResult` and exact
+`-RequestedScope` to `Test-AppCiWorkerResult -Finalization` as well as checking current unchanged
+reviewed scope/bytes and permitted lifecycle/usage diffs. Missing/lost live authority, interruption,
+source drift or wrong ordering stops; do not rebind Source or automatically rerun unchanged review.
+The lifecycle worker trusts coordinator admission in this single-operator route. Retained VS Code
+and non-app completion keep worker-owned review.
+
+All-closed unarchived plans still
 need this target; already finalized archived plans do not. Headless skips PFB. Human compaction,
 deletion or push gates stop visibly. No worker PR.
 

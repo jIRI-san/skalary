@@ -510,7 +510,8 @@ if (`$runExitCode -eq 0 -and '$Mode' -in @('whole-plan', 'app-finalization')) {
     if (`$runExitCode -eq 0) {
         `$prompt = "Finalize completed plan `$PlanPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
         if (`$appWorker) {
-            `$prompt = "App CI worker. `$prompt Expected worker HEAD `$appExpectedHead, original source ancestry $ExpectedStartCommit. No worker PR, recursive coordinator, PR merge or deployment. Report committed review, learning and archive handoff to the app coordinator."
+            `$env:APP_CI_LIFECYCLE_ONLY = 'true'
+            `$prompt = "App CI worker. Isolated lifecycle only at expected worker HEAD `$appExpectedHead, original source $ExpectedStartCommit. The coordinator already completed compaction, final evidence and the sole clean terminal review. DO NOT REVIEW AGAIN or change source, criteria, checklist or reports. Validate unchanged-source current evidence; commit learning with Source $ExpectedStartCommit immediately after that commit, then separately commit the archive. Source drift or missing coordinator admission stops with 42. No worker PR, recursive coordinator, PR merge or deployment. Report exact learning/archive commits and blockers."
         }
         Log 'Invoking Copilot CLI for plan finalization...'
         `$usageName = Join-Path `$SessionPath 'session-usage-finalization.json'

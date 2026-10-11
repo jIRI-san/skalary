@@ -44,6 +44,12 @@ globs:
   and complexity.
 - Current test, file, and active in-memory review results are evidence. Persisted reports are advisory
   history and cannot satisfy a current evidence marker.
+- App Docker/Sandbox terminal review remains in the coordinator's live context. Conditional
+  source-changing compaction precedes that sole result-only review; clean evidence at exact source
+  admits one isolated lifecycle-only worker, not another review. Learning immediately follows the
+  reviewed source, archive is separate, and original live authority plus unchanged scope/current
+  evidence gate acceptance. Missing authority/source drift stops without reconstruction or automatic
+  rerun. Native and retained non-app finalization keep worker-owned review.
 - App CI coordinates serial fresh phase/finalization sessions with explicit Sol high/default settings,
   exact source binding, current evidence and verified fast-forward integration. Workers never recurse
   or publish phase/child PRs. Container/Sandbox remain bounded isolated CLI targets; VS Code's existing

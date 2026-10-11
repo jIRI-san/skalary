@@ -180,7 +180,7 @@
 
   </details>
 
-- [ ] 6.2 Record deferred container rollout and retained partial evidence (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
+- [x] 6.2 Record deferred container rollout and retained partial evidence (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
   <details><summary>Deferred container acceptance</summary>
 
   **Outcome:** record accepted Docker phase evidence and unproven finalization/rebundle/cap/failure checks in the existing decision log and operator guide. This step records operator-approved deferral, not human acceptance.
@@ -199,7 +199,7 @@
 
   </details>
 
-- [ ] 6.3 Record deferred Windows Sandbox rollout (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
+- [x] 6.3 Record deferred Windows Sandbox rollout (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
   <details><summary>Deferred Windows Sandbox acceptance</summary>
 
   **Outcome:** record that host availability is not live Sandbox acceptance. Preserve the existing runtime and original follow-up protocol; launch nothing. Completing this recording task does not claim a passed runtime.
@@ -220,7 +220,7 @@
 
 ## Phase 7: Live VS Code preservation
 
-- [ ] 7.1 Record deferred VS Code live preservation (REQ-3, REQ-16, REQ-17, REQ-18, RISK-6, RISK-9) [after: 5.2] `S`
+- [x] 7.1 Record deferred VS Code live preservation (REQ-3, REQ-16, REQ-17, REQ-18, RISK-6, RISK-9) [after: 5.2] `S`
   <details><summary>Deferred VS Code acceptance</summary>
 
   **Outcome:** record the version-named native capability gap and unperformed live preservation matrix without claiming acceptance. Preserve current routes/settings and the original follow-up protocol; no replacement or live smoke is authorized.
