@@ -17,8 +17,8 @@ Model aliases keep their public names for compatibility but all bind to GPT-6.1 
 | Retained isolated runtime | Docker or Windows Sandbox CLI phase/completion invocation with existing auth, toolchain, offline/rebundle, output and usage handling |
 | Existing plan helpers | Criteria baseline, dependency/phase admission, committed close and archive state |
 | Existing epic helpers | App dependency-ready child selection/local completion without host dispatch; preserved VS Code wrapper/proof |
-| Per-plan finalization worker | Current final evidence/review, conditional compaction, learning and plan archival, once for each standalone or epic-child plan |
-| Coordinator completion/delivery | Integrate finalization commits, perform the distinct epic completion check/index archival when applicable, preserve explicit push guards, create at most one requested-run PR |
+| Per-plan finalization worker | Native: final evidence/review/conditional compaction/learning/archive. Isolated app: unchanged-source evidence, immediate learning and separate archive only; one fresh target per completed plan |
+| Coordinator completion/delivery | For isolated app finalization: conditional source-changing compaction, final evidence and sole live result-only review before lifecycle dispatch; verify unchanged reviewed scope on acceptance. Integrate finalization commits, perform distinct epic completion/index archival, preserve push guards and one requested-run PR |
 | Model allowlist and owner generators | One model authority and consistent skill/eval bindings |
 
 Avoid custom app extensions, dynamic workflows, generic configuration frameworks, automatic cleanup, extra persisted lifecycle state, and parallel integration branches. Use native tools for local sessions and existing controlled launchers/transfers for explicitly selected isolated workers. Do not claim those workers are native app child sessions. App local process sandboxing and cloud sandboxes are not replacements for these Docker/Windows Sandbox environments.
@@ -39,7 +39,13 @@ flowchart TD
     F -->|Failure or divergence| H[Preserve work and report blocker]
     C -->|No| I{All required phases closed?}
     I -->|No| H
-    I -->|Yes| J[One finalization worker in the selected environment per completed plan]
+    I -->|Yes| Q{App Docker or Sandbox?}
+    Q -->|Yes| R[Coordinator compaction and evidence then sole review of clean source S]
+    R --> T{Original live result clean and source unchanged?}
+    T -->|No| H
+    T -->|Yes| J[One fresh lifecycle worker at S without another review]
+    Q -->|No native local| U[One native finalization worker with terminal review]
+    U --> K
     J --> K{Current completion gates pass?}
     K -->|No| H
     K -->|Yes| L[Integrate learning and archive commits]
@@ -75,7 +81,13 @@ A material ambiguity preserves affected work and returns to the operator/CIP con
 
 ### Completion and epic delivery
 
-One explicit finalization worker in the selected environment follows all closed phases of each standalone or epic-child plan: a native child locally or fresh CLI completion invocation inside the container/Sandbox. It owns unchanged-scope terminal review, conditional design-note compaction, learning publication, and plan archive move/commit. Preserve explicit human gates; headless execution skips optional PFB. The coordinator verifies/imports and integrates those commits and owns the only final PR. Retain exact CLI usage recording for isolated targets; do not fabricate local app usage. An all-closed unarchived plan still requires finalization; a finalized archived plan is skipped without requiring a child PR. Do not repeat an unchanged completed boundary.
+One explicit finalization worker in the selected environment follows all closed phases of each standalone or epic-child plan. Native local finalization keeps worker-owned unchanged-scope terminal review, conditional compaction, learning and archive. Retained VS Code/non-app finalization is unchanged.
+
+For app Docker/Sandbox only, the coordinator runs conditional compaction before final evidence and review; any source-changing compaction is committed before selecting clean completed source S. It performs the sole terminal CR and keeps the original validated result in live context, bound to S and exact ordered scope. Add an opt-in result-only branch to the existing review producer after shared input validation: return the normalized actual result without report-path creation/write; default advisory reports remain unchanged. No cross-process review payload or report reconstruction is introduced.
+
+Only clean current evidence/review and unchanged source admit one fresh isolated lifecycle invocation at S. Its explicit trusted app-only kickoff says the coordinator already reviewed and forbids another review or source/criteria/report edits. The worker validates current unchanged-source evidence, commits learning with Source S as the immediate child of S, then commits the separate archive. The coordinator retains live review authority through acceptance and separately inspects permitted lifecycle/usage diffs, unchanged reviewed scope and current evidence. Missing/lost authority, source drift, wrong commit order or incomplete evidence stops without reconstructing a report, rebinding Source or automatically rerunning unchanged-scope review. Exact-start admission is a trusted coordinator decision, not independent worker possession of a review object.
+
+Preserve human gates; headless skips PFB. The coordinator verifies/imports and integrates finalization commits and owns the only final PR. Retain exact isolated CLI usage; do not fabricate coordinator/native app accounting. An all-closed unarchived plan still requires finalization; a finalized archived plan is skipped without a child PR or repeated completed boundary.
 
 Epic children each use that complete plan lifecycle and serial phase workers. After all child finalization commits are integrated and all children archived, the coordinator performs one distinct epic Goal/Definition-of-done/coherency check, refreshes the index, and archives/commits the epic index. Pending epic completion still runs on an all-child-archives resume; unchanged completed epic boundaries and existing delivery are not repeated. For new app runs, committed local closure integrated into the requested run's branch replaces the old requirement for a provider PR for every child. Only the final requested run has a delivery PR. Archived legacy plans/epics remain readable without rewriting their historical proof or relaunching them.
 
@@ -91,6 +103,8 @@ Run the owning model, script-bundle, registry, marketplace, and dogfood generato
 
 ## Tradeoffs and open choices
 
+Operator-confirmed bounded completion (2026-10-11): finish the selected coordinator-review repair and deterministic/source-review gates, then learn/archive locally. Accepted native and partial Docker evidence remain; remaining live Docker, Sandbox and VS Code checks are recorded as deferred, not passed. This overrides their completion-blocking status for this bounded delivery, not their protocols or future rollout requirements. No additional smoke infrastructure, runtime, publication or cleanup is part of finishing this plan.
+
 - One model reduces configured model diversity; independent contexts remain useful but cannot be called cross-model corroboration.
 - Retaining current role efforts avoids changing model and effort behavior simultaneously. Later effort tuning stays in the same policy; no second model-config file is introduced.
 - Serial fast-forward integration is simpler than phase PR orchestration, but phase acceptance is local; final GitHub review remains the delivery boundary.
@@ -101,6 +115,7 @@ Run the owning model, script-bundle, registry, marketplace, and dogfood generato
 - App mode keeps launch/auth/offline mechanisms, not competing plan coordinators: one app coordinator owns admission/integration and isolated launchers execute bounded targets. Existing VS Code/factory loops remain for their retained consumers.
 - Native-tool/launcher contract tests are necessary but insufficient. Explicit live local, container and Windows Sandbox smokes are human gates.
 - No remaining intent choice is delegated silently. Newly discovered material choices use the existing confirmation flow.
+- Selected correction for isolated app completion removes unsupported review-result transport: the lifecycle worker trusts the coordinator's live clean-review admission. Source-changing compaction happens before the sole review; live authority and unchanged-source checks remain required through acceptance. Loss/interruption blocks instead of reconstructing or automatically repeating review. Record this single-operator tradeoff under Dubious decisions in the affected execution design note; native and retained non-app review ownership remain unchanged.
 
 ## Optional call stacks
 

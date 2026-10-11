@@ -1,7 +1,7 @@
 # 2dd53a: App-native CI execution and GPT-6.1 Sol routing
 <!-- plan-id: 2dd53a -->
 <!-- cip-stage: drafted -->
-<!-- planning-confirmed: sha256:97f0db01428a5c1f75ddedb029de1ee6492d11f949c13579c6e36b181d3099ef -->
+<!-- planning-confirmed: sha256:188dec673f70afa1ada0f4d009cecdde0bd98b3137bbfdae106ead9586dfd3fa -->
 <!-- scope: plan -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 6 -->
@@ -108,16 +108,16 @@
 
 ## Phase 4: Completion ownership and retained runtime integration
 
-- [x] 4.1 Give each plan one finalization child and the coordinator the final PR handoff (REQ-12, REQ-13, RISK-3, RISK-5) [after: 3.2] `L`
+- [x] 4.1 Give each plan one finalization child and the coordinator the final PR handoff (REQ-12, REQ-13, RISK-3, RISK-5, RISK-10) [after: 3.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** each fully closed standalone or epic-child plan is finalized once; the source, learning, and archive commits are integrated before the coordinator publishes the single final PR for the requested run.
 
   **Likely touchpoints:** CI completion asset, shared autopilot compaction instructions, retained container/Sandbox explicit completion targets, `Get-DesignNoteCompactionContext.ps1`, `Write-RecentLearning.ps1`, `Archive-Plan.ps1`, final review consumers.
 
-  **Constraints:** app finalization uses one native child locally or one fresh CLI completion invocation in the selected container/Sandbox. Keep current evidence, one unchanged-scope review, conditional compaction, criteria and push guards. Headless skips PFB; human gates stop. Dispatch is separate from bounded review calls. Keep exact isolated usage; no fabricated app accounting, worker PR, PR merge or deployment. Preserve existing VS Code completion.
+  **Constraints:** app finalization uses one native child locally or one fresh CLI completion invocation in the selected container/Sandbox. Native worker and retained VS Code/non-app ownership remain unchanged. For isolated app only, coordinator conditional compaction/source edits precede final evidence and sole result-only CR at clean completed S. Its live original result and exact unchanged source gate a lifecycle-only worker at S, with no duplicate review/source/criteria/report edits; learning immediately parents S, archive is separate. Recheck live authority/current evidence/unchanged reviewed scope before accepting lifecycle/usage diffs. Missing authority or source drift stops without report reconstruction/rebinding/automatic unchanged-scope rerun. Headless skips PFB; human gates stop. Dispatch is separate from bounded review calls. Keep exact isolated usage; no fabricated app accounting, worker PR, PR merge or deployment. The existing completion mark records pre-correction delivery; this affected correction and its regressions/live gate remain to be implemented after reconfirmation.
 
-  **Verify:** completion fixtures cover pending phases, all-closed unarchived plans that still require finalization, finalized archived plans that are skipped, human finalization gates, learning-before-archive ordering, archive-path re-resolution, and prevention of duplicate per-plan finalization or requested-run publication.
+  **Verify:** completion fixtures cover pending phases, all-closed unarchived plans that still require finalization, finalized archived plans that are skipped, human finalization gates, immediate reviewed-source-to-learning then separate archive ordering, archive-path re-resolution, and prevention of duplicate per-plan finalization/review or requested-run publication. Result-only producer cases prove no filesystem/Git writes and preserve validated source/scope; isolated lifecycle cases refuse source drift/lost live review authority and preserve native/non-app review ownership.
 
   </details>
 - [x] 4.2 Replace app local orchestration without deleting VS Code/runtime consumers (REQ-14, REQ-15, REQ-17, REQ-18, RISK-6, RISK-8, RISK-9) [after: 4.1] `L`
@@ -180,8 +180,12 @@
 
   </details>
 
-- [ ] 6.2 Confirm app-coordinated container execution and retained isolation (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) @human [after: 5.2] `M`
-  <details><summary>Container acceptance</summary>
+- [ ] 6.2 Record deferred container rollout and retained partial evidence (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
+  <details><summary>Deferred container acceptance</summary>
+
+  **Outcome:** record accepted Docker phase evidence and unproven finalization/rebundle/cap/failure checks in the existing decision log and operator guide. This step records operator-approved deferral, not human acceptance.
+
+  **Original follow-up protocol (separate authorization required):**
 
   **Steps:**
   1. Approve the disposable confirmed Docker/auth/feed fixture; expose no credentials.
@@ -195,8 +199,12 @@
 
   </details>
 
-- [ ] 6.3 Confirm app-coordinated Windows Sandbox execution (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) @human [after: 5.2] `M`
-  <details><summary>Windows Sandbox acceptance</summary>
+- [ ] 6.3 Record deferred Windows Sandbox rollout (REQ-4, REQ-6, REQ-12, REQ-16, REQ-17, RISK-7, RISK-8) [after: 5.2] `S`
+  <details><summary>Deferred Windows Sandbox acceptance</summary>
+
+  **Outcome:** record that host availability is not live Sandbox acceptance. Preserve the existing runtime and original follow-up protocol; launch nothing. Completing this recording task does not claim a passed runtime.
+
+  **Original follow-up protocol (separate authorization required):**
 
   **Steps:**
   1. Approve the disposable confirmed Windows Sandbox fixture, host capability and explicit mappings/toolchain/auth.
@@ -212,8 +220,12 @@
 
 ## Phase 7: Live VS Code preservation
 
-- [ ] 7.1 Confirm VS Code's existing execution route remains usable (REQ-3, REQ-16, REQ-17, REQ-18, RISK-6, RISK-9) @human [after: 5.2] `M`
-  <details><summary>VS Code acceptance</summary>
+- [ ] 7.1 Record deferred VS Code live preservation (REQ-3, REQ-16, REQ-17, REQ-18, RISK-6, RISK-9) [after: 5.2] `S`
+  <details><summary>Deferred VS Code acceptance</summary>
+
+  **Outcome:** record the version-named native capability gap and unperformed live preservation matrix without claiming acceptance. Preserve current routes/settings and the original follow-up protocol; no replacement or live smoke is authorized.
+
+  **Original follow-up protocol (separate authorization required):**
 
   **Steps:**
   1. Approve disposable confirmed preservation fixtures; record the actual VS Code target/version and existing route/config.
