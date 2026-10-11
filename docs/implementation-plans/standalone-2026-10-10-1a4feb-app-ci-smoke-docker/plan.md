@@ -66,7 +66,7 @@
 
 ## Phase 2: Accepted-head continuation
 
-- [ ] 2.1 Write second.txt with `second` and an LF newline (REQ-4, RISK-2, RISK-6) [after: 1.3] `S`
+- [x] 2.1 Write second.txt with `second` and an LF newline (REQ-4, RISK-2, RISK-6) [after: 1.3] `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `smoke/app-ci/1a4feb/second.txt` is exactly 7 ASCII bytes: `second` followed by one LF.
