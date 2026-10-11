@@ -2,14 +2,14 @@
   "schema": "skalary-ai-credits/v1",
   "planId": "1a4feb",
   "epicId": null,
-  "totalNanoAiu": 32784420000,
-  "totalAiCredits": 32.78442,
+  "totalNanoAiu": 59118660000,
+  "totalAiCredits": 59.11866,
   "executions": [
     {
       "id": "5d55d97c958c16905da7f672066b58a463f1f0b411336184fdb94ce03d5d83b4",
       "target": "phase-1",
       "runtime": "container",
-      "startedAt": "2026-10-10T19:59:46.4220000Z",
+      "startedAt": "2026-10-10T19:59:46.422Z",
       "modelAlias": "primary-model-high",
       "context": "default",
       "totalNanoAiu": 32784420000,
@@ -25,6 +25,29 @@
           "model": "gpt-6.1-sol",
           "totalNanoAiu": 32784420000,
           "aiCredits": 32.78442
+        }
+      ]
+    },
+    {
+      "id": "5c07f44bbfa09cab320fcd2bba407da2b83c486fad5eccb8102e3a5bcb4c64b3",
+      "target": "phase-1",
+      "runtime": "container",
+      "startedAt": "2026-10-11T09:37:04.3520000Z",
+      "modelAlias": "primary-model-high",
+      "context": "default",
+      "totalNanoAiu": 26334240000,
+      "aiCredits": 26.33424,
+      "tokens": {
+        "input": 39,
+        "cacheRead": 484594,
+        "cacheWrite": 54678,
+        "output": 7811
+      },
+      "models": [
+        {
+          "model": "gpt-6.1-sol",
+          "totalNanoAiu": 26334240000,
+          "aiCredits": 26.33424
         }
       ]
     }
