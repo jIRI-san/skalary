@@ -49,7 +49,7 @@
   **Stop/escalate when:** the named Docker target, full HEAD, settings, permission, or confirmed baseline cannot be established. Return committed partial work and human blocker, not phase closure.
 
   </details>
-- [ ] 1.3 Write dependent.txt with `dependent` and an LF newline (REQ-3, RISK-1, RISK-2) [after: 1.1, 1.2] `S`
+- [x] 1.3 Write dependent.txt with `dependent` and an LF newline (REQ-3, RISK-1, RISK-2) [after: 1.1, 1.2] `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `smoke/app-ci/1a4feb/dependent.txt` is exactly 10 ASCII bytes: `dependent` followed by one LF.
