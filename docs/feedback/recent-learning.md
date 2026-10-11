@@ -1,8 +1,11 @@
 # Recent learning
 
-Source plan: `10920d epic-archive-link-guard`
-Source commit: `aafcf95b28b69a27479817794747134c7d368bd3`
+Source plan: `2dd53a app-native-ci-sol-routing`
+Source commit: `cf3f60f0d5bf515ef983e381e558bb8ea9ff6090`
 
 ## Lessons
 
-- Keep a write-path correction local: reject epic.md reparse attributes before confirmation/refresh, preserve existing gate precedence, and prove unchanged external bytes with a real symlink on a non-elevated capable host. — `tests/skalary/ArchiveEpic.Tests.ps1`
+- Prefer coordinator-owned review over an unsupported cross-process result handoff; keep isolated finalization lifecycle-only. — `plugins/continue-implementation/skills/ci/assets/app-coordinator.md`
+- Retain completed prerequisites as admission context when selecting ready AI siblings; they are not new work candidates. — `scripts/skalary/Get-PhaseExecutionState.ps1`
+- Distinguish bounded delivery from rollout acceptance. Record deferred live checks explicitly instead of extending smoke infrastructure. — `docs/operator-guide/app-ci-acceptance.md`
+- Select heavy lifecycle regressions independently so the existing deterministic timeout remains meaningful. — `tests/skalary/AppCi.Tests.ps1`
